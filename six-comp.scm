@@ -123,7 +123,7 @@
   (case type
     ((void) 0)
     ((int) 1) ;; TODO have more types
-    (else (error "???"))))
+    (else (error "wrong number of bytes ?"))))
 
 (define (int->value n type)
   (let ((len (nb-bytes type)))
@@ -151,9 +151,7 @@
   type
   value
   unprintable:
-  sets
-)
-
+  sets)
 (define (new-def-variable subasts id refs type value sets)
   (multi-link-parent!
    subasts
@@ -164,119 +162,97 @@
   value
   params
   entry
-  live-after-calls
-)
-
+  live-after-calls)
 (define (new-def-procedure subasts id refs type value params)
   (multi-link-parent!
    subasts
    (make-def-procedure #f subasts id refs type value params #f '())))
 
+
 (define-type-of-ast expr
   extender: define-type-of-expr
-  type
-)
+  type)
 
 (define-type-of-expr literal
-  val
-)
-
+  val)
 (define (new-literal type val)
   (make-literal #f '() type val))
 
 (define-type-of-expr ref
-  def-var
-)
-
+  def-var)
 (define (new-ref type def)
   (make-ref #f '() type def))
 
 (define-type-of-expr oper
-  op
-)
-
+  op)
 (define (new-oper subasts type op)
   (multi-link-parent!
    subasts
    (make-oper #f subasts type op)))
 
 (define-type-of-expr call
-  def-proc
-)
-
+  def-proc)
 (define (new-call subasts type proc-def)
   (multi-link-parent!
    subasts
    (make-call #f subasts type proc-def)))
 
 (define-type-of-ast block
-)
-
+  name) ; blocks that begin with a label have a name, the other have #f
 (define (new-block subasts)
   (multi-link-parent!
    subasts
-   (make-block #f subasts)))
-
-;; block with a label
-(define-type-of-ast named-block
-)
-
-(define (new-named0block subasts)
+   (make-block #f subasts #f)))
+(define (new-named-block name subasts)
   (multi-link-parent!
    subasts
-   (make-named-block #f subasts)))
+   (make-block #f subasts name)))
 
-(define-type-of-ast if
-)
-
+(define-type-of-ast if)
 (define (new-if subasts)
   (multi-link-parent!
    subasts
    (make-if #f subasts)))
 
-(define-type-of-ast switch
-)
-
+(define-type-of-ast switch)
 (define (new-switch subasts)
   (multi-link-parent!
    subasts
    (make-switch #f subasts)))
 
-(define-type-of-ast while
-)
-
+(define-type-of-ast while)
 (define (new-while subasts)
   (multi-link-parent!
    subasts
    (make-while #f subasts)))
 
-(define-type-of-ast do-while
-)
-
+(define-type-of-ast do-while)
 (define (new-do-while subasts)
   (multi-link-parent!
    subasts
    (make-do-while #f subasts)))
 
-(define-type-of-ast for
-)
-
+(define-type-of-ast for)
 (define (new-for subasts)
   (multi-link-parent!
    subasts
    (make-for #f subasts)))
 
-(define-type-of-ast return
-)
-
+(define-type-of-ast return)
 (define (new-return subasts)
   (multi-link-parent!
    subasts
    (make-return #f subasts)))
 
-(define-type-of-ast program
-)
+(define-type-of-ast break)
+(define (new-break)
+  (make-break #f '()))
 
+(define-type-of-ast goto)
+(define (new-goto label)
+  (make-goto #f (list label)))
+
+(define-type-of-ast program)
 (define (new-program subasts) ;; TODO add suport for main
   (multi-link-parent!
    subasts
@@ -289,14 +265,10 @@
   unprintable:
   type-rule
   constant-fold
-  code-gen
-)
+  code-gen)
 
-(define-type-of-op op1
-)
-
-(define-type-of-op op2
-)
+(define-type-of-op op1)
+(define-type-of-op op2)
 
 ;; TODO have a table that says what types can cast to what other, and what can happen implicitly
 ;; TODO what casts are going to happen, only between different integer sizes ?
@@ -814,75 +786,69 @@
 
   (define (block source cte cont)
     (define (b source cte cont)
-      (cond ((null? source)
-             (cont '()
-                   cte))
-            (else
-             (let ((head (car source))
-                   (tail (cdr source)))
-               (statement head
-                          cte
-                          (lambda (ast cte)
-                            (b tail
-                               cte
-                               (lambda (asts cte)
-                                 (cont (cons ast asts)
-                                       cte)))))))))
+      (if (null? source)
+	  (cont '() cte)
+	  (let ((head (car source))
+		(tail (cdr source)))
+	    (if (or (form? 'six.label head) ; we complete the block with a list of named blocks
+		    (form? 'six.case  head))
+		(named-block-list source
+				  cte
+				  cont) ; will return a list of named blocks
+		(statement head
+			   cte
+			   (lambda (ast cte)
+			     (b tail
+				cte
+				(lambda (asts cte)
+				  (cont (cons ast asts)
+					cte)))))))))
     (b (cdr source)
        cte
        (lambda (asts cte)
          (cont (new-block asts)
                cte))))
 
-  ;; returns a list of the named blocks (implicit blocks delimited by labels)
-  ;; present in the given tree
-  ;; useful for switch
+  ;; returns a list of the named blocks (implicit blocks delimited by labels) present in the given tree
+  ;; useful for switch and goto
   ;; TODO use it for goto, but goto's that jump inside or out of a control structure might cause trouble since it's not the same level in the ast
   (define (named-block-list source cte cont)
-    (define (b source cte cont name body-so-far) ;; TODO we also have to keep the order of the named blocks
-      (pp (list "b LOOP :" source))
-      (if (null? source) ;; TODO we must wrap the current block THEN return
-	  (begin (print "ERROR HERE")
-		 (cont (list (new-named-block (cons name body-so-far))) ; last block
-		       cte))
+    (define (b source cte cont name body-so-far)
+      (if (null? source)
+	  (cont (list (new-named-block name body-so-far)) ; last block
+		cte)
 	  (let ((curr (car source)))
 	    (if (or (form? 'six.label curr) ; we reached another named block
 		    (form? 'six.case  curr))
-		(begin (print "HERE2")
-		       (named-block-list source
-					 cte
-					 (lambda (named-blocks cte)
-					   (cont (cons (new-named-block (cons name body-so-far))
-						       named-blocks)
-						 cte))))
+		(named-block-list source
+				  cte
+				  (lambda (named-blocks cte)
+				    (cont (cons (new-named-block name body-so-far)
+						named-blocks)
+					  cte)))
 		(statement curr
 			   cte
 			   (lambda (ast cte)
-			     (print "HERE" name) ;; TODO problem
 			     (b (cdr source)
 				cte
 				cont
-				;; (lambda (asts cte) (cont (cons ast asts) cte)) ;; TODO was that, probably obsolete
 				name
 				(append (list ast) body-so-far))))))))
-    (pp (list "init source :" source))
     (let ((new-cont
 	   (lambda (name cte)
-	     (b (cons (caddr source) ; first statement, within the six.case/label
-		      (cdddr source))
+	     (b (cdr source)
 		cte
 		cont
 		name
 		'()))))
       (if (form? 'six.case (car source)) ; the label is a case
-	(literal (cadr source)
+	(literal (cadar source)
 		 cte
 		 (lambda (name cte)
 		   (new-cont (list 'case name) cte)))
-	(new-cont (cadr source) cte)))) ; ordinary label
+	(new-cont (cadar source) cte)))) ; ordinary label
   
   (define (statement source cte cont)
-    (pp (list "statement:" source))
     (cond ((form? 'six.define-variable source)
            (define-variable source cte cont))
           ((form? 'six.if source)
@@ -899,11 +865,12 @@
            (for source cte cont))
           ((form? 'six.return source)
            (return source cte cont))
+	  ((form? 'six.break source)
+	   (break source cte cont))
+	  ((form? 'six.goto source)
+	   (goto source cte cont))
           ((form? 'six.compound source)
            (block source cte cont))
-	  ((or (form? 'six.case  source)
-	       (form? 'six.label source))
-	   (named-block-list source cte cont))
           (else
            (expression  source cte cont))))
 
@@ -919,6 +886,14 @@
                     cte
                     (lambda (ast cte)
                       (ret (list ast) cte)))))
+
+  (define (break source cte cont)
+    (cont (new-break)
+	  cte))
+
+  (define (goto source cte cont)
+    (cont (new-goto (cadadr source)) ; label
+	  cte))
 
   (define (if1 source cte cont)
     (expression (cadr source)
@@ -943,68 +918,16 @@
                                             (cont (new-if (list ast1 ast2 ast3))
                                                   cte))))))))
 
-  ;; TODO should default be a six.case or a six.label ? now it's a label, should we consider the case where we have a default label outside a switch ?
   (define (switch source cte cont)
     (expression (cadr source)
 		cte
-		(lambda (ast1 cte) ; we matched the paren expr
+		(lambda (ast1 cte) ; we matched the paren expr		  
 		  (expect-form 'six.compound (caddr source))
-		  (cases (cdaddr source) cte cont ast1 '() '()))))
-
-  ;; TODO fuse case-list and seen ? also, this is absolutely disgusting
-  (define (cases source cte cont id case-list seen) ; source is a list of cases
-    (if (null? source) ; we've seen everything
-	;; 1st subast is the id, all the others are cases
-	(cont (new-switch (cons id case-list))
-	      cte)
-	(let* ((curr (car source))
-	      (after-label
-	       (lambda (label first-statement cte)
-		 (fill-case (cdr source)
-			    cte
-			    ;; list with the id of the case and first statement of the body
-			    (list label
-				  first-statement)
-			    (lambda (ast2 case cte)
-			      (display "RES\n")
-			      (pp case)
-			      (cases ast2
-				     cte
-				     cont
-				     id
-				     (append case-list (list case))
-				     (cons (cadr curr) seen)))))))
-	  (display "FOO\n")
-	  (pp curr)
-	  (if (memq (cadr curr) seen)
-	      (error "duplicate cases" (cadr curr))
-	      (if (form? 'six.case (car curr))
-		  (literal (cadr curr) ; the id of the label
-			   cte
-			   (lambda (label cte)
-			     (statement (caddr source) ; first statement of the case
-					cte
-					(lambda (first-statement cte)
-					  (after-label label first-statement cte)))))
-		  (statement (caddr curr)
-			     cte
-			     (lambda (first-statement cte)
-			       (after-label 'default first-statement cte)))))))) ; default
-  ;; TODO match up to the next case or to the end of the switch, the use cont to match the rest, with seen augmented with what we just matched
-  (define (fill-case source cte case cont)
-    (display "CASE\n")
-    (pp case)
-    (if (or (null? source) ; we reached the end of the switch
-	    (form? 'six.case (car source)) ; we reached another case
-	    (and (form? 'six.label (car source)) ; we reached the default
-		 (eq? (cadar source) 'default)))
-	(cont source
-	      (new-case case) ; case is a list with the id and the list of statements of the "body"
-	      cte)
-	(statement (car source)
-		   cte
-		   (lambda (ast1 cte)
-		     (fill-case (cdr source) cte cont (append case (list ast1)))))))
+		  (block (caddr source)
+			 cte
+			 (lambda (ast2 cte)
+			   (cont (new-switch (list ast1 ast2))
+				 cte))))))
   
   (define (while source cte cont)
     (expression (cadr source)
@@ -1065,10 +988,8 @@
            =>
            (lambda (op)
              (operation op source cte cont)))
-;; 	  ((form? 'six.label source) ; for now, we ignore the labels ;; TODO in expression ?
-;; 	   (expression (caddr source) cte cont)) ; the body is the 3rd element ;; TODO no idea why that was here
           (else
-           (error "expected ???" source))))
+           (error "expected expression" source))))
 
   (define (operation op source cte cont)
     (if (op1? op)
@@ -1489,7 +1410,7 @@
                         ((x>y) 'x<y)
                         ((x<=y) 'x>=y)
                         ((x>=y) 'x<=y)
-                        (else (error "???")))
+                        (else (error "relation error")))
                       y
                       x
                       bb-true
@@ -1651,7 +1572,7 @@
                      (push-delayed-post-incdec ast)
                      result)))
                 (else
-                 (error "???"))))
+                 (error "unary operation error" ast))))
             (begin
               (case id
                 ((x+y x-y x*y x/y x%y)
@@ -1678,7 +1599,7 @@
                          (move-value value-y result)
                          result)))))
                 (else
-                 (error "???"))))))))
+                 (error "binary operation error" ast))))))))
 
   (define (call ast)
     (let ((def-proc (call-def-proc ast)))
@@ -2292,17 +2213,17 @@
 
   (asm-assemble)
 
-  (display "------------------ GENERATED CODE\n")
+  '(display "------------------ GENERATED CODE\n")
 
-  (asm-display-listing (current-output-port))
+  '(asm-display-listing (current-output-port)) ;; TODO debug
 
   (asm-write-hex-file (string-append filename ".hex"))
 
-  (display "------------------ EXECUTION USING SIMULATOR\n")
+  '(display "------------------ EXECUTION USING SIMULATOR\n")
 
   (asm-end!)
 
-  (execute-hex-file (string-append filename ".hex")))
+  '(execute-hex-file (string-append filename ".hex"))) ;; TODO debug
 
 (define (code-gen filename cfg)
   (allocate-registers cfg)
@@ -2340,7 +2261,7 @@
     #t))
 
   (let ((source (read-source filename)))
-    (pretty-print source) ; TODO debug
+    (pretty-print source)
     (let ((ast (parse source)))
       (pretty-print ast)
       (let ((cfg (generate-cfg ast)))
