@@ -1,4 +1,4 @@
-#! /usr/local/Gambit-C/bin/gsi-script -:dar
+#! /home/vincent/sixpic/gambc-v4_2_9/bin/gsi-script -:dar
 
 (include "pic18-sim.scm")
 
@@ -225,6 +225,22 @@
    subasts
    (make-if #f subasts)))
 
+(define-type-of-ast switch
+)
+
+(define (new-switch subasts)
+  (multi-link-parent!
+   subasts
+   (make-switch #f subasts)))
+
+(define-type-of-ast case
+)
+
+(define (new-case subasts)
+  (multi-link-parent!
+   subasts
+   (make-case #f subasts)))
+
 (define-type-of-ast while
 )
 
@@ -260,7 +276,7 @@
 (define-type-of-ast program
 )
 
-(define (new-program subasts)
+(define (new-program subasts) ;; TODO add suport for main
   (multi-link-parent!
    subasts
    (make-program #f subasts)))
@@ -281,6 +297,11 @@
 (define-type-of-op op2
 )
 
+;; TODO have a table that says what types can cast to what other, and what can happen implicitly
+;; TODO what casts are going to happen, only between different integer sizes ?
+;; TODO have this as an a-list. a type as car, and the list of types it can cast to as cdr
+(define casts '())
+
 (define operators '())
 
 (define (define-op1 six-id id type-rule constant-fold code-gen)
@@ -296,19 +317,19 @@
 (define (type-rule-int-op1 ast)
   (let ((t1 (expr-type (subast1 ast))))
     (cond ((eq? t1 'int)
-           'int)
+           'int) ; TODO add support for other types
           (else
            (error "type error" ast)))))
 
 (define (type-rule-int-op2 ast)
   (let ((t1 (expr-type (subast1 ast)))
         (t2 (expr-type (subast2 ast))))
-    (cond ((and (eq? t1 'int) (eq? t2 'int))
+    (cond ((and (eq? t1 'int) (eq? t2 'int)) ; TODO are there any operations that do otherwise ? add cast support also
            'int)
           (else
            (error "type error" ast)))))
 
-(define (type-rule-int-assign ast)
+(define (type-rule-int-assign ast) ;; TODO add cast support, and why the int in the name ?
   (let ((t1 (expr-type (subast1 ast)))
         (t2 (expr-type (subast2 ast))))
     (if (not (eq? t1 t2))
@@ -325,7 +346,7 @@
 
 (define-op1 'six.!x '!x
   type-rule-int-op1
-  (lambda (ast)
+  (lambda (ast) ;; TODO implement these
     ast)
   (lambda (ast)
     ...))
@@ -676,7 +697,7 @@
     (def-procedure-entry-set! ast entry)
     ast))
 
-(define (initial-cte)
+(define (initial-cte) ;; TODO see what really has to be predefined
   (list (predefine-var 'X 'int 5)
         (predefine-var 'Y 'int 6)
         (predefine-var 'Z 'int 7)
@@ -821,6 +842,8 @@
            (if (null? (cdddr source))
                (if1 source cte cont)
                (if2 source cte cont)))
+	  ((form? 'six.switch source)
+	   (switch source cte cont))
           ((form? 'six.while source)
            (while source cte cont))
           ((form? 'six.do-while source)
@@ -870,6 +893,69 @@
                                             (cont (new-if (list ast1 ast2 ast3))
                                                   cte))))))))
 
+  ;; TODO should default be a six.case or a six.label ? now it's a label, should we consider the case where we have a default label outside a switch ?
+  (define (switch source cte cont)
+    (expression (cadr source)
+		cte
+		(lambda (ast1 cte) ; we matched the paren expr
+		  (expect-form 'six.compound (caddr source))
+		  (cases (cdaddr source) cte cont ast1 '() '()))))
+
+  ;; TODO fuse case-list and seen ? also, this is absolutely disgusting
+  (define (cases source cte cont id case-list seen) ; source is a list of cases
+    (if (null? source) ; we've seen everything
+	;; 1st subast is the id, all the others are cases
+	(cont (new-switch (cons id case-list))
+	      cte)
+	(let* ((curr (car source))
+	      (after-label
+	       (lambda (label first-statement cte)
+		 (fill-case (cdr source)
+			    cte
+			    ;; list with the id of the case and first statement of the body
+			    (list label
+				  first-statement)
+			    (lambda (ast2 case cte)
+			      (display "RES\n")
+			      (pp case)
+			      (cases ast2
+				     cte
+				     cont
+				     id
+				     (append case-list (list case))
+				     (cons (cadr curr) seen)))))))
+	  (display "FOO\n")
+	  (pp curr)
+	  (if (memq (cadr curr) seen)
+	      (error "duplicate cases" (cadr curr))
+	      (if (form? 'six.case (car curr))
+		  (literal (cadr curr) ; the id of the label
+			   cte
+			   (lambda (label cte)
+			     (statement (caddr source) ; first statement of the case
+					cte
+					(lambda (first-statement cte)
+					  (after-label label first-statement cte)))))
+		  (statement (caddr curr)
+			     cte
+			     (lambda (first-statement cte)
+			       (after-label 'default first-statement cte)))))))) ; default
+  ;; TODO match up to the next case or to the end of the switch, the use cont to match the rest, with seen augmented with what we just matched
+  (define (fill-case source cte case cont)
+    (display "CASE\n")
+    (pp case)
+    (if (or (null? source) ; we reached the end of the switch
+	    (form? 'six.case (car source)) ; we reached another case
+	    (and (form? 'six.label (car source)) ; we reached the default
+		 (eq? (cadar source) 'default)))
+	(cont source
+	      (new-case case) ; case is a list with the id and the list of statements of the "body"
+	      cte)
+	(statement (car source)
+		   cte
+		   (lambda (ast1 cte)
+		     (fill-case (cdr source) cte cont (append case (list ast1)))))))
+  
   (define (while source cte cont)
     (expression (cadr source)
                 cte
@@ -929,6 +1015,8 @@
            =>
            (lambda (op)
              (operation op source cte cont)))
+	  ((form? 'six.label source) ; for now, we ignore the labels
+	   (expression (caddr source) cte cont)) ; the body is the 3rd element
           (else
            (error "expected ???" source))))
 
@@ -993,7 +1081,7 @@
                 cte)
           (error "expected variable" source))))
 
-  (define (toplevel source cte cont)
+  (define (toplevel source cte cont) ;; TODO have an implicit main
     (cond ((form? 'six.define-variable source)
            (define-variable source cte cont))
           ((form? 'six.define-procedure source)
@@ -1175,7 +1263,7 @@
       (set! current-def-proc #f)
       (in old-bb)))
 
-  (define (statement ast)
+  (define (statement ast) ;; TODO should labels go into statements or expressions ?
     (cond ((def-variable? ast)
            (def-variable ast))
           ((block? ast)
@@ -2196,9 +2284,9 @@
     #t))
 
   (let ((source (read-source filename)))
-    '(pretty-print source)
+    (pretty-print source) ; TODO debug
     (let ((ast (parse source)))
-      '(pretty-print ast)
+      (pretty-print ast)
       (let ((cfg (generate-cfg ast)))
         (remove-branch-cascades-and-dead-code cfg)
         '(pretty-print cfg)
