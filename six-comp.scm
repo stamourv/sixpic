@@ -217,6 +217,15 @@
    subasts
    (make-block #f subasts)))
 
+;; block with a label
+(define-type-of-ast named-block
+)
+
+(define (new-named0block subasts)
+  (multi-link-parent!
+   subasts
+   (make-named-block #f subasts)))
+
 (define-type-of-ast if
 )
 
@@ -232,14 +241,6 @@
   (multi-link-parent!
    subasts
    (make-switch #f subasts)))
-
-(define-type-of-ast case
-)
-
-(define (new-case subasts)
-  (multi-link-parent!
-   subasts
-   (make-case #f subasts)))
 
 (define-type-of-ast while
 )
@@ -812,7 +813,6 @@
                          cte)))))))
 
   (define (block source cte cont)
-
     (define (b source cte cont)
       (cond ((null? source)
              (cont '()
@@ -828,14 +828,61 @@
                                (lambda (asts cte)
                                  (cont (cons ast asts)
                                        cte)))))))))
-
     (b (cdr source)
        cte
        (lambda (asts cte)
          (cont (new-block asts)
                cte))))
 
+  ;; returns a list of the named blocks (implicit blocks delimited by labels)
+  ;; present in the given tree
+  ;; useful for switch
+  ;; TODO use it for goto, but goto's that jump inside or out of a control structure might cause trouble since it's not the same level in the ast
+  (define (named-block-list source cte cont)
+    (define (b source cte cont name body-so-far) ;; TODO we also have to keep the order of the named blocks
+      (pp (list "b LOOP :" source))
+      (if (null? source) ;; TODO we must wrap the current block THEN return
+	  (begin (print "ERROR HERE")
+		 (cont (list (new-named-block (cons name body-so-far))) ; last block
+		       cte))
+	  (let ((curr (car source)))
+	    (if (or (form? 'six.label curr) ; we reached another named block
+		    (form? 'six.case  curr))
+		(begin (print "HERE2")
+		       (named-block-list source
+					 cte
+					 (lambda (named-blocks cte)
+					   (cont (cons (new-named-block (cons name body-so-far))
+						       named-blocks)
+						 cte))))
+		(statement curr
+			   cte
+			   (lambda (ast cte)
+			     (print "HERE" name) ;; TODO problem
+			     (b (cdr source)
+				cte
+				cont
+				;; (lambda (asts cte) (cont (cons ast asts) cte)) ;; TODO was that, probably obsolete
+				name
+				(append (list ast) body-so-far))))))))
+    (pp (list "init source :" source))
+    (let ((new-cont
+	   (lambda (name cte)
+	     (b (cons (caddr source) ; first statement, within the six.case/label
+		      (cdddr source))
+		cte
+		cont
+		name
+		'()))))
+      (if (form? 'six.case (car source)) ; the label is a case
+	(literal (cadr source)
+		 cte
+		 (lambda (name cte)
+		   (new-cont (list 'case name) cte)))
+	(new-cont (cadr source) cte)))) ; ordinary label
+  
   (define (statement source cte cont)
+    (pp (list "statement:" source))
     (cond ((form? 'six.define-variable source)
            (define-variable source cte cont))
           ((form? 'six.if source)
@@ -854,6 +901,9 @@
            (return source cte cont))
           ((form? 'six.compound source)
            (block source cte cont))
+	  ((or (form? 'six.case  source)
+	       (form? 'six.label source))
+	   (named-block-list source cte cont))
           (else
            (expression  source cte cont))))
 
@@ -1015,8 +1065,8 @@
            =>
            (lambda (op)
              (operation op source cte cont)))
-	  ((form? 'six.label source) ; for now, we ignore the labels
-	   (expression (caddr source) cte cont)) ; the body is the 3rd element
+;; 	  ((form? 'six.label source) ; for now, we ignore the labels ;; TODO in expression ?
+;; 	   (expression (caddr source) cte cont)) ; the body is the 3rd element ;; TODO no idea why that was here
           (else
            (error "expected ???" source))))
 
@@ -2265,6 +2315,11 @@
 
 (define (read-source filename)
   (shell-command (string-append "cpp -P " filename " > " filename ".tmp"))
+;;   (##read-all-as-a-begin-expr-from-path ;; TODO use vectoruzed notation to have info on errors (where in the source)
+;;    (string-append filename ".tmp")
+;;    (readtable-start-syntax-set (current-readtable) 'six)
+;;    ##wrap-datum
+;;    ##unwrap-datum)
   (with-input-from-file
       (string-append filename ".tmp")
     (lambda ()
@@ -2273,7 +2328,8 @@
        (readtable-start-syntax-set
         (input-port-readtable (current-input-port))
         'six))
-      (read-all))))
+      (read-all)))
+  )
 
 (define (main filename)
 
