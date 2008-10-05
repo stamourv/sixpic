@@ -1,3 +1,7 @@
 finish parser
 add pointers
 add main
+forward declarations
+real conditions (in if)
+
+TODO : labels mess up the cascade optimization

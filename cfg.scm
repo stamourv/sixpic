@@ -2,21 +2,20 @@
 
 (define-type cfg
   bbs
-  next-label-num
-)
+  next-label-num)
 
 (define (new-cfg)
   (make-cfg '() 0))
 
 (define-type bb
   label-num
+  label-name ; if the block had a label
   label
   rev-instrs
   unprintable:
   preds
   succs
-  live-before
-)
+  live-before)
 
 (define-type instr
   extender: define-type-of-instr
@@ -26,18 +25,15 @@
   id
   src1
   src2
-  dst
-)
+  dst)
 
 (define-type-of-instr call-instr
   unprintable:
-  def-proc
-)
+  def-proc)
 
 (define-type-of-instr return-instr
   unprintable:
-  def-proc
-)
+  def-proc)
 
 (define (new-instr id src1 src2 dst)
   (make-instr '() '() #f id src1 src2 dst))
@@ -50,7 +46,7 @@
 
 (define (add-bb cfg)
   (let* ((label-num (cfg-next-label-num cfg))
-         (bb (make-bb label-num #f '() '() '() '())))
+         (bb (make-bb label-num #f #f '() '() '() '())))
     (bb-label-set!
      bb
      (asm-make-label
@@ -85,11 +81,11 @@
     (add-instr bb instr))
 
   (define current-def-proc #f)
-  (define break-stack '())
+  (define break-stack '()) ;; TODO add break, continue and goto
   (define continue-stack '())
   (define delayed-post-incdec '())
 
-  (define (push-break x)
+  (define (push-break x) ;; TODO contents of break-stack are never looked at
     (set! break-stack (cons x break-stack)))
 
   (define (pop-break)
@@ -125,7 +121,7 @@
 
   (define (def-variable ast)
     (let ((subasts (ast-subasts ast)))
-      (if (not (null? subasts))
+      (if (not (null? subasts)) ; if needed, set the variable
           (let ((value (expression (subast1 ast))))
             (let ((ext-value (extend value (def-variable-type ast))))
               (move-value value (def-variable-value ast)))))))
@@ -139,9 +135,28 @@
       (for-each statement (ast-subasts ast))
       (return-with-no-new-bb ast)
       (set! current-def-proc #f)
+      ; (resolve-all-gotos entry (list-named-bbs bb '()))
       (in old-bb)))
 
-  (define (statement ast) ;; TODO should labels go into statements or expressions ?
+  ;; resolve the C gotos by setting the appropriate successor to their bb
+  (define (resolve-all-gotos bb table)
+    (if #f #t) ;; TODO this, and handle cycles
+    (for-each (lambda (x) (resolve-all-gotos x table))
+	      (bb-succs bb)))
+  
+  ;; returns a list of all named bbs in the successor-tree of a given bb
+  (define (list-named-bbs start visited)
+    (if (not (memq start visited))
+	(let ((succs
+	       (apply append
+		      (map (lambda (bb) (list-named-bbs bb (cons start visited)))
+			   (bb-succs start)))))
+	  (if (bb-label-name start)
+	      (cons (cons (bb-label-name start) start) succs)
+	      succs))
+	'()))
+
+  (define (statement ast)
     (cond ((def-variable? ast)
            (def-variable ast))
           ((block? ast)
@@ -158,10 +173,17 @@
            (do-while ast))
           ((for? ast)
            (for ast))
+	  ((goto? ast)
+	   (c-goto ast))
           (else
            (expression ast))))
 
   (define (block ast)
+    (if (block-name ast)
+	(let ((old-bb bb)) ; named block
+	  (in (new-bb))
+	  (add-succ old-bb bb)
+	  (bb-label-name-set! bb (block-name ast))))
     (for-each statement (ast-subasts ast)))
 
   (define (move from to)
@@ -183,6 +205,10 @@
             (move-value value (def-procedure-value current-def-proc))
             (return-with-no-new-bb current-def-proc))))
     (in (new-bb)))
+
+  ;; TODO name ?
+  (define (c-goto label)
+    FOO)
 
   (define (if1 ast)
     (let* ((bb-join (new-bb))
@@ -267,7 +293,7 @@
          ((x==y) =)
          ((x<y) <)
          ((x>y) >)
-         (else (error "...")))
+         (else (error "invalid test")))
        x
        y))
 
@@ -286,14 +312,14 @@
                       ((x==y) 'x==y)
                       ((x<y) 'x>y)
                       ((x>y) 'x<y)
-                      (else (error "...")))))
+                      (else (error "invalid test"))))) ;; TODO why not check for the case just before ?
                (add-succ bb bb-true)
                (add-succ bb bb-false)
                (emit (new-instr id byte2 byte1 #f))))
             (else
              (add-succ bb bb-true)
              (add-succ bb bb-false)
-             (emit (new-instr id byte1 byte2 #f)))))
+             (emit (new-instr id byte1 byte2 #f))))) ;; TODO doesn't change from if we had literals, at least not now
 
     (define (test-value id value1 value2 bb-true bb-false)
       ; note: for multi-byte values, only x==y works properly
@@ -358,7 +384,7 @@
       (define (default)
         (let ((type (expr-type ast))
               (value (expression ast)))
-          (test-equal value (int->value 0 type) bb-true bb-false)))
+          (test-equal value (int->value 0 type) bb-true bb-false))) ;; TODO test-equal does not exist
 
       (cond ((oper? ast)
              (let* ((op (oper-op ast))
@@ -522,6 +548,48 @@
           (move-value value result)
           result))))
 
+  ;; removes any empty bbs that might have been created by accident
+  (define (remove-empty-bbs cfg)
+    (define (loop bbs)
+      (if (null? bbs) '()
+	  (let ((head (car bbs))
+		(tail (cdr bbs)))
+	    (if (null? (bb-rev-instrs (car bbs))) ; empty, remove
+		(let ((succ (car (bb-succs head)))
+		      (pred (if (not (null? (bb-preds head)))
+				(car (bb-preds head))
+				#f)))
+		  (display "\n\n")
+		  (pp (list "EMPTY : " (bb-label head)))
+		  (for-each ; remove every reference to it
+		   (lambda (bb)
+		     (pp (list "VISIT, looking for" (bb-label head) "in" (bb-label bb))) ;; TODO won't get rid of 4 and 1
+		     (pp (list "PREDS :" (map (lambda (x) (bb-label x)) (bb-preds bb)) "SUCCS :" (map (lambda (x) (bb-label x)) (bb-succs bb))))
+		     (if (memp head (bb-succs bb) (lambda (x y) (equal? (bb-label x) (bb-label y))))
+			 (begin (pp (list "NUKE" (bb-label bb) "remvoved :" (bb-label head) "replaced by :" (bb-label succ)))
+				(bb-succs-set! bb (remove head (bb-succs bb)))
+				(add-succ bb succ)))
+		     (if (memp head (bb-preds bb) (lambda (x y) (equal? (bb-label x) (bb-label y))))
+			 (begin (pp (list "NUKE" (bb-label bb) "remvoved :" (bb-label head) "replaced by :" (if pred (bb-label pred) '())))
+				(bb-preds-set! bb (remove head (bb-preds bb)))
+				(if pred
+				    (bb-preds-set! bb (cons pred (bb-preds bb)))))))
+		   (cfg-bbs cfg))
+		  (loop tail))
+		(cons head (loop tail))))))
+    (cfg-bbs-set! cfg (loop (cfg-bbs cfg)))) ;; TODO in case of chains of empties, we might need to set many times
+  
   (in (new-bb))
   (program ast)
+;;   (for-each (lambda (bb)
+;; 	      (pp (list "ORIG:" (bb-label bb)))
+;; 	      (pp "PREDS:") (for-each (lambda (s) (pp (bb-label s))) (bb-preds bb))
+;; 	      (pp "SUCCS:") (for-each (lambda (s) (pp (bb-label s))) (bb-succs bb)))
+;; 	    (cfg-bbs cfg)) ;; TODO debug
+;;   (remove-empty-bbs cfg) ;; TODO looks like we have to renumber
+;;   (for-each (lambda (bb)
+;; 	      (pp (list "NOW:" (bb-label bb)))
+;; 	      (pp "PREDS:") (for-each (lambda (s) (pp (bb-label s))) (bb-preds bb))
+;; 	      (pp "SUCCS:") (for-each (lambda (s) (pp (bb-label s))) (bb-succs bb)))
+;; 	    (cfg-bbs cfg)) ;; TODO debug
   cfg)

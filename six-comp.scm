@@ -45,9 +45,9 @@
     #t))
 
   (let ((source (read-source filename)))
-    (pretty-print source)
+    '(pretty-print source)
     (let ((ast (parse source)))
-      (pretty-print ast)
+      '(pretty-print ast)
       (let ((cfg (generate-cfg ast)))
         (remove-branch-cascades-and-dead-code cfg)
         '(pretty-print cfg)
