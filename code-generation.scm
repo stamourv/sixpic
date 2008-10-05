@@ -324,7 +324,7 @@
 
   '(display "------------------ GENERATED CODE\n")
 
-  '(asm-display-listing (current-output-port)) ;; TODO debug
+  (asm-display-listing (current-output-port)) ;; TODO debug
 
   (asm-write-hex-file (string-append filename ".hex"))
 
@@ -338,5 +338,5 @@
   (allocate-registers cfg)
   (assembler-gen filename cfg)
 ;  (pretty-print cfg)
-;  (pretty-print (reverse (bb-rev-instrs bb)))
+;  (pretty-print (reverse (bb-rev-instrs bb))) ;; TODO what ? there are no bbs here...
   )

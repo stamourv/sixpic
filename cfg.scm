@@ -135,14 +135,24 @@
       (for-each statement (ast-subasts ast))
       (return-with-no-new-bb ast)
       (set! current-def-proc #f)
-      ; (resolve-all-gotos entry (list-named-bbs bb '()))
+      (resolve-all-gotos entry (list-named-bbs entry '()) '())
       (in old-bb)))
 
   ;; resolve the C gotos by setting the appropriate successor to their bb
-  (define (resolve-all-gotos bb table)
-    (if #f #t) ;; TODO this, and handle cycles
-    (for-each (lambda (x) (resolve-all-gotos x table))
-	      (bb-succs bb)))
+  (define (resolve-all-gotos start table visited)
+    (if (not (memq start visited))
+	(begin (for-each (lambda (x)
+			   (if (and (eq? (instr-id x) 'goto)
+				    (instr-dst x)) ; unresolved label
+			       (let ((target (assoc (instr-dst x) table)))
+				 (if target
+				     (begin (add-succ start (cdr target))
+					    (instr-dst-set! x #f))
+				     (error "invalid goto target" (instr-dst x))))))
+			 (bb-rev-instrs start))
+	       (for-each (lambda (x)
+			   (resolve-all-gotos x table (cons start visited)))
+			 (bb-succs start)))))
   
   ;; returns a list of all named bbs in the successor-tree of a given bb
   (define (list-named-bbs start visited)
@@ -179,11 +189,12 @@
            (expression ast))))
 
   (define (block ast)
-    (if (block-name ast)
-	(let ((old-bb bb)) ; named block
-	  (in (new-bb))
-	  (add-succ old-bb bb)
-	  (bb-label-name-set! bb (block-name ast))))
+    (if (block-name ast) ; named block ?
+	(begin (if (not (null? (bb-rev-instrs bb))) ; a new bb must be created
+		   (let ((old-bb bb))
+		     (in (new-bb))
+		     (add-succ old-bb bb)))
+	       (bb-label-name-set! bb (block-name ast)) ))
     (for-each statement (ast-subasts ast)))
 
   (define (move from to)
@@ -207,8 +218,11 @@
     (in (new-bb)))
 
   ;; TODO name ?
-  (define (c-goto label)
-    FOO)
+  ;; generates a goto with a target label. once the current function definition
+  ;; is over, all these labels are resolved. therefore, we don't have any gotos
+  ;; that jump from a function to another
+  (define (c-goto ast)
+    (emit (new-instr 'goto #f #f (subast1 ast)))) ;; TODO create a new bb ? what about dead code after a goto ? do we have a tree-shaker ?
 
   (define (if1 ast)
     (let* ((bb-join (new-bb))
@@ -547,49 +561,7 @@
         (let ((result (alloc-value (def-procedure-type def-proc))))
           (move-value value result)
           result))))
-
-  ;; removes any empty bbs that might have been created by accident
-  (define (remove-empty-bbs cfg)
-    (define (loop bbs)
-      (if (null? bbs) '()
-	  (let ((head (car bbs))
-		(tail (cdr bbs)))
-	    (if (null? (bb-rev-instrs (car bbs))) ; empty, remove
-		(let ((succ (car (bb-succs head)))
-		      (pred (if (not (null? (bb-preds head)))
-				(car (bb-preds head))
-				#f)))
-		  (display "\n\n")
-		  (pp (list "EMPTY : " (bb-label head)))
-		  (for-each ; remove every reference to it
-		   (lambda (bb)
-		     (pp (list "VISIT, looking for" (bb-label head) "in" (bb-label bb))) ;; TODO won't get rid of 4 and 1
-		     (pp (list "PREDS :" (map (lambda (x) (bb-label x)) (bb-preds bb)) "SUCCS :" (map (lambda (x) (bb-label x)) (bb-succs bb))))
-		     (if (memp head (bb-succs bb) (lambda (x y) (equal? (bb-label x) (bb-label y))))
-			 (begin (pp (list "NUKE" (bb-label bb) "remvoved :" (bb-label head) "replaced by :" (bb-label succ)))
-				(bb-succs-set! bb (remove head (bb-succs bb)))
-				(add-succ bb succ)))
-		     (if (memp head (bb-preds bb) (lambda (x y) (equal? (bb-label x) (bb-label y))))
-			 (begin (pp (list "NUKE" (bb-label bb) "remvoved :" (bb-label head) "replaced by :" (if pred (bb-label pred) '())))
-				(bb-preds-set! bb (remove head (bb-preds bb)))
-				(if pred
-				    (bb-preds-set! bb (cons pred (bb-preds bb)))))))
-		   (cfg-bbs cfg))
-		  (loop tail))
-		(cons head (loop tail))))))
-    (cfg-bbs-set! cfg (loop (cfg-bbs cfg)))) ;; TODO in case of chains of empties, we might need to set many times
   
   (in (new-bb))
   (program ast)
-;;   (for-each (lambda (bb)
-;; 	      (pp (list "ORIG:" (bb-label bb)))
-;; 	      (pp "PREDS:") (for-each (lambda (s) (pp (bb-label s))) (bb-preds bb))
-;; 	      (pp "SUCCS:") (for-each (lambda (s) (pp (bb-label s))) (bb-succs bb)))
-;; 	    (cfg-bbs cfg)) ;; TODO debug
-;;   (remove-empty-bbs cfg) ;; TODO looks like we have to renumber
-;;   (for-each (lambda (bb)
-;; 	      (pp (list "NOW:" (bb-label bb)))
-;; 	      (pp "PREDS:") (for-each (lambda (s) (pp (bb-label s))) (bb-preds bb))
-;; 	      (pp "SUCCS:") (for-each (lambda (s) (pp (bb-label s))) (bb-succs bb)))
-;; 	    (cfg-bbs cfg)) ;; TODO debug
   cfg)

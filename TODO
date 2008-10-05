@@ -4,4 +4,4 @@ add main
 forward declarations
 real conditions (in if)
 
-TODO : labels mess up the cascade optimization
+TODO : GOTOS END UP AT THE BEGINNING OF BLOCKS, WRONG !

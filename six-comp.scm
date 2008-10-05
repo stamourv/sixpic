@@ -52,4 +52,4 @@
         (remove-branch-cascades-and-dead-code cfg)
         '(pretty-print cfg)
         (let ((code (code-gen filename cfg)))
-          '(pretty-print code))))))
+          (pretty-print code))))))

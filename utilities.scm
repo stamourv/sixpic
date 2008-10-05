@@ -48,9 +48,3 @@
         (else
          (cons (car lst)
                (remove x (cdr lst))))))
-
-;; member with a given predicate
-(define (memp x l pred)
-  (cond ((null? l) #f)
-        ((pred x (car l)) (car l))
-        (else (memp x (cdr l) pred))))

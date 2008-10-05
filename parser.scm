@@ -91,7 +91,6 @@
 
   ;; returns a list of the named blocks (implicit blocks delimited by labels) present in the given tree
   ;; useful for switch and goto
-  ;; TODO use it for goto, but goto's that jump inside or out of a control structure might cause trouble since it's not the same level in the ast
   (define (named-block-list source cte cont)
     (define (b source cte cont name body-so-far)
       (if (null? source)
@@ -125,7 +124,7 @@
 	(literal (cadar source)
 		 cte
 		 (lambda (name cte)
-		   (new-cont (list 'case name) cte)))
+		   (new-cont (list 'case (literal-val name)) cte)))
 	(new-cont (cadar source) cte)))) ; ordinary label
   
   (define (statement source cte cont)
