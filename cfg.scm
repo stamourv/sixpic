@@ -183,8 +183,10 @@
            (do-while ast))
           ((for? ast)
            (for ast))
+	  ((switch? ast)
+	   (switch ast))
 	  ((goto? ast)
-	   (c-goto ast))
+	   (goto ast))
           (else
            (expression ast))))
 
@@ -195,8 +197,6 @@
 		     (in (new-bb))
 		     (add-succ old-bb bb)))
 	       (bb-label-name-set! bb (block-name ast)) ))
-;;     (pp "BLOCK")
-;;     (for-each pp (ast-subasts ast)) ;; TODO debug
     (for-each statement (ast-subasts ast)))
 
   (define (move from to)
@@ -217,13 +217,12 @@
           (let ((ext-value (extend value (def-procedure-type current-def-proc))))
             (move-value value (def-procedure-value current-def-proc))
             (return-with-no-new-bb current-def-proc))))
-    (in (new-bb)))
+    (in (new-bb))) ;; TODO this interferes with switch
 
-  ;; TODO name ?
   ;; generates a goto with a target label. once the current function definition
   ;; is over, all these labels are resolved. therefore, we don't have any gotos
   ;; that jump from a function to another
-  (define (c-goto ast)
+  (define (goto ast)
     (emit (new-instr 'goto #f #f (subast1 ast)))) ;; TODO create a new bb ? what about dead code after a goto ? do we have a tree-shaker ?
 
   (define (if1 ast)
@@ -241,10 +240,10 @@
       (test-expression (subast1 ast) bb-then bb-else)
       (in bb-then)
       (statement (subast2 ast))
-      (goto bb-join)
+      (gen-goto bb-join)
       (in bb-else)
       (statement (subast3 ast))
-      (goto bb-join)
+      (gen-goto bb-join)
       (in bb-join)))
 
   (define (while ast)
@@ -253,12 +252,12 @@
            (bb-body (new-bb)))
       (push-continue bb-cont)
       (push-break bb-exit)
-      (goto bb-cont)
+      (gen-goto bb-cont)
       (in bb-cont)
       (test-expression (subast1 ast) bb-body bb-exit)
       (in bb-body)
       (statement (subast2 ast))
-      (goto bb-cont)
+      (gen-goto bb-cont)
       (in bb-exit)
       (pop-continue)
       (pop-break)))
@@ -283,22 +282,37 @@
            (bb-cont (new-bb))
            (bb-exit (new-bb)))
       (statement (subast1 ast))
-      (goto bb-loop)
+      (gen-goto bb-loop)
       (push-continue bb-cont)
       (push-break bb-exit)
       (in bb-loop)
       (test-expression (subast2 ast) bb-body bb-exit)
       (in bb-body)
       (statement (subast4 ast))
-      (goto bb-cont)
+      (gen-goto bb-cont)
       (in bb-cont)
       (expression (subast3 ast))
-      (goto bb-loop)
+      (gen-goto bb-loop)
       (in bb-exit)
       (pop-continue)
       (pop-break)))
 
-  (define (goto dest)
+  (define (switch ast)
+    (let* ((var (subast1 ast))
+	   (case-list '()) ; TODO for now cases are stored backwards, shoudl not be a problem
+	   (decision-bb bb)
+	   (bb-exit (new-bb)))
+      ; (expression (var)) ;; TODO probably wrong
+      (push-break bb-exit) ;; TODO add a break to the decision bb if there is no default
+      (for-each (lambda (x) ; generate each case
+		  (in (new-bb)) ; this bb will be given the name of the case
+		  (set! case-list (cons bb case-list)) ;; TODO handle breaks
+		  (statement x) ;; TODO if the lone statement is a return, no instructions are generated
+		  (add-succ decision-bb bb))
+		(cdr (ast-subasts ast)))
+      (pp case-list)))
+
+  (define (gen-goto dest)
     (add-succ bb dest)
     (emit (new-instr 'goto #f #f #f)))
 
@@ -316,8 +330,8 @@
     (define (test-byte id byte1 byte2 bb-true bb-false)
       (cond ((and (byte-lit? byte1) (byte-lit? byte2))
              (if (test-lit id (byte-lit-val byte1) (byte-lit-val byte2))
-                 (goto bb-true)
-                 (goto bb-false)))
+                 (gen-goto bb-true)
+                 (gen-goto bb-false)))
             ((byte-lit? byte2)
              (add-succ bb bb-true)
              (add-succ bb bb-false)

@@ -205,7 +205,7 @@
 		  (block (caddr source)
 			 cte
 			 (lambda (ast2 cte)
-			   (cont (new-switch (list ast1 ast2))
+			   (cont (new-switch (cons ast1 (ast-subasts ast2))) ; we only need the contents of the generated block, which would be a named block list
 				 cte))))))
   
   (define (while source cte cont)
