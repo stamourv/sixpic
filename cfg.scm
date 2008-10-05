@@ -195,6 +195,8 @@
 		     (in (new-bb))
 		     (add-succ old-bb bb)))
 	       (bb-label-name-set! bb (block-name ast)) ))
+;;     (pp "BLOCK")
+;;     (for-each pp (ast-subasts ast)) ;; TODO debug
     (for-each statement (ast-subasts ast)))
 
   (define (move from to)

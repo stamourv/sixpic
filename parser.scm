@@ -112,7 +112,7 @@
 				cte
 				cont
 				name
-				(append (list ast) body-so-far))))))))
+				(append body-so-far (list ast)))))))))
     (let ((new-cont
 	   (lambda (name cte)
 	     (b (cdr source)
