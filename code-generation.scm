@@ -246,9 +246,8 @@
               (vector-set! bbs-vector label-num #f)
               (label (bb-label bb))
               (for-each dump-instr (reverse (bb-rev-instrs bb)))
-'
               (for-each add-todo (bb-succs bb)))))))
-
+  
   (let ((prog-label (asm-make-label 'PROG)))
     (rcall prog-label)
     (sleep)
@@ -314,10 +313,10 @@
 
   (asm-begin! 0 #f)
 
-;  (pretty-print cfg)
+;  (pretty-print cfg) ;; TODO 6 is still here
 
   (let ((code (linearize-and-cleanup cfg)))
-;    (pretty-print code)
+;    (pretty-print code) ;; TODO 6 is not here anymore
     (for-each gen code))
 
   (asm-assemble)

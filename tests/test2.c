@@ -9,7 +9,9 @@ void f()
 {
   while (n > 0)
     {
+    foo:
       x = x+n;
+    bar:
       n = n-1;
     }
 }

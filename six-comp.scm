@@ -50,6 +50,8 @@
       '(pretty-print ast)
       (let ((cfg (generate-cfg ast)))
         (remove-branch-cascades-and-dead-code cfg)
+	(pp "AFTER")
+	(print-cfg-bbs cfg)
         (pretty-print cfg)
         (let ((code (code-gen filename cfg)))
           (pretty-print code))))))

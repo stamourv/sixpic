@@ -7,3 +7,5 @@ optimize stuff like : bra $4, 4: (jump to the next line)
 eliminate dead code after branches before next label (should be generated at all, surprising, but look at asm from test6, label $5 has a return after a bra $4)
 
 TODO : GOTOS END UP AT THE BEGINNING OF BLOCKS, WRONG !
+
+test6 : cases seem to be compiled in the wrong order, and the exit block is not ready yet

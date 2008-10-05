@@ -192,10 +192,9 @@
 
   (define (block ast)
     (if (block-name ast) ; named block ?
-	(begin (if (not (null? (bb-rev-instrs bb))) ; a new bb must be created
-		   (let ((old-bb bb))
+	(begin (let ((old-bb bb))
 		     (in (new-bb))
-		     (add-succ old-bb bb)))
+		     (add-succ old-bb bb))
 	       (bb-label-name-set! bb (block-name ast)) ))
     (for-each statement (ast-subasts ast)))
 
@@ -302,16 +301,20 @@
 	   (case-list '()) ; TODO for now cases are stored backwards, shoudl not be a problem
 	   (decision-bb bb)
 	   (bb-exit (new-bb)))
-      ; (expression (var)) ;; TODO probably wrong
+      ; (expression var) ;; TODO probably wrong
+      (emit (new-instr 'sleep #f #f #f)) ; TOOD dummy instruction, just so the switch bb is not empty
       (push-break bb-exit) ;; TODO add a break to the decision bb if there is no default
       (for-each (lambda (x) ; generate each case
 		  (in (new-bb)) ; this bb will be given the name of the case
 		  (set! case-list (cons bb case-list)) ;; TODO handle breaks
-		  (statement x) ;; TODO if the lone statement is a return, no instructions are generated
-		  (add-succ decision-bb bb))
+		  (add-succ decision-bb bb)
+		  (statement x))
 		(cdr (ast-subasts ast)))
-      (pp case-list)))
-
+      (pp case-list)
+      (in bb-exit) ; TODO in test6, since breaks are not there, and we don't have gotos at the end, and the exit block is a single goto, it is lost
+      (pop-break))) ;; TODO really implement and now since empty bbs are permitted, the direct successors are useless, we must use some kind of resolving, as with gotos
+  ;; TODO break should change the successor from the next block to exit
+  
   (define (gen-goto dest)
     (add-succ bb dest)
     (emit (new-instr 'goto #f #f #f)))
@@ -580,4 +583,17 @@
   
   (in (new-bb))
   (program ast)
+  (print-cfg-bbs cfg)
+  '(pp cfg)
   cfg)
+
+(define (print-cfg-bbs cfg)
+  (for-each (lambda (bb)
+	      (pp (list "BB:" (bb-label-num bb)
+			"SUCCS" (map bb-label-num (bb-succs bb))
+			"PREDS" (map bb-label-num (bb-preds bb))
+			(cond ((null? (bb-rev-instrs bb)) "EMPTY")
+			      ((and (null? (cdr (bb-rev-instrs bb)))
+				     (eq? (instr-id (car (bb-rev-instrs bb))) 'goto)) "SINGLE GOTO")
+			      (else #f)))))
+	    (cfg-bbs cfg)))
