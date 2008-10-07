@@ -127,6 +127,23 @@
               (move-value value (def-variable-value ast)))))))
 
   (define (def-procedure ast)
+
+    ;; resolve the C gotos by setting the appropriate successor to their bb
+    (define (resolve-all-gotos start table visited)
+      (if (not (memq start visited))
+	  (begin (for-each (lambda (x)
+			     (if (and (eq? (instr-id x) 'goto)
+				      (instr-dst x)) ; unresolved label
+				 (let ((target (assoc (instr-dst x) table)))
+				   (if target
+				       (begin (add-succ start (cdr target))
+					      (instr-dst-set! x #f))
+				       (error "invalid goto target" (instr-dst x))))))
+			   (bb-rev-instrs start))
+		 (for-each (lambda (x)
+			     (resolve-all-gotos x table (cons start visited)))
+			   (bb-succs start)))))
+    
     (let ((old-bb bb)
           (entry (new-bb)))
       (def-procedure-entry-set! ast entry)
@@ -138,22 +155,6 @@
       (resolve-all-gotos entry (list-named-bbs entry '()) '())
       (in old-bb)))
 
-  ;; resolve the C gotos by setting the appropriate successor to their bb
-  (define (resolve-all-gotos start table visited)
-    (if (not (memq start visited))
-	(begin (for-each (lambda (x)
-			   (if (and (eq? (instr-id x) 'goto)
-				    (instr-dst x)) ; unresolved label
-			       (let ((target (assoc (instr-dst x) table)))
-				 (if target
-				     (begin (add-succ start (cdr target))
-					    (instr-dst-set! x #f))
-				     (error "invalid goto target" (instr-dst x))))))
-			 (bb-rev-instrs start))
-	       (for-each (lambda (x)
-			   (resolve-all-gotos x table (cons start visited)))
-			 (bb-succs start)))))
-  
   ;; returns a list of all named bbs in the successor-tree of a given bb
   (define (list-named-bbs start visited)
     (if (not (memq start visited))
@@ -185,6 +186,8 @@
            (for ast))
 	  ((switch? ast)
 	   (switch ast))
+	  ((break? ast)
+	   (break ast))
 	  ((goto? ast)
 	   (goto ast))
           (else
@@ -217,12 +220,6 @@
             (move-value value (def-procedure-value current-def-proc))
             (return-with-no-new-bb current-def-proc))))
     (in (new-bb))) ;; TODO this interferes with switch
-
-  ;; generates a goto with a target label. once the current function definition
-  ;; is over, all these labels are resolved. therefore, we don't have any gotos
-  ;; that jump from a function to another
-  (define (goto ast)
-    (emit (new-instr 'goto #f #f (subast1 ast)))) ;; TODO create a new bb ? what about dead code after a goto ? do we have a tree-shaker ?
 
   (define (if1 ast)
     (let* ((bb-join (new-bb))
@@ -298,148 +295,194 @@
 
   (define (switch ast)
     (let* ((var (subast1 ast))
-	   (case-list '()) ; TODO for now cases are stored backwards, shoudl not be a problem
+	   (case-list #f)
+	   (default #f)
 	   (decision-bb bb)
-	   (bb-exit (new-bb)))
-      ; (expression var) ;; TODO probably wrong
+	   (exit-bb (new-bb))
+	   (prev-bb decision-bb))
       (emit (new-instr 'sleep #f #f #f)) ; TOOD dummy instruction, just so the switch bb is not empty
-      (push-break bb-exit) ;; TODO add a break to the decision bb if there is no default
+      (push-break exit-bb) ;; TODO add a break to the decision bb if there is no default
       (for-each (lambda (x) ; generate each case
 		  (in (new-bb)) ; this bb will be given the name of the case
-		  (set! case-list (cons bb case-list)) ;; TODO handle breaks
 		  (add-succ decision-bb bb)
-		  (statement x))
+		  (if (null? (bb-succs prev-bb)) ; if the previous case didn't end in a break, fall through
+		      (add-succ prev-bb bb))
+		  (statement x)
+		  (set! prev-bb bb))
 		(cdr (ast-subasts ast)))
-      (pp case-list)
-      (in bb-exit) ; TODO in test6, since breaks are not there, and we don't have gotos at the end, and the exit block is a single goto, it is lost
-      (pop-break))) ;; TODO really implement and now since empty bbs are permitted, the direct successors are useless, we must use some kind of resolving, as with gotos
-  ;; TODO break should change the successor from the next block to exit
+      (if (null? (bb-succs prev-bb)) ; if the last case didn't end in a break, fall through to the exit
+	  (add-succ prev-bb exit-bb))
+      (bb-succs-set! decision-bb (reverse (bb-succs decision-bb))) ; preserving the order is important in the absence of break
+      (set! case-list (list-named-bbs decision-bb '()))
+      (set! default (keep (lambda (x) (eq? (car x) 'default))
+			  (list-named-bbs decision-bb '())))
+      (set! case-list (keep (lambda (x) (and (list? (car x))
+					     (eq? (caar x) 'case)))
+			    case-list))
+      (bb-succs-set! decision-bb '()) ; now that we have the list of cases we don't need the successors anymore
+      (let loop ((case-list case-list)
+		 (decision-bb decision-bb)
+		 (default default))
+	(in decision-bb)
+	(if (not (null? case-list))
+	    (let* ((next-bb (new-bb))
+		   (curr-case (car case-list))
+		   (curr-case-id (cadar curr-case))
+		   (curr-case-bb (cdr curr-case))) ;; TODO test-equal does not exist, but would be what we need
+	      ;; (test-equal (expression (subast1 ast)) (int->value curr-case-id) curr-case-bb next-bb) ;; TODO if the case var is an expression, would it be evaluated multiple times or stored somewhere ?
+	      (pp (list "LOOP BB" (bb-label-num bb) "SUCCS" (map bb-label-num (bb-succs bb))))
+	      (test-expression (new-oper (list var (new-literal 'int
+								curr-case-id))
+					 #f ;; TODO creating an ast here is disgusting
+					 (operation? '(six.x>y))) ;; TODO special literal equality is not implemented yt, when it is, change to 'x==y
+			       curr-case-bb
+			       next-bb) ;; TODO seems this horror does not set the succs
+	      ;; TODO make the jump to either the case bb or the next bb
+	      (pp (list "LOOP BB" (bb-label-num bb) "SUCCS" (map bb-label-num (bb-succs bb))))
+	      (loop (cdr case-list)
+		    next-bb
+		    default))
+	    (gen-goto (if (not (null? default))
+			  (cdar default)
+			  exit-bb))))
+      (in exit-bb)
+      (emit (new-instr 'sleep #f #f #f)) ; TOOD dummy instruction, just so the switch bb is not empty
+      (pop-break)))
+
+  (define (break ast)
+    (gen-goto (car break-stack)))
+  ;; TODO create new bb ? does return do ? break should be at the end of a bb anyway
+  
+  ;; generates a goto with a target label. once the current function definition
+  ;; is over, all these labels are resolved. therefore, we don't have any gotos
+  ;; that jump from a function to another
+  (define (goto ast)
+    (emit (new-instr 'goto #f #f (subast1 ast)))) ;; TODO create a new bb ? what about dead code after a goto ? do we have a tree-shaker ?
   
   (define (gen-goto dest)
     (add-succ bb dest)
     (emit (new-instr 'goto #f #f #f)))
 
   (define (test-expression ast bb-true bb-false)
-
-    (define (test-lit id x y)
-      ((case id
-         ((x==y) =)
-         ((x<y) <)
-         ((x>y) >)
-         (else (error "invalid test")))
-       x
-       y))
-
-    (define (test-byte id byte1 byte2 bb-true bb-false)
-      (cond ((and (byte-lit? byte1) (byte-lit? byte2))
-             (if (test-lit id (byte-lit-val byte1) (byte-lit-val byte2))
-                 (gen-goto bb-true)
-                 (gen-goto bb-false)))
-            ((byte-lit? byte2)
-             (add-succ bb bb-true)
-             (add-succ bb bb-false)
-             (emit (new-instr id byte1 byte2 #f)))
-            ((byte-lit? byte1)
-             (let ((id
-                    (case id
-                      ((x==y) 'x==y)
-                      ((x<y) 'x>y)
-                      ((x>y) 'x<y)
-                      (else (error "invalid test"))))) ;; TODO why not check for the case just before ?
-               (add-succ bb bb-true)
-               (add-succ bb bb-false)
-               (emit (new-instr id byte2 byte1 #f))))
-            (else
-             (add-succ bb bb-true)
-             (add-succ bb bb-false)
-             (emit (new-instr id byte1 byte2 #f))))) ;; TODO doesn't change from if we had literals, at least not now
-
-    (define (test-value id value1 value2 bb-true bb-false)
-      ; note: for multi-byte values, only x==y works properly
-      (let* ((bytes1 (value-bytes value1))
-             (bytes2 (value-bytes value2)))
-        (let loop ((bytes1 bytes1) (bytes2 bytes2))
-          (let ((byte1 (car bytes1))
-                (byte2 (car bytes2)))
-            (if (null? (cdr bytes1))
-                (test-byte id byte1 byte2 bb-true bb-false)
-                (let ((bb-true2 (new-bb)))
-                  (test-byte id byte1 byte2 bb-true2 bb-false)
-                  (in bb-true2)
-                  (loop (cdr bytes1) (cdr bytes2))))))))
-
-    (define (test-relation id x y bb-true bb-false)
-      (cond ((and (literal? x) (not (literal? y)))
-             (compare (case id
-                        ((x==y x!=y) id)
-                        ((x<y) 'x>y)
-                        ((x>y) 'x<y)
-                        ((x<=y) 'x>=y)
-                        ((x>=y) 'x<=y)
-                        (else (error "relation error")))
-                      y
-                      x
-                      bb-true
-                      bb-false))
-            ((assq id '((x!=y . x==y) (x<=y . x>y) (x>=y . x<y)))
-             =>
-             (lambda (z) (compare (cdr z) x y bb-false bb-true)))
-            (else
-'
-             (case id
-               ((x==y)
-                (cond ((and (literal? y) (= (literal-val y) 0))
-                       (test-zero x bb-true bb-false))
-                      ((literal? y)
-                       (test-eq-lit x (literal-val y) bb-true bb-false))
-                      (else
-                       (error "unhandled case"))))
-               ((x<y)
-                (cond ((and (literal? y) (= (literal-val y) 0))
-                       (test-negative x bb-true bb-false))
-                      (else
-                       (error "unhandled case"))))
-               ((x>y)
-                (cond ((and (literal? y) (= (literal-val y) 0))
-                       (test-positive x bb-true bb-false))
-                      (else
-                       (error "unhandled case"))))
-               (else
-                (error "unexpected operator")))
-
-             (let* ((value1 (expression x))
-                    (value2 (expression y)))
-               (test-value id value1 value2 bb-true bb-false))
-)))
-
-    (define (test-zero ast bb-true bb-false)
-
-      (define (default)
-        (let ((type (expr-type ast))
-              (value (expression ast)))
-          (test-equal value (int->value 0 type) bb-true bb-false))) ;; TODO test-equal does not exist
-
-      (cond ((oper? ast)
-             (let* ((op (oper-op ast))
-                    (id (op-id op)))
-               (case id
-                 ((!x)
-                  (test-zero (subast1 ast) bb-false bb-true))
-                 ((x&&y)
-                  ...)
-                 ((|x\|\|y|)
-                  ...)
-                 (else
-                  (test-relation id
-                                 (subast1 ast)
-                                 (subast2 ast)
-                                 bb-true
-                                 bb-false)))))
-            (else
-             (default))))
-
     (test-zero ast bb-false bb-true))
 
+  (define (test-lit id x y)
+    ((case id
+       ((x==y) =)
+       ((x<y) <)
+       ((x>y) >)
+       (else (error "invalid test")))
+     x
+     y))
+
+  (define (test-byte id byte1 byte2 bb-true bb-false)
+    (cond ((and (byte-lit? byte1) (byte-lit? byte2))
+	   (if (test-lit id (byte-lit-val byte1) (byte-lit-val byte2))
+	       (gen-goto bb-true)
+	       (gen-goto bb-false)))
+	  ((byte-lit? byte2)
+	   (add-succ bb bb-true)
+	   (add-succ bb bb-false)
+	   (emit (new-instr id byte1 byte2 #f)))
+	  ((byte-lit? byte1)
+	   (let ((id
+		  (case id
+		    ((x==y) 'x==y)
+		    ((x<y) 'x>y)
+		    ((x>y) 'x<y)
+		    (else (error "invalid test"))))) ;; TODO why not check for the case just before ?
+	     (add-succ bb bb-true)
+	     (add-succ bb bb-false)
+	     (emit (new-instr id byte2 byte1 #f))))
+	  (else
+	   (add-succ bb bb-true)
+	   (add-succ bb bb-false)
+	   (emit (new-instr id byte1 byte2 #f))))) ;; TODO doesn't change from if we had literals, at least not now
+
+  (define (test-value id value1 value2 bb-true bb-false)
+    ;; note: for multi-byte values, only x==y works properly
+    (let* ((bytes1 (value-bytes value1))
+	   (bytes2 (value-bytes value2)))
+      (let loop ((bytes1 bytes1) (bytes2 bytes2))
+	(let ((byte1 (car bytes1))
+	      (byte2 (car bytes2)))
+	  (if (null? (cdr bytes1))
+	      (test-byte id byte1 byte2 bb-true bb-false)
+	      (let ((bb-true2 (new-bb)))
+		(test-byte id byte1 byte2 bb-true2 bb-false)
+		(in bb-true2)
+		(loop (cdr bytes1) (cdr bytes2))))))))
+  
+  (define (test-relation id x y bb-true bb-false)
+    (cond ((and (literal? x) (not (literal? y)))
+	   (compare (case id ;; TODO compare does not exist in this scope, it seems
+		      ((x==y x!=y) id)
+		      ((x<y) 'x>y)
+		      ((x>y) 'x<y)
+		      ((x<=y) 'x>=y)
+		      ((x>=y) 'x<=y)
+		      (else (error "relation error")))
+		    y
+		    x
+		    bb-true
+		    bb-false))
+	  ((assq id '((x!=y . x==y) (x<=y . x>y) (x>=y . x<y)))
+	   =>
+	   (lambda (z) (compare (cdr z) x y bb-false bb-true)))
+	  (else
+	   '
+	   (case id
+	     ((x==y)
+	      (cond ((and (literal? y) (= (literal-val y) 0))
+		     (test-zero x bb-true bb-false))
+		    ((literal? y)
+		     (test-eq-lit x (literal-val y) bb-true bb-false))
+		    (else
+		     (error "unhandled case"))))
+	     ((x<y)
+	      (cond ((and (literal? y) (= (literal-val y) 0))
+		     (test-negative x bb-true bb-false))
+		    (else
+		     (error "unhandled case"))))
+	     ((x>y)
+	      (cond ((and (literal? y) (= (literal-val y) 0))
+		     (test-positive x bb-true bb-false))
+		    (else
+		     (error "unhandled case"))))
+	     (else
+	      (error "unexpected operator")))
+	   
+	   (let* ((value1 (expression x))
+		  (value2 (expression y)))
+	     (test-value id value1 value2 bb-true bb-false))
+	   )))
+
+  (define (test-zero ast bb-true bb-false)
+    
+    (define (default)
+      (let ((type (expr-type ast))
+	    (value (expression ast)))
+	(test-equal value (int->value 0 type) bb-true bb-false))) ;; TODO test-equal does not exist
+    
+    (cond ((oper? ast)
+	   (let* ((op (oper-op ast))
+		  (id (op-id op)))
+	     (case id
+	       ((!x)
+		(test-zero (subast1 ast) bb-false bb-true))
+	       ((x&&y)
+		...)
+	       ((|x\|\|y|)
+		...)
+	       (else
+		(test-relation id
+			       (subast1 ast)
+			       (subast2 ast)
+			       bb-true
+			       bb-false)))))
+	  (else
+	   (default)))) ;; TODO fix the default, happend with stuff like if(0) or if(x)
+  
   (define (expression ast)
     (let ((result
            (cond ((literal? ast)

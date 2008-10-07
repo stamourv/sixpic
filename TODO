@@ -5,7 +5,22 @@ forward declarations
 real conditions (in if)
 optimize stuff like : bra $4, 4: (jump to the next line)
 eliminate dead code after branches before next label (should be generated at all, surprising, but look at asm from test6, label $5 has a return after a bra $4)
+eliminate bbs that are a single jump, except if the previous one (in the code) needs that jump
 
-TODO : GOTOS END UP AT THE BEGINNING OF BLOCKS, WRONG !
+make sure jump like this can't happen (from test5)
+000012 0164		    cpfsgt  1
+000014 01D0		    bra     $3
+000016 01D0		    bra     $4
+			$3:
+000018 1200		    return  0
+			$4:
+00001A 0300		    sleep   
 
-test6 : cases seem to be compiled in the wrong order, and the exit block is not ready yet
+revoir le systeme de conditions au complet, il est degeulasse
+
+CASCADE OPTIMISATION broke the switchs, disabled for now
+probably got rid of a jump that was needed
+
+avoir vraie comparaison pour switch, egalite, pas inegalite louche
+
+TODO : test2, il y a movlw   0, qui devrait tester si n > 0, mais on met un literal,non ? systeme de condition est vraiment brise

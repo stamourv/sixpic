@@ -11,8 +11,10 @@ void f()
     {
     foo:
       x = x+n;
+      n++;
     bar:
       n = n-1;
+      x--;
     }
 }
 

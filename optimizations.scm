@@ -29,19 +29,19 @@
                            live)
                           live))))
                  ((return-instr? instr)
-;(pp (list instr: instr))
+					;(pp (list instr: instr))
                   (let ((def-proc (return-instr-def-proc instr)))
                     (let ((live
                            (if (def-procedure? def-proc)
                                (def-procedure-live-after-calls def-proc)
                                (value-bytes def-proc))))
-(let ((live (keep byte-cell? live)))
-;(pp (list live: live))
-                      (set! live-after live)
-                      live)))
-)
+		      (let ((live (keep byte-cell? live)))
+					;(pp (list live: live))
+			(set! live-after live)
+			live)))
+		  )
                  (else
-;(pp (list instr: instr))
+					;(pp (list instr: instr))
                   (let* ((src1 (instr-src1 instr))
                          (src2 (instr-src2 instr))
                          (dst (instr-dst instr))
@@ -230,6 +230,7 @@
 	    (cond ((null? rev-instrs) ; empty bb, remove all references to it
 		   (let ((dest (car (bb-succs bb)))
 			 (pred (car (bb-preds bb))))
+		     (pp (list "UNLINK" (bb-label-num bb)))
 		     (bb-succs-set! pred
 				    (cons dest (remove bb (bb-succs pred))))
 		     (bb-preds-set! dest
@@ -245,7 +246,7 @@
 						  (cons bb seen))))
 		       (if (not (eq? old-dest new-dest))
 			   (begin
-			     (bb-succs-set! bb
+			     (bb-succs-set! bb ;; TODO eliminate single gotos
 					    (remove old-dest (bb-succs bb)))
 			     (bb-preds-set! old-dest
 					    (remove bb (bb-preds old-dest)))))

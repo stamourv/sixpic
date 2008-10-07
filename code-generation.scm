@@ -200,6 +200,7 @@
                             (bra (bb-label dest))
                             (add-todo dest)))
                          ((x==y x<y x>y)
+			  (pp (list "BB compare" (bb-label-num bb)))
                           (let* ((succs (bb-succs bb))
                                  (dest-true (car succs))
                                  (dest-false (cadr succs)))
