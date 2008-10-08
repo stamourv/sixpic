@@ -45,11 +45,11 @@
     #t))
 
   (let ((source (read-source filename)))
-    (pretty-print source)
+    '(pretty-print source)
     (let ((ast (parse source)))
       '(pretty-print ast)
       (let ((cfg (generate-cfg ast)))
-        (remove-branch-cascades-and-dead-code cfg) ; TODO sometimes breaks stuff
+        (remove-branch-cascades-and-dead-code cfg)
 	(pp "AFTER")
 	(print-cfg-bbs cfg)
         '(pretty-print cfg)

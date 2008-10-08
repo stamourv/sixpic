@@ -223,36 +223,60 @@
 (define (remove-branch-cascades-and-dead-code cfg)
   (let ((bbs-vector (cfg->vector cfg)))
 
-    (define (chase-branch-cascade bb seen)
+;;     (define (chase-branch-cascade bb seen)
+;;       (if (memq bb seen)
+;;           bb
+;; 	  (let ((rev-instrs (bb-rev-instrs bb)))
+;; 	    (cond ((null? rev-instrs) ; empty bb, remove all references to it
+;; 		   (let ((dest (car (bb-succs bb)))
+;; 			 (pred (car (bb-preds bb))))
+;; 		     (pp (list "UNLINK" (bb-label-num bb)))
+;; 		     (bb-succs-set! pred
+;; 				    (cons dest (remove bb (bb-succs pred))))
+;; 		     (bb-preds-set! dest
+;; 				    (cons pred (remove bb (bb-preds dest))))
+;; 		     (chase-branch-cascade dest
+;; 					   (cons bb seen))))
+;; 		  ((and (null? (cdr rev-instrs)) ; only a goto
+;; 			(eq? (instr-id (car rev-instrs)) 'goto))
+;; 		   (let ((old-dest
+;; 			  (car (bb-succs bb)))) ;; TODO let* ?
+;; 		     (let ((new-dest
+;; 			    (chase-branch-cascade old-dest
+;; 						  (cons bb seen))))
+;; 		       (if (not (eq? old-dest new-dest))
+;; 			   (begin
+;; 			     (bb-succs-set! bb ;; TODO eliminate single gotos
+;; 					    (remove old-dest (bb-succs bb)))
+;; 			     (bb-preds-set! old-dest
+;; 					    (remove bb (bb-preds old-dest)))))
+;; 		       new-dest)))
+;; 		  (else bb)))))
+    (define (chase-branch-cascade bb seen) ;; TODO original version
       (if (memq bb seen)
           bb
-	  (let ((rev-instrs (bb-rev-instrs bb)))
-	    (cond ((null? rev-instrs) ; empty bb, remove all references to it
-		   (let ((dest (car (bb-succs bb)))
-			 (pred (car (bb-preds bb))))
-		     (pp (list "UNLINK" (bb-label-num bb)))
-		     (bb-succs-set! pred
-				    (cons dest (remove bb (bb-succs pred))))
-		     (bb-preds-set! dest
-				    (cons pred (remove bb (bb-preds dest))))
-		     (chase-branch-cascade dest
-					   (cons bb seen))))
-		  ((and (null? (cdr rev-instrs)) ; only a goto
-			(eq? (instr-id (car rev-instrs)) 'goto))
-		   (let ((old-dest
-			  (car (bb-succs bb)))) ;; TODO let* ?
-		     (let ((new-dest
-			    (chase-branch-cascade old-dest
-						  (cons bb seen))))
-		       (if (not (eq? old-dest new-dest))
-			   (begin
-			     (bb-succs-set! bb ;; TODO eliminate single gotos
-					    (remove old-dest (bb-succs bb)))
-			     (bb-preds-set! old-dest
-					    (remove bb (bb-preds old-dest)))))
-		       new-dest)))
-		  (else bb)))))
+          (let* ((rev-instrs (bb-rev-instrs bb))
+                 (last (car rev-instrs)))
+            (if (null? (cdr rev-instrs))
 
+                (cond ((eq? (instr-id last) 'goto)
+                       (let ((old-dest
+                              (car (bb-succs bb))))
+                         (let ((new-dest
+                                (chase-branch-cascade old-dest
+                                                      (cons bb seen))))
+                           (if (not (eq? old-dest new-dest))
+                               (begin
+                                 (bb-succs-set! bb
+                                                (remove old-dest (bb-succs bb)))
+                                 (bb-preds-set! old-dest
+                                                (remove bb (bb-preds old-dest)))))
+                           new-dest)))
+                      (else
+                       bb))
+
+                bb))))
+    
     (define (bb-process bb)
       (let* ((seen
               (list bb))
@@ -266,7 +290,8 @@
                             (bb-succs-set! bb
                                            (remove old-dest (bb-succs bb)))
                             (bb-preds-set! old-dest
-                                           (remove bb (bb-preds old-dest))))))
+                                           (remove bb (bb-preds old-dest)))
+			    (add-succ bb new-dest)))) ;; TODO added, don't why it wasn't there before
                     old-succs
                     new-succs)))
 

@@ -19,8 +19,8 @@
 
 (define-type instr
   extender: define-type-of-instr
-  (live-before #;unprintable:)
-  (live-after #;unprintable:)
+  (live-before unprintable:)
+  (live-after unprintable:)
   (hash unprintable:)
   id
   src1
@@ -219,7 +219,7 @@
           (let ((ext-value (extend value (def-procedure-type current-def-proc))))
             (move-value value (def-procedure-value current-def-proc))
             (return-with-no-new-bb current-def-proc))))
-    (in (new-bb))) ;; TODO this interferes with switch
+    (in (new-bb)))
 
   (define (if1 ast)
     (let* ((bb-join (new-bb))
@@ -300,13 +300,15 @@
 	   (decision-bb bb)
 	   (exit-bb (new-bb))
 	   (prev-bb decision-bb))
-      (emit (new-instr 'sleep #f #f #f)) ; TOOD dummy instruction, just so the switch bb is not empty
-      (push-break exit-bb) ;; TODO add a break to the decision bb if there is no default
+      (push-break exit-bb)
       (for-each (lambda (x) ; generate each case
 		  (in (new-bb)) ; this bb will be given the name of the case
 		  (add-succ decision-bb bb)
 		  (if (null? (bb-succs prev-bb)) ; if the previous case didn't end in a break, fall through
-		      (add-succ prev-bb bb))
+		      (let ((curr bb))
+			(in prev-bb)
+			(gen-goto curr)
+			(in curr)))
 		  (statement x)
 		  (set! prev-bb bb))
 		(cdr (ast-subasts ast)))
@@ -321,32 +323,22 @@
 			    case-list))
       (bb-succs-set! decision-bb '()) ; now that we have the list of cases we don't need the successors anymore
       (let loop ((case-list case-list)
-		 (decision-bb decision-bb)
-		 (default default))
+		 (decision-bb decision-bb))
 	(in decision-bb)
 	(if (not (null? case-list))
 	    (let* ((next-bb (new-bb))
 		   (curr-case (car case-list))
 		   (curr-case-id (cadar curr-case))
-		   (curr-case-bb (cdr curr-case))) ;; TODO test-equal does not exist, but would be what we need
-	      ;; (test-equal (expression (subast1 ast)) (int->value curr-case-id) curr-case-bb next-bb) ;; TODO if the case var is an expression, would it be evaluated multiple times or stored somewhere ?
-	      (pp (list "LOOP BB" (bb-label-num bb) "SUCCS" (map bb-label-num (bb-succs bb))))
-	      (test-expression (new-oper (list var (new-literal 'int
-								curr-case-id))
-					 #f ;; TODO creating an ast here is disgusting
-					 (operation? '(six.x>y))) ;; TODO special literal equality is not implemented yt, when it is, change to 'x==y
-			       curr-case-bb
-			       next-bb) ;; TODO seems this horror does not set the succs
-	      ;; TODO make the jump to either the case bb or the next bb
-	      (pp (list "LOOP BB" (bb-label-num bb) "SUCCS" (map bb-label-num (bb-succs bb))))
+		   (curr-case-bb (cdr curr-case)))
+	      (emit (new-instr 'x==y (car (value-bytes (expression var))) (new-byte-lit curr-case-id) #f)) ;; TODO what about work duplication ?
+	      (add-succ bb curr-case-bb) ; if true, go to the case
+	      (add-succ bb next-bb) ; if not, keep looking
 	      (loop (cdr case-list)
-		    next-bb
-		    default))
+		    next-bb))
 	    (gen-goto (if (not (null? default))
 			  (cdar default)
 			  exit-bb))))
       (in exit-bb)
-      (emit (new-instr 'sleep #f #f #f)) ; TOOD dummy instruction, just so the switch bb is not empty
       (pop-break)))
 
   (define (break ast)
@@ -363,7 +355,7 @@
     (add-succ bb dest)
     (emit (new-instr 'goto #f #f #f)))
 
-  (define (test-expression ast bb-true bb-false)
+  (define (test-expression ast bb-true bb-false) ;; TODO move all old internal defines back in, no one needs them elsewhere
     (test-zero ast bb-false bb-true))
 
   (define (test-lit id x y)
@@ -595,7 +587,7 @@
                          (if (or (eq? id 'x+y)
                                  (eq? id 'x-y))
                              (add-sub id ext-value-x ext-value-y result)
-                             (error "..."))
+                             (error "...")) ;; TODO implement multiplication and division
                          result)))))
                 ((x=y)
                  (let* ((x (subast1 ast))
@@ -623,9 +615,17 @@
         (let ((result (alloc-value (def-procedure-type def-proc))))
           (move-value value result)
           result))))
+
+  ;; remplaces empty bbs by bbs with a single goto, to have a valid CFG for optimizations
+  (define (fill-empty-bbs)
+    (for-each (lambda (x) (if (null? (bb-rev-instrs x))
+			       (begin (in x)
+				      (emit (new-instr 'goto #f #f #f)))))
+	      (cfg-bbs cfg)))
   
   (in (new-bb))
   (program ast)
+  (fill-empty-bbs)
   (print-cfg-bbs cfg)
   '(pp cfg)
   cfg)

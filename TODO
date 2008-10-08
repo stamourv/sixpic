@@ -15,12 +15,33 @@ make sure jump like this can't happen (from test5)
 000018 1200		    return  0
 			$4:
 00001A 0300		    sleep   
+p-e s'arranger pour que bloc si vrai soit tjrs immediatement apres, donc si on a vrai, on skippe le jump. pour que ca marhe, il faudrait aussi eliminer les bra $4, $4:
 
 revoir le systeme de conditions au complet, il est degeulasse
 
-CASCADE OPTIMISATION broke the switchs, disabled for now
-probably got rid of a jump that was needed
-
 avoir vraie comparaison pour switch, egalite, pas inegalite louche
 
-TODO : test2, il y a movlw   0, qui devrait tester si n > 0, mais on met un literal,non ? systeme de condition est vraiment brise
+pour avoir comparaison d'egalite avec cste, load cste dans wreg, et CPFSEQ
+
+
+TODO : donner code avec makefile qui execute les tests
+remise ift6232 tp1
+
+
+00000A 0150		    movf    1, w
+00000C 006E		    movwf   0
+plutot faire movff 1, 0 -- verifier que ca fait bien la meme chose
+
+registres sont pas sauvegardes, donc adieu recursion, et p-e calls nestes, voir ex 8, qui ne fait pas ce qu'il devrait.
+
++= is not supported, so probably neither are his brothers
+
+test5 avec fall through au case 0
+			$7:
+000022 0150		    movf    1, w
+000024 006E		    movwf   0
+000026 002A		    incf    0
+000028 0050		    movf    0, w
+00002A 016E		    movwf   1
+00002C 00D0		    bra     $9
+grossierement inefficace

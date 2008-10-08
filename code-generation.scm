@@ -218,7 +218,7 @@
                             (cond ((byte-lit? src1)
                                    (let ((n (byte-lit-val src1))
                                          (y (byte-cell-adr src2)))
-                                     (if (and (or (= n 0) (= n 1) (= n #xff))
+                                     (if #f #;(and (or (= n 0) (= n 1) (= n #xff))
                                               (eq? (instr-id instr) 'x==y))
                                          (special-compare-eq-lit n x)
                                          (begin
@@ -227,9 +227,9 @@
                                   ((byte-lit? src2)
                                    (let ((x (byte-cell-adr src1))
                                          (n (byte-lit-val src2)))
-                                     (if (and (or (= n 0) (= n 1) (= n #xff))
+                                     (if #f #;(and (or (= n 0) (= n 1) (= n #xff))
                                               (eq? (instr-id instr) 'x==y))
-                                         (special-compare-eq-lit n x)
+                                         (special-compare-eq-lit n x) ;; TODO does not exist. the only way apart from cpfseq I see would be to load w, do a subtraction, then conditional branch, but would be larger and would take 1-2 cycles more
                                          (begin
                                            (movlw n)
                                            (compare #f x)))))
@@ -332,7 +332,7 @@
 
   (asm-end!)
 
-  '(execute-hex-file (string-append filename ".hex"))) ;; TODO debug
+  (execute-hex-file (string-append filename ".hex"))) ;; TODO debug
 
 (define (code-gen filename cfg)
   (allocate-registers cfg)
