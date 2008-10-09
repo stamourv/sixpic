@@ -7,10 +7,10 @@ all: checks
 
 .c.test:
 	@echo ====================================================================== $*
-	../../gambc-v4_2_9/bin/gsi-script ../six-comp.scm $*.c
+	gsi-script ../six-comp.scm $*.c
 	@rm -f $*.c.hex $*.c.tmp
 
-checks: test1.test test2.test test3.test
+checks: test1.test test2.test test3.test test4.test test5.test test8.test test9.test test10.test test11.test
 
 clean:
 	rm -f *.c.hex *.c.tmp

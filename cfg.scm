@@ -81,7 +81,7 @@
     (add-instr bb instr))
 
   (define current-def-proc #f)
-  (define break-stack '()) ;; TODO add break, continue and goto
+  (define break-stack '())
   (define continue-stack '())
   (define delayed-post-incdec '())
 
@@ -188,6 +188,8 @@
 	   (switch ast))
 	  ((break? ast)
 	   (break ast))
+	  ((continue? ast)
+	   (continue ast))
 	  ((goto? ast)
 	   (goto ast))
           (else
@@ -343,13 +345,15 @@
 
   (define (break ast)
     (gen-goto (car break-stack)))
-  ;; TODO create new bb ? does return do ? break should be at the end of a bb anyway
+
+  (define (continue ast)
+    (gen-goto (car continue-stack)))
   
   ;; generates a goto with a target label. once the current function definition
   ;; is over, all these labels are resolved. therefore, we don't have any gotos
   ;; that jump from a function to another
   (define (goto ast)
-    (emit (new-instr 'goto #f #f (subast1 ast)))) ;; TODO create a new bb ? what about dead code after a goto ? do we have a tree-shaker ?
+    (emit (new-instr 'goto #f #f (subast1 ast))))
   
   (define (gen-goto dest)
     (add-succ bb dest)
@@ -407,7 +411,7 @@
   
   (define (test-relation id x y bb-true bb-false)
     (cond ((and (literal? x) (not (literal? y)))
-	   (compare (case id ;; TODO compare does not exist in this scope, it seems
+	   (compare (case id ;; TODO compare does not exist in this scope
 		      ((x==y x!=y) id)
 		      ((x<y) 'x>y)
 		      ((x>y) 'x<y)
@@ -473,7 +477,7 @@
 			       bb-true
 			       bb-false)))))
 	  (else
-	   (default)))) ;; TODO fix the default, happend with stuff like if(0) or if(x)
+	   (default)))) ;; TODO fix the default
   
   (define (expression ast)
     (let ((result
@@ -628,7 +632,7 @@
   (in (new-bb))
   (program ast)
   (fill-empty-bbs)
-  (print-cfg-bbs cfg)
+  '(print-cfg-bbs cfg)
   '(pp cfg)
   cfg)
 

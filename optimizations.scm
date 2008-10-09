@@ -259,14 +259,10 @@
                       (if (not (eq? old-dest new-dest))
                           (begin
 			    (bb-succs-set! bb (replace old-dest new-dest (bb-succs bb)))
-                            ;; (bb-succs-set! bb
-;;                                            (remove old-dest (bb-succs bb)))
                             (bb-preds-set! old-dest
                                            (remove bb (bb-preds old-dest)))
 			    (bb-preds-set! new-dest
-                                           (cons bb (bb-preds old-dest)))
-			    ;; (add-succ bb new-dest)
-			    ))) ;; TODO added, don't why it wasn't there before TODO preserve order, gives problems with my sigma
+                                           (cons bb (bb-preds old-dest))))))
                     old-succs
                     new-succs)))
 

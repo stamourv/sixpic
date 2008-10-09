@@ -314,17 +314,17 @@
 
   (asm-begin! 0 #f)
 
-;  (pretty-print cfg) ;; TODO 6 is still here
+;  (pretty-print cfg)
 
   (let ((code (linearize-and-cleanup cfg)))
-;    (pretty-print code) ;; TODO 6 is not here anymore
+;    (pretty-print code)
     (for-each gen code))
 
   (asm-assemble)
 
   '(display "------------------ GENERATED CODE\n")
 
-  (asm-display-listing (current-output-port)) ;; TODO debug
+  (asm-display-listing (current-output-port))
 
   (asm-write-hex-file (string-append filename ".hex"))
 
@@ -332,7 +332,7 @@
 
   (asm-end!)
 
-  (execute-hex-file (string-append filename ".hex"))) ;; TODO debug
+  (execute-hex-file (string-append filename ".hex")))
 
 (define (code-gen filename cfg)
   (allocate-registers cfg)

@@ -183,6 +183,10 @@
 (define (new-break)
   (make-break #f '()))
 
+(define-type-of-ast continue)
+(define (new-continue)
+  (make-continue #f '()))
+
 (define-type-of-ast goto)
 (define (new-goto label)
   (make-goto #f (list label)))

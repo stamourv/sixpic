@@ -24,10 +24,6 @@ avoir vraie comparaison pour switch, egalite, pas inegalite louche
 pour avoir comparaison d'egalite avec cste, load cste dans wreg, et CPFSEQ
 
 
-TODO : donner code avec makefile qui execute les tests
-remise ift6232 tp1
-
-
 00000A 0150		    movf    1, w
 00000C 006E		    movwf   0
 plutot faire movff 1, 0 -- verifier que ca fait bien la meme chose
@@ -45,5 +41,3 @@ test5 avec fall through au case 0
 00002A 016E		    movwf   1
 00002C 00D0		    bra     $9
 grossierement inefficace
-
-add continue

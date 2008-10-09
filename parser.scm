@@ -146,6 +146,8 @@
            (return source cte cont))
 	  ((form? 'six.break source)
 	   (break source cte cont))
+	  ((form? 'six.continue source)
+	   (continue source cte cont))
 	  ((form? 'six.goto source)
 	   (goto source cte cont))
           ((form? 'six.compound source)
@@ -168,6 +170,10 @@
 
   (define (break source cte cont)
     (cont (new-break)
+	  cte))
+
+  (define (continue source cte cont)
+    (cont (new-continue)
 	  cte))
 
   (define (goto source cte cont)
