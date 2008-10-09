@@ -45,3 +45,5 @@ test5 avec fall through au case 0
 00002A 016E		    movwf   1
 00002C 00D0		    bra     $9
 grossierement inefficace
+
+add continue

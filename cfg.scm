@@ -331,8 +331,8 @@
 		   (curr-case-id (cadar curr-case))
 		   (curr-case-bb (cdr curr-case)))
 	      (emit (new-instr 'x==y (car (value-bytes (expression var))) (new-byte-lit curr-case-id) #f)) ;; TODO what about work duplication ?
+	      (add-succ bb next-bb) ; if false, keep looking
 	      (add-succ bb curr-case-bb) ; if true, go to the case
-	      (add-succ bb next-bb) ; if not, keep looking
 	      (loop (cdr case-list)
 		    next-bb))
 	    (gen-goto (if (not (null? default))
@@ -584,10 +584,12 @@
                      (let* ((ext-value-x (extend value-x type))
                             (ext-value-y (extend value-y type)))
                        (let ((result (alloc-value type)))
-                         (if (or (eq? id 'x+y)
-                                 (eq? id 'x-y))
-                             (add-sub id ext-value-x ext-value-y result)
-                             (error "...")) ;; TODO implement multiplication and division
+                         (cond ((or (eq? id 'x+y)
+				    (eq? id 'x-y))
+				(add-sub id ext-value-x ext-value-y result))
+			       ((eq? id 'x*y)
+				(error "multiplication not implemented yet"))
+			       (error "...")) ;; TODO implement more
                          result)))))
                 ((x=y)
                  (let* ((x (subast1 ast))

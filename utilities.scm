@@ -48,3 +48,12 @@
         (else
          (cons (car lst)
                (remove x (cdr lst))))))
+
+(define (replace x y lst)
+  (cond ((null? lst)
+	 '())
+	((eq? x (car lst))
+	 (cons y (cdr lst)))
+	(else
+	 (cons (car lst)
+	       (replace x y (cdr lst))))))
