@@ -359,126 +359,126 @@
     (add-succ bb dest)
     (emit (new-instr 'goto #f #f #f)))
 
-  (define (test-expression ast bb-true bb-false) ;; TODO move all old internal defines back in, no one needs them elsewhere
-    (test-zero ast bb-false bb-true))
+  (define (test-expression ast bb-true bb-false)
 
-  (define (test-lit id x y)
-    ((case id
-       ((x==y) =)
-       ((x<y) <)
-       ((x>y) >)
-       (else (error "invalid test")))
-     x
-     y))
-
-  (define (test-byte id byte1 byte2 bb-true bb-false)
-    (cond ((and (byte-lit? byte1) (byte-lit? byte2))
-	   (if (test-lit id (byte-lit-val byte1) (byte-lit-val byte2))
-	       (gen-goto bb-true)
-	       (gen-goto bb-false)))
-	  ((byte-lit? byte2)
-	   (add-succ bb bb-true)
-	   (add-succ bb bb-false)
-	   (emit (new-instr id byte1 byte2 #f)))
-	  ((byte-lit? byte1)
-	   (let ((id
-		  (case id
-		    ((x==y) 'x==y)
-		    ((x<y) 'x>y)
-		    ((x>y) 'x<y)
-		    (else (error "invalid test"))))) ;; TODO why not check for the case just before ?
+    (define (test-byte id byte1 byte2 bb-true bb-false)
+      (define (test-lit id x y)
+	((case id
+	   ((x==y) =)
+	   ((x<y) <)
+	   ((x>y) >)
+	   (else (error "invalid test")))
+	 x
+	 y))
+      (cond ((and (byte-lit? byte1) (byte-lit? byte2))
+	     (if (test-lit id (byte-lit-val byte1) (byte-lit-val byte2))
+		 (gen-goto bb-true)
+		 (gen-goto bb-false)))
+	    ((byte-lit? byte2)
 	     (add-succ bb bb-true)
 	     (add-succ bb bb-false)
-	     (emit (new-instr id byte2 byte1 #f))))
-	  (else
-	   (add-succ bb bb-true)
-	   (add-succ bb bb-false)
-	   (emit (new-instr id byte1 byte2 #f))))) ;; TODO doesn't change from if we had literals, at least not now
-
-  (define (test-value id value1 value2 bb-true bb-false)
-    ;; note: for multi-byte values, only x==y works properly
-    (let* ((bytes1 (value-bytes value1))
-	   (bytes2 (value-bytes value2)))
-      (let loop ((bytes1 bytes1) (bytes2 bytes2))
-	(let ((byte1 (car bytes1))
-	      (byte2 (car bytes2)))
-	  (if (null? (cdr bytes1))
-	      (test-byte id byte1 byte2 bb-true bb-false)
-	      (let ((bb-true2 (new-bb)))
-		(test-byte id byte1 byte2 bb-true2 bb-false)
-		(in bb-true2)
-		(loop (cdr bytes1) (cdr bytes2))))))))
-  
-  (define (test-relation id x y bb-true bb-false)
-    (cond ((and (literal? x) (not (literal? y)))
-	   (compare (case id ;; TODO compare does not exist in this scope
-		      ((x==y x!=y) id)
+	     (emit (new-instr id byte1 byte2 #f)))
+	    ((byte-lit? byte1)
+	     (let ((id
+		    (case id
+		      ((x==y) 'x==y)
 		      ((x<y) 'x>y)
 		      ((x>y) 'x<y)
-		      ((x<=y) 'x>=y)
-		      ((x>=y) 'x<=y)
-		      (else (error "relation error")))
-		    y
-		    x
-		    bb-true
-		    bb-false))
-	  ((assq id '((x!=y . x==y) (x<=y . x>y) (x>=y . x<y)))
-	   =>
-	   (lambda (z) (compare (cdr z) x y bb-false bb-true)))
-	  (else
-	   '
-	   (case id
-	     ((x==y)
-	      (cond ((and (literal? y) (= (literal-val y) 0))
-		     (test-zero x bb-true bb-false))
-		    ((literal? y)
-		     (test-eq-lit x (literal-val y) bb-true bb-false))
-		    (else
-		     (error "unhandled case"))))
-	     ((x<y)
-	      (cond ((and (literal? y) (= (literal-val y) 0))
-		     (test-negative x bb-true bb-false))
-		    (else
-		     (error "unhandled case"))))
-	     ((x>y)
-	      (cond ((and (literal? y) (= (literal-val y) 0))
-		     (test-positive x bb-true bb-false))
-		    (else
-		     (error "unhandled case"))))
-	     (else
-	      (error "unexpected operator")))
-	   
-	   (let* ((value1 (expression x))
-		  (value2 (expression y)))
-	     (test-value id value1 value2 bb-true bb-false))
-	   )))
+		      (else (error "invalid test")))))
+	       (add-succ bb bb-true)
+	       (add-succ bb bb-false)
+	       (emit (new-instr id byte2 byte1 #f))))
+	    (else
+	     (add-succ bb bb-true)
+	     (add-succ bb bb-false)
+	     (emit (new-instr id byte1 byte2 #f))))) ;; TODO doesn't change from if we had literals, at least not now
 
-  (define (test-zero ast bb-true bb-false)
+    (define (test-value id value1 value2 bb-true bb-false)
+      ;; note: for multi-byte values, only x==y works properly TODO fix it, will depend on byte order, is car the lsb or msb ?
+      (let* ((bytes1 (value-bytes value1))
+	     (bytes2 (value-bytes value2)))
+	(let loop ((bytes1 bytes1) (bytes2 bytes2))
+	  (let ((byte1 (car bytes1))
+		(byte2 (car bytes2)))
+	    (if (null? (cdr bytes1))
+		(test-byte id byte1 byte2 bb-true bb-false)
+		(let ((bb-true2 (new-bb)))
+		  (test-byte id byte1 byte2 bb-true2 bb-false)
+		  (in bb-true2)
+		  (loop (cdr bytes1) (cdr bytes2))))))))
+
+    (define (test-relation id x y bb-true bb-false) ;; TODO doesn't look like it's working
+      (cond ((and (literal? x) (not (literal? y))) ;; TODO why should the literal be the last arg ? does it have to do with code generation ?
+	     (compare (case id ;; TODO compare does not exist in this scope
+			((x==y x!=y) id)
+			((x<y) 'x>y)
+			((x>y) 'x<y)
+			((x<=y) 'x>=y)
+			((x>=y) 'x<=y)
+			(else (error "relation error")))
+		      y
+		      x
+		      bb-true
+		      bb-false))
+	    ((assq id '((x!=y . x==y) (x<=y . x>y) (x>=y . x<y))) ;; TODO simply flip args ?
+	     =>
+	     (lambda (z) (compare (cdr z) x y bb-false bb-true)))
+	    (else
+;; 	     ' ;; TODO quote ? looks like all this is commented out
+;; 	     (case id
+;; 	       ((x==y)
+;; 		(cond ((and (literal? y) (= (literal-val y) 0))
+;; 		       (test-zero x bb-true bb-false))
+;; 		      ((literal? y)
+;; 		       (test-eq-lit x (literal-val y) bb-true bb-false))
+;; 		      (else
+;; 		       (error "unhandled case"))))
+;; 	       ((x<y)
+;; 		(cond ((and (literal? y) (= (literal-val y) 0))
+;; 		       (test-negative x bb-true bb-false)) ;; TODO does this exist ?
+;; 		      (else
+;; 		       (error "unhandled case"))))
+;; 	       ((x>y)
+;; 		(cond ((and (literal? y) (= (literal-val y) 0))
+;; 		       (test-positive x bb-true bb-false))
+;; 		      (else
+;; 		       (error "unhandled case"))))
+;; 	       (else
+;; 		(error "unexpected operator")))
+	     
+	     (let* ((value1 (expression x))
+		    (value2 (expression y)))
+	       (test-value id value1 value2 bb-true bb-false))
+	     )))
+
+    (define (test-zero ast bb-true bb-false)
+
+      (define (default)
+	(let ((type (expr-type ast))
+	      (value (expression ast)))
+	  (test-value 'x==y value (int->value 0 type) bb-false bb-true))) ;; TODO once != works, use it and flip the target bbs
+      
+      (cond ((oper? ast)
+	     (let* ((op (oper-op ast))
+		    (id (op-id op)))
+	       (case id
+		 ((!x)
+		  (test-zero (subast1 ast) bb-false bb-true))
+		 ((x&&y) ;; TODO
+		  ...)
+		 ((|x\|\|y|) ;; TODO
+		  ...)
+		 ((x==y x!=y x<y x>y x<=y x>=y) ;; TODO have a var to contain all these comparison operators
+		  (test-relation id
+				 (subast1 ast)
+				 (subast2 ast)
+				 bb-true
+				 bb-false))
+		 (else (default)))))
+	    (else (default))))
     
-    (define (default)
-      (let ((type (expr-type ast))
-	    (value (expression ast)))
-	(test-equal value (int->value 0 type) bb-true bb-false))) ;; TODO test-equal does not exist
-    
-    (cond ((oper? ast)
-	   (let* ((op (oper-op ast))
-		  (id (op-id op)))
-	     (case id
-	       ((!x)
-		(test-zero (subast1 ast) bb-false bb-true))
-	       ((x&&y)
-		...)
-	       ((|x\|\|y|)
-		...)
-	       (else
-		(test-relation id
-			       (subast1 ast)
-			       (subast2 ast)
-			       bb-true
-			       bb-false)))))
-	  (else
-	   (default)))) ;; TODO fix the default
-  
+    (test-zero ast bb-false bb-true))
+
   (define (expression ast)
     (let ((result
            (cond ((literal? ast)
@@ -632,8 +632,6 @@
   (in (new-bb))
   (program ast)
   (fill-empty-bbs)
-  '(print-cfg-bbs cfg)
-  '(pp cfg)
   cfg)
 
 (define (print-cfg-bbs cfg)

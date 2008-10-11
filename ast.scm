@@ -77,7 +77,7 @@
   (let ((len (nb-bytes type)))
     (let loop ((len len) (rev-bytes '()))
       (if (= len 0)
-          (new-value (reverse rev-bytes))
+          (new-value (reverse rev-bytes)) ;; TODO why reverse, everything is empty
           (loop (- len 1)
                 (cons (new-byte-cell)
                       rev-bytes))))))

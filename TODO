@@ -5,7 +5,6 @@ forward declarations
 real conditions (in if)
 optimize stuff like : bra $4, 4: (jump to the next line)
 eliminate dead code after branches before next label (should be generated at all, surprising, but look at asm from test6, label $5 has a return after a bra $4)
-eliminate bbs that are a single jump, except if the previous one (in the code) needs that jump
 
 make sure jump like this can't happen (from test5)
 000012 0164		    cpfsgt  1
@@ -18,8 +17,6 @@ make sure jump like this can't happen (from test5)
 p-e s'arranger pour que bloc si vrai soit tjrs immediatement apres, donc si on a vrai, on skippe le jump. pour que ca marhe, il faudrait aussi eliminer les bra $4, $4:
 
 revoir le systeme de conditions au complet, il est degeulasse
-
-avoir vraie comparaison pour switch, egalite, pas inegalite louche
 
 pour avoir comparaison d'egalite avec cste, load cste dans wreg, et CPFSEQ
 
@@ -41,3 +38,9 @@ test5 avec fall through au case 0
 00002A 016E		    movwf   1
 00002C 00D0		    bra     $9
 grossierement inefficace
+
+utiliser instructions speciales du 4550 ? voir datasheet
+
+
+!= does not seem to work
+postinc/dec in an expression does not work (sigma example had res = res + n--, gave the decremented value)

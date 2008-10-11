@@ -62,8 +62,7 @@
 
   (define (return)
     (if (and #f (and (not (null? rev-code))
-             (eq? (caar rev-code) 'rcall))
-)
+		     (eq? (caar rev-code) 'rcall)))
         (let ((label (cadar rev-code)))
           (set! rev-code (cdr rev-code))
           (bra label))
@@ -72,8 +71,7 @@
   (define (label lab)
     (if (and #f (and (not (null? rev-code))
              (eq? (caar rev-code) 'bra)
-             (eq? (cadar rev-code) lab))
-)
+             (eq? (cadar rev-code) lab)))
         (begin
           (set! rev-code (cdr rev-code))
           (label lab))
@@ -81,7 +79,7 @@
 
   (define (sleep)
     (emit (list 'sleep)))
-
+  
   (define (move-reg src dst)
     (cond ((= src dst))
           ((= src WREG)
@@ -104,7 +102,7 @@
                 (else
                  (movlw n)
                  (movwf adr))))
-
+	
         (define (dump-instr instr)
           (cond ((call-instr? instr)
                  (let* ((def-proc (call-instr-def-proc instr))
@@ -200,7 +198,6 @@
                             (bra (bb-label dest))
                             (add-todo dest)))
                          ((x==y x<y x>y)
-			  (pp (list "BB compare" (bb-label-num bb)))
                           (let* ((succs (bb-succs bb))
                                  (dest-true (car succs))
                                  (dest-false (cadr succs)))
@@ -326,13 +323,9 @@
 
   (asm-display-listing (current-output-port))
 
-  (asm-write-hex-file (string-append filename ".hex"))
+  (asm-write-hex-file (string-append filename ".hex")) ;; TODO move to main ?
 
-  '(display "------------------ EXECUTION USING SIMULATOR\n")
-
-  (asm-end!)
-
-  (execute-hex-file (string-append filename ".hex")))
+  (asm-end!))
 
 (define (code-gen filename cfg)
   (allocate-registers cfg)
