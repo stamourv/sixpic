@@ -268,3 +268,20 @@
                     new-succs)))
 
     (for-each bb-process (cfg-bbs cfg))))
+
+;------------------------------------------------------------------------------
+
+;; remove conditions whose 2 destination branches are the same, and replaces
+;; them with simple jumps
+(define (remove-useless-conditions cfg)
+
+  (define (bb-process bb)
+    (let ((instrs (bb-rev-instrs bb))
+	  (succs  (bb-succs bb)))
+      (if (and (memq (instr-id (car instrs)) conditional-instrs) ; conditional
+	       (>= (length succs) 2)
+	       (eq? (car succs) (cadr succs))) ; both destinations are the same
+	  (bb-rev-instrs-set! bb (cons (new-instr 'goto #f #f #f)
+				       (cdr instrs))))))
+  
+  (for-each bb-process (cfg-bbs cfg)))

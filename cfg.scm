@@ -38,6 +38,10 @@
 (define (new-instr id src1 src2 dst)
   (make-instr '() '() #f id src1 src2 dst))
 
+;; list of all conditional branching generic instructions
+(define conditional-instrs ;; TODO add as we add specialized instructions
+  '(x==y x!=y x<y x>y x<=y x>=y))
+
 (define (new-call-instr def-proc)
   (make-call-instr '() '() #f 'call #f #f #f def-proc))
 
@@ -474,7 +478,7 @@
 		    (test-zero (subast1 ast) bb-true bb-false2)
 		    (in bb-false2)
 		    (test-zero (subast2 ast) bb-true bb-false)))
-		 ((x==y x!=y x<y x>y x<=y x>=y) ;; TODO have a var to contain all these comparison operators
+		 ((x==y x!=y x<y x>y x<=y x>=y)
 		  (test-relation id
 				 (subast1 ast)
 				 (subast2 ast)
