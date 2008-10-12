@@ -44,3 +44,6 @@ utiliser instructions speciales du 4550 ? voir datasheet
 
 != does not seem to work
 postinc/dec in an expression does not work (sigma example had res = res + n--, gave the decremented value)
+
+faire marcher while(0), voir si while(1) marche
+a vrai dire, leur effet est inverse, donc inverser les bb-true et false etait p-e pas une si bonne idee

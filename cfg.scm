@@ -226,6 +226,7 @@
   (define (if1 ast)
     (let* ((bb-join (new-bb))
            (bb-then (new-bb)))
+      (pp "IF1")
       (test-expression (subast1 ast) bb-then bb-join)
       (in bb-then)
       (statement (subast2 ast))
@@ -235,7 +236,7 @@
     (let* ((bb-join (new-bb))
            (bb-then (new-bb))
            (bb-else (new-bb)))
-      (test-expression (subast1 ast) bb-then bb-else)
+      (test-expression (subast1 ast) bb-then bb-else) ;; TODO invert ?
       (in bb-then)
       (statement (subast2 ast))
       (gen-goto bb-join)
@@ -363,6 +364,7 @@
 
     (define (test-byte id byte1 byte2 bb-true bb-false)
       (define (test-lit id x y)
+	(pp (list "LIT" "TRUE" (bb-label-num bb-true) "FALSE" (bb-label-num bb-false)))
 	((case id
 	   ((x==y) =)
 	   ((x<y) <)
@@ -370,13 +372,14 @@
 	   (else (error "invalid test")))
 	 x
 	 y))
+      (pp (list "BYTE" "TRUE" (bb-label-num bb-true) "FALSE" (bb-label-num bb-false)))
       (cond ((and (byte-lit? byte1) (byte-lit? byte2))
 	     (if (test-lit id (byte-lit-val byte1) (byte-lit-val byte2))
-		 (gen-goto bb-true)
-		 (gen-goto bb-false)))
+		 (begin (pp (list "TRUE" (bb-label-num bb-true))) (gen-goto bb-true))
+		 (begin (pp (list "FALSE" (bb-label-num bb-false))) (gen-goto bb-false))))
 	    ((byte-lit? byte2)
+	     (add-succ bb bb-false) ; since we cons each new successor at the front, true has to be added last
 	     (add-succ bb bb-true)
-	     (add-succ bb bb-false)
 	     (emit (new-instr id byte1 byte2 #f)))
 	    ((byte-lit? byte1)
 	     (let ((id
@@ -385,17 +388,18 @@
 		      ((x<y) 'x>y)
 		      ((x>y) 'x<y)
 		      (else (error "invalid test")))))
-	       (add-succ bb bb-true)
 	       (add-succ bb bb-false)
+	       (add-succ bb bb-true)
 	       (emit (new-instr id byte2 byte1 #f))))
 	    (else
-	     (add-succ bb bb-true)
 	     (add-succ bb bb-false)
+	     (add-succ bb bb-true)
 	     (emit (new-instr id byte1 byte2 #f))))) ;; TODO doesn't change from if we had literals, at least not now
 
     (define (test-value id value1 value2 bb-true bb-false)
+      (pp (list "VALUE" "TRUE" (bb-label-num bb-true) "FALSE" (bb-label-num bb-false)))
       ;; note: for multi-byte values, only x==y works properly TODO fix it, will depend on byte order, is car the lsb or msb ?
-      (let* ((bytes1 (value-bytes value1))
+      (let* ((bytes1 (value-bytes value1)) ;; TODO less nesting is necessary
 	     (bytes2 (value-bytes value2)))
 	(let loop ((bytes1 bytes1) (bytes2 bytes2))
 	  (let ((byte1 (car bytes1))
@@ -408,6 +412,7 @@
 		  (loop (cdr bytes1) (cdr bytes2))))))))
 
     (define (test-relation id x y bb-true bb-false) ;; TODO doesn't look like it's working
+      (pp (list "RELATION" "TRUE" (bb-label-num bb-true) "FALSE" (bb-label-num bb-false)))
       (cond ((and (literal? x) (not (literal? y))) ;; TODO why should the literal be the last arg ? does it have to do with code generation ?
 	     (compare (case id ;; TODO compare does not exist in this scope
 			((x==y x!=y) id)
@@ -448,6 +453,7 @@
 	     
 	     (let* ((value1 (expression x))
 		    (value2 (expression y)))
+	       (pp "HERE2")
 	       (test-value id value1 value2 bb-true bb-false))
 	     )))
 
@@ -456,8 +462,10 @@
       (define (default)
 	(let ((type (expr-type ast))
 	      (value (expression ast)))
-	  (test-value 'x==y value (int->value 0 type) bb-false bb-true))) ;; TODO once != works, use it and flip the target bbs
+	  (pp (list "DEFAULT" "TRUE" (bb-label-num bb-true) "FALSE" (bb-label-num bb-false))) ;; TODO is the right way for literal tests, but not for while(x)
+	  (test-value 'x==y value (int->value 0 type) bb-false bb-true))) ;; TODO once != works, use it and flip the target bbs TODO if we tst literals, the conditions are in the wrong order, the problem is probably in the literal tests FOOBAR
       
+      (pp (list "ZERO" "TRUE" (bb-label-num bb-true) "FALSE" (bb-label-num bb-false)))
       (cond ((oper? ast)
 	     (let* ((op (oper-op ast))
 		    (id (op-id op)))
@@ -469,6 +477,7 @@
 		 ((|x\|\|y|) ;; TODO
 		  ...)
 		 ((x==y x!=y x<y x>y x<=y x>=y) ;; TODO have a var to contain all these comparison operators
+		  (pp "HERE")
 		  (test-relation id
 				 (subast1 ast)
 				 (subast2 ast)
@@ -476,8 +485,9 @@
 				 bb-false))
 		 (else (default)))))
 	    (else (default))))
-    
-    (test-zero ast bb-false bb-true))
+
+    (pp (list "EXPRESSION" "TRUE" (bb-label-num bb-true) "FALSE" (bb-label-num bb-false)))    
+    (test-zero ast bb-true bb-false))
 
   (define (expression ast)
     (let ((result
