@@ -39,11 +39,27 @@ test5 avec fall through au case 0
 00002C 00D0		    bra     $9
 grossierement inefficace
 
+if (x != 2 && 0){
+    return 5;
+  }
+donne :
+			$3:
+00000E 020E		    movlw   2
+000010 0062		    cpfseq  0
+000012 01D0		    bra     $6
+000014 00D0		    bra     $6
+risible
+  
+
 utiliser instructions speciales du 4550 ? voir datasheet
 
 
-!= does not seem to work
 postinc/dec in an expression does not work (sigma example had res = res + n--, gave the decremented value)
 
-faire marcher while(0), voir si while(1) marche
-a vrai dire, leur effet est inverse, donc inverser les bb-true et false etait p-e pas une si bonne idee
+faire marcher les < et > sur plusieurs bytes
+
+eliminer code mort apres un branch / return
+
+avoir suite de tests (entre autres, tous les types de conditions)
+
+elimination de conditions si les 2 destinations sont les memes

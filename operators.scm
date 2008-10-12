@@ -17,7 +17,7 @@
     (cond ((eq? t1 'int)
            'int) ; TODO add support for other types
           (else
-           (error "type error" ast)))))
+           (error "int-op1: type error" ast)))))
 
 (define (type-rule-int-op2 ast)
   (let ((t1 (expr-type (subast1 ast)))
@@ -25,13 +25,13 @@
     (cond ((and (eq? t1 'int) (eq? t2 'int)) ; TODO are there any operations that do otherwise ? add cast support also
            'int)
           (else
-           (error "type error" ast)))))
+           (error "int-op2: type error" ast)))))
 
 (define (type-rule-int-assign ast) ;; TODO add cast support, and why the int in the name ?
   (let ((t1 (expr-type (subast1 ast)))
         (t2 (expr-type (subast2 ast))))
     (if (not (eq? t1 t2))
-        (error "type error" ast))
+        (error "int-assign: type error" ast))
     t1))
 
 (define (type-rule-int-comp-op2 ast)
@@ -40,7 +40,17 @@
     (cond ((and (eq? t1 'int) (eq? t2 'int))
            'bool)
           (else
-           (error "type error" ast)))))
+           (error "int-comp-op2: type error" ast)))))
+
+(define (type-rule-bool-op2 ast)
+  (let ((t1 (expr-type (subast1 ast)))
+        (t2 (expr-type (subast2 ast))))
+    (cond ((or (and (eq? t1 'bool) (eq? t2 'bool))
+	       (and (eq? t1 'bool) (eq? t2 'int)) ; ints can be cast to bools
+	       (and (eq? t1 'int)  (eq? t2 'bool)))
+           'bool)
+          (else
+           (error "bool-op2: type error" ast)))))
 
 (define-op1 'six.!x '!x
   type-rule-int-op1
@@ -179,7 +189,7 @@
 (define-op2 'six.x>=y 'x>=y
   type-rule-int-comp-op2
   (lambda (ast)
-    ...)
+    ast)
   (lambda (ast)
     ...))
 
@@ -227,14 +237,14 @@
     ...))
 
 (define-op2 'six.x&&y 'x&&y
-  type-rule-int-op2
+  type-rule-bool-op2
   (lambda (ast)
     ast)
   (lambda (ast)
     ...))
 
 (define-op2 '|six.x\|\|y| '|x\|\|y|
-  type-rule-int-op2
+  type-rule-bool-op2
   (lambda (ast)
     ast)
   (lambda (ast)

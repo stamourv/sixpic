@@ -48,7 +48,7 @@
 	'(pretty-print cfg)
         (remove-branch-cascades-and-dead-code cfg)
 	'(pp "AFTER")
-	(print-cfg-bbs cfg)
+	'(print-cfg-bbs cfg)
         '(pretty-print cfg)
         (let ((code (code-gen filename cfg)))
           (pretty-print code)

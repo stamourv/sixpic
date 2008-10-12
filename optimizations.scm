@@ -236,12 +236,13 @@
                          (let ((new-dest
                                 (chase-branch-cascade old-dest
                                                       (cons bb seen))))
-                           (if (not (eq? old-dest new-dest))
-                               (begin
-                                 (bb-succs-set! bb
-                                                (remove old-dest (bb-succs bb)))
-                                 (bb-preds-set! old-dest
-                                                (remove bb (bb-preds old-dest)))))
+                           ;; (if (not (eq? old-dest new-dest)) ;; TODO this seems to be a shortcut, and it broke a few things, so removed
+;;                                (begin
+;; 				 (pp (list "CASCADE" (bb-label-num bb)))
+;;                                  (bb-succs-set! bb
+;;                                                 (remove old-dest (bb-succs bb)))
+;;                                  (bb-preds-set! old-dest
+;;                                                 (remove bb (bb-preds old-dest)))))
                            new-dest)))
                       (else
                        bb))
