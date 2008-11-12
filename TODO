@@ -2,64 +2,30 @@ finish parser
 add pointers
 add main
 forward declarations
-real conditions (in if)
 optimize stuff like : bra $4, 4: (jump to the next line)
 eliminate dead code after branches before next label (should be generated at all, surprising, but look at asm from test6, label $5 has a return after a bra $4)
 
-make sure jump like this can't happen (from test5)
-000012 0164		    cpfsgt  1
-000014 01D0		    bra     $3
-000016 01D0		    bra     $4
-			$3:
-000018 1200		    return  0
-			$4:
-00001A 0300		    sleep   
-p-e s'arranger pour que bloc si vrai soit tjrs immediatement apres, donc si on a vrai, on skippe le jump. pour que ca marhe, il faudrait aussi eliminer les bra $4, $4:
-
-revoir le systeme de conditions au complet, il est degeulasse
 
 pour avoir comparaison d'egalite avec cste, load cste dans wreg, et CPFSEQ
+TODO verifier si je l'ai pas deja ajoute
 
-
-00000A 0150		    movf    1, w
-00000C 006E		    movwf   0
-plutot faire movff 1, 0 -- verifier que ca fait bien la meme chose
-
-registres sont pas sauvegardes, donc adieu recursion, et p-e calls nestes, voir ex 8, qui ne fait pas ce qu'il devrait.
 
 += is not supported, so probably neither are his brothers
-
-test5 avec fall through au case 0
-			$7:
-000022 0150		    movf    1, w
-000024 006E		    movwf   0
-000026 002A		    incf    0
-000028 0050		    movf    0, w
-00002A 016E		    movwf   1
-00002C 00D0		    bra     $9
-grossierement inefficace
-
-if (x != 2 && 0){
-    return 5;
-  }
-donne :
-			$3:
-00000E 020E		    movlw   2
-000010 0062		    cpfseq  0
-000012 01D0		    bra     $6
-000014 00D0		    bra     $6
-risible
-  
-
-utiliser instructions speciales du 4550 ? voir datasheet
 
 
 postinc/dec in an expression does not work (sigma example had res = res + n--, gave the decremented value)
 
-faire marcher les < et > sur plusieurs bytes
-
-eliminer code mort apres un branch / return
-
 avoir suite de tests (entre autres, tous les types de conditions)
 
-elimination de conditions si les 2 destinations sont les memes
+add support for pointer types parsing in six
+
+pour l'instant, faire marcher declarations de tableaux avec taille fixe (i.e. int b[3]), devrait etre assez, su moins pour le moment (ou p-e meme pour picobit au complet)
+
+six.index should behave correctly if used in the lhs of an assignment
+
+simulator does not support byte-to-byte, whatever that is NEEDED FOR MOVFF (avoir movff)
+
+voir si en C, on peut caster de int vers byte, par exemple
+
+faire marcher les < et > sur plusieurs bytes
+

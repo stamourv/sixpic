@@ -57,3 +57,20 @@
 	(else
 	 (cons (car lst)
 	       (replace x y (cdr lst))))))
+
+(define (last lst)
+  (cond ((null? lst)
+	 #f)
+	((null? (cdr lst))
+	 (car lst))
+	(else (last (cdr lst)))))
+
+(define (all-but-last lst)
+  (let loop ((lst lst)
+	     (new '()))
+    (cond ((null? lst)
+	   #f)
+	  ((null? (cdr lst))
+	   (reverse new))
+	  (else (loop (cdr lst)
+		      (cons (car lst) new))))))

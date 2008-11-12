@@ -20,7 +20,7 @@
 
       (define (def asts cte)
         (let* ((value
-                (alloc-value type))
+                (alloc-value type)) ;; TODO use dims to allocate
                (ast
                 (new-def-variable asts id '() type value '()))
                (cte

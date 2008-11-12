@@ -89,7 +89,7 @@
   (define continue-stack '())
   (define delayed-post-incdec '())
 
-  (define (push-break x) ;; TODO contents of break-stack are never looked at
+  (define (push-break x)
     (set! break-stack (cons x break-stack)))
 
   (define (pop-break)
@@ -211,9 +211,15 @@
     (emit (new-instr 'move from #f to)))
 
   (define (move-value from to)
-    (for-each move
-              (value-bytes from)
-              (value-bytes to)))
+    (let loop ((from (value-bytes from))
+	       (to   (value-bytes to)))
+      (cond ((null? to)) ; done TODO check to see if the order is right when truncated ? FOO
+	    ((null? from) ; promote the value by padding
+	     (move (new-byte-lit 0) (car to))
+	     (loop from (cdr to)))
+	    (else
+	     (move (car from) (car to))
+	     (loop (cdr from) (cdr to))))))
                
   (define (return-with-no-new-bb def-proc)
     (emit (new-return-instr def-proc)))
@@ -225,8 +231,7 @@
           (let ((ext-value (extend value (def-procedure-type current-def-proc))))
             (move-value value (def-procedure-value current-def-proc))
             (return-with-no-new-bb current-def-proc))))
-    (in (new-bb)) ;; TODO might cause problems eventually
-    )
+    (in (new-bb))) ;; TODO might cause problems eventually
 
   (define (if1 ast)
     (let* ((bb-join (new-bb))
@@ -337,7 +342,9 @@
 		   (curr-case (car case-list))
 		   (curr-case-id (cadar curr-case))
 		   (curr-case-bb (cdr curr-case)))
-	      (emit (new-instr 'x==y (car (value-bytes (expression var))) (new-byte-lit curr-case-id) #f)) ;; TODO what about work duplication ?
+	      (emit (new-instr 'x==y
+			       (car (value-bytes (expression var)))
+			       (new-byte-lit curr-case-id) #f)) ;; TODO what about work duplication ?
 	      (add-succ bb next-bb) ; if false, keep looking
 	      (add-succ bb curr-case-bb) ; if true, go to the case
 	      (loop (cdr case-list)
@@ -402,6 +409,7 @@
       ;; note: for multi-byte values, only x==y works properly TODO fix it, will depend on byte order, is car the lsb or msb ?
       (let loop ((bytes1 (value-bytes value1))
 		 (bytes2 (value-bytes value2)))
+	;; TODO won't work with values of different widths
 	(let ((byte1 (car bytes1))
 	      (byte2 (car bytes2)))
 	  (if (null? (cdr bytes1))
@@ -518,21 +526,46 @@
                (bytes2 (value-bytes value2))
                (bytes3 (value-bytes result))
                (ignore-carry-borrow? #t))
-      (if (not (null? bytes1))
-          (let ((byte1 (car bytes1))
-                (byte2 (car bytes2))
-                (byte3 (car bytes3)))
-            (emit
-             (new-instr (if ignore-carry-borrow?
-                            (case id ((x+y) 'add) ((x-y) 'sub))
-                            (case id ((x+y) 'addc) ((x-y) 'subb)))
-                        byte1
-                        byte2
-                        byte3))
-            (loop (cdr bytes1)
-                  (cdr bytes2)
-                  (cdr bytes3)
-                  #f)))))
+      (if (not (null? bytes3)) ;; TODO test this
+	  (begin (emit
+		  (new-instr (if ignore-carry-borrow?
+				 (case id ((x+y) 'add) ((x-y) 'sub))
+				 (case id ((x+y) 'addc) ((x-y) 'subb)))
+			     (if (null? bytes1) (new-byte-lit 0) (car bytes1))
+			     (if (null? bytes2) (new-byte-lit 0) (car bytes2))
+			     (car bytes3)))
+		 (loop (if (null? bytes1) bytes1 (cdr bytes1))
+		       (if (null? bytes2) bytes2 (cdr bytes2))
+		       (cdr bytes3)
+		       #f)))
+;;       (cond ((null? bytes3)) ; done, we truncate whatever remains
+;; 	    ((and (null? bytes1) (null? bytes2)) ; nothing to add/sub, pad
+;; 	     ;; (move (new-byte-lit 0) (car bytes3)) ;; oops, doesn't work with carry
+;; 	     (emit
+;; 	      (new-instr (if ignore-carry-borrow?
+;; 			     (case id ((x+y) 'add) ((x-y) 'sub))
+;; 			     (case id ((x+y) 'addc) ((x-y) 'subb)))
+;;                         (new-byte-lit 0)
+;; 			(new-byte-lit 0)
+;; 			(car bytes3)))
+;; 	     (loop bytes1 bytes2 (cdr bytes3)))
+;; 	    ())
+;;       (if (not (null? bytes1))
+;;           (let ((byte1 (car bytes1))
+;;                 (byte2 (car bytes2))
+;;                 (byte3 (car bytes3)))
+;;             (emit
+;;              (new-instr (if ignore-carry-borrow?
+;;                             (case id ((x+y) 'add) ((x-y) 'sub))
+;;                             (case id ((x+y) 'addc) ((x-y) 'subb)))
+;;                         byte1
+;;                         byte2
+;;                         byte3))
+;;             (loop (cdr bytes1)
+;;                   (cdr bytes2)
+;;                   (cdr bytes3)
+;;                   #f))) ;; TODO remove
+      ))
 
   (define (do-delayed-post-incdec)
     (if (not (null? delayed-post-incdec))

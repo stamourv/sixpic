@@ -56,8 +56,12 @@
 
 (define (nb-bytes type)
   (case type
-    ((void) 0)
-    ((int) 1) ;; TODO have more types
+    ((void)  0) ;; TODO have more types
+    ((byte)  1)
+    ((int8)  1)
+    ((int16) 2)
+    ((int32) 4)
+    ((int)   4) ;; TODO should the default int be 32 bits ?
     (else (error "wrong number of bytes ?"))))
 
 (define (int->value n type)

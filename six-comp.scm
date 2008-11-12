@@ -48,6 +48,7 @@
 	'(pretty-print cfg)
         (remove-branch-cascades-and-dead-code cfg)
 	(remove-useless-conditions cfg)
+	(remove-dead-instructions cfg)
 	'(pp "AFTER")
 	'(print-cfg-bbs cfg)
         '(pretty-print cfg)

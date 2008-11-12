@@ -217,7 +217,9 @@
                   (set-negative-flag (if (> result-8bit #x7f) 1 0))
                   (if (not (eq? flags-changed 'z-n))
                       (begin
-                        (set-carry-flag (if (> result #xff) 1 0))
+                        (set-carry-flag (if (or (> result #xff)
+						(< result 0))
+					    1 0))
                         (if (not (eq? flags-changed 'c-z-n))
                             (begin
                               (set-deccarry-flag 0);;;;;;;;;;;;;;
@@ -366,6 +368,13 @@
 
 (define trace-instr #t)
 
+(define (carry)
+  (if (> pic18-carry-flag 0)
+      (begin (set! pic18-carry-flag #f) ;; TODO is this how the PIC18 hardware does it ?
+	     (pp "CARRY")
+	     1)
+      0))
+
 ;------------------------------------------------------------------------------
 
 ; Byte-oriented file register operations.
@@ -475,7 +484,10 @@
 
 (decode-opcode #b1100 12
   (lambda (opcode)
-    (byte-to-byte "movff")))
+    '(byte-to-byte "movff")
+    (byte-oriented opcode "movff" 'none
+      (lambda (f)
+	f)))) ;; TODO doesn't work
 
 (decode-opcode #b0110111 9
   (lambda (opcode)
@@ -529,7 +541,7 @@
   (lambda (opcode)
     (byte-oriented opcode "subfwb" 'c-dc-z-ov-n
      (lambda (f)
-       (- (get-wreg) f (- 1 (carry)))))))
+       (- (get-wreg) f (carry)))))) ;; TODO was (- 1 (carry)), but caused problems with the other
 
 (decode-opcode #b010111 10
   (lambda (opcode)
@@ -541,7 +553,7 @@
   (lambda (opcode)
     (byte-oriented opcode "subwfb" 'c-dc-z-ov-n
      (lambda (f)
-       (- f (get-wreg) (- 1 (carry)))))))
+       (- f (get-wreg) (carry)))))) ;; TODO !carry didn't work
 
 (decode-opcode #b001110 10
   (lambda (opcode)

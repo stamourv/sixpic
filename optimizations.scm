@@ -285,3 +285,22 @@
 				       (cdr instrs))))))
   
   (for-each bb-process (cfg-bbs cfg)))
+
+;------------------------------------------------------------------------------
+
+;; removes dead instructions (instructions after a return or after all jumps)
+(define (remove-dead-instructions cfg) ;; TODO was not tested thoroughly
+
+  (define (bb-process bb)
+    (let loop ((instrs (reverse (bb-rev-instrs bb)))
+	       (new-instrs '()))
+      (let* ((head (car instrs))
+	     (op   (instr-id head)))
+	(if (or (eq? op 'return)
+		(eq? op 'goto)
+		(memq op conditional-instrs))
+	    (bb-rev-instrs-set! bb (cons head new-instrs))
+	    (loop (cdr instrs)
+		  (cons head new-instrs))))))
+
+  (for-each bb-process (cfg-bbs cfg)))

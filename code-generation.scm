@@ -21,6 +21,9 @@
   (define (movfw adr)
     (emit (list 'movfw adr)))
 
+  (define (movff src dst)
+    (emit (list 'movff src dst)))
+
   (define (clrf adr)
     (emit (list 'clrf adr)))
 
@@ -61,7 +64,7 @@
     (emit (list 'rcall label)))
 
   (define (return)
-    (if (and #f (and (not (null? rev-code))
+    (if (and #f (and (not (null? rev-code)) ; TODO probably here for eventual inlining
 		     (eq? (caar rev-code) 'rcall)))
         (let ((label (cadar rev-code)))
           (set! rev-code (cdr rev-code))
@@ -69,7 +72,7 @@
         (emit (list 'return))))
 
   (define (label lab)
-    (if (and #f (and (not (null? rev-code))
+    (if (and #f (and (not (null? rev-code)) ; TODO would probably be useful to eliminate things like : bra $2, $2: 
              (eq? (caar rev-code) 'bra)
              (eq? (cadar rev-code) lab)))
         (begin
@@ -88,7 +91,9 @@
            (movfw src))
           (else
            (movfw src)
-           (movwf dst))))
+	   (movwf dst)
+	   ; (movff src dst) ; takes 2 cycles (as much as movfw src ; movwf dst), but takes only 1 instruction TODO not implemented in the simulator
+	   )))
 
   (define (bb-linearize bb)
     (let ((label-num (bb-label-num bb)))
@@ -272,6 +277,8 @@
        (movwf (cadr instr)))
       ((movfw)
        (movf (cadr instr) 'w))
+      ((movff)
+       (movff (cadr instr) (caddr instr)))
       ((clrf)
        (clrf (cadr instr)))
       ((setf)
@@ -307,7 +314,7 @@
       ((sleep)
        (sleep))
       (else
-'       (error "unknown instruction" instr))))
+       (error "unknown instruction" instr))))
 
   (asm-begin! 0 #f)
 

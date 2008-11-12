@@ -1,5 +1,18 @@
 ;;; operators
 
+(define (castable? from to)
+  (if (eq? from to)
+      #t ; base case
+      (case to
+	((int)
+	 (foldl (lambda (x y) (or x (castable? from y)))
+		#f
+		'(byte int8 int16 int32)))
+	((bool)
+	 (eq? from 'int))
+	;; TODO ajouter casts vers byte, int16, etc
+	(else #f))))
+
 (define operators '())
 
 (define (define-op1 six-id id type-rule constant-fold code-gen)
@@ -14,30 +27,30 @@
 
 (define (type-rule-int-op1 ast)
   (let ((t1 (expr-type (subast1 ast))))
-    (cond ((eq? t1 'int)
-           'int) ; TODO add support for other types
+    (cond ((castable? t1 'int)
+           'int)
           (else
            (error "int-op1: type error" ast)))))
 
 (define (type-rule-int-op2 ast)
   (let ((t1 (expr-type (subast1 ast)))
         (t2 (expr-type (subast2 ast))))
-    (cond ((and (eq? t1 'int) (eq? t2 'int)) ; TODO are there any operations that do otherwise ? add cast support also
+    (cond ((and (castable? t1 'int) (castable? t2 'int))
            'int)
           (else
            (error "int-op2: type error" ast)))))
 
-(define (type-rule-int-assign ast) ;; TODO add cast support, and why the int in the name ?
+(define (type-rule-int-assign ast) ;; TODO why the int in the name ?
   (let ((t1 (expr-type (subast1 ast)))
         (t2 (expr-type (subast2 ast))))
-    (if (not (eq? t1 t2))
+    (if (not (castable? t1 t2))
         (error "int-assign: type error" ast))
     t1))
 
 (define (type-rule-int-comp-op2 ast)
   (let ((t1 (expr-type (subast1 ast)))
         (t2 (expr-type (subast2 ast))))
-    (cond ((and (eq? t1 'int) (eq? t2 'int))
+    (cond ((and (castable? t1 'int) (castable? t2 'int))
            'bool)
           (else
            (error "int-comp-op2: type error" ast)))))
@@ -45,9 +58,7 @@
 (define (type-rule-bool-op2 ast)
   (let ((t1 (expr-type (subast1 ast)))
         (t2 (expr-type (subast2 ast))))
-    (cond ((or (and (eq? t1 'bool) (eq? t2 'bool))
-	       (and (eq? t1 'bool) (eq? t2 'int)) ; ints can be cast to bools
-	       (and (eq? t1 'int)  (eq? t2 'bool)))
+    (cond ((and (castable? t1 bool) (castable? t2 bool))
            'bool)
           (else
            (error "bool-op2: type error" ast)))))
