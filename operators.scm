@@ -10,7 +10,7 @@
 		'(byte int8 int16 int32)))
 	((bool)
 	 (eq? from 'int))
-	;; TODO ajouter casts vers byte, int16, etc
+	;; TODO ajouter casts vers byte, int16, etc, probably not needed since operations are done on ints, and useless operations (on bytes that would not exist) are optimized away
 	(else #f))))
 
 (define operators '())
@@ -58,7 +58,7 @@
 (define (type-rule-bool-op2 ast)
   (let ((t1 (expr-type (subast1 ast)))
         (t2 (expr-type (subast2 ast))))
-    (cond ((and (castable? t1 bool) (castable? t2 bool))
+    (cond ((and (castable? t1 'bool) (castable? t2 'bool))
            'bool)
           (else
            (error "bool-op2: type error" ast)))))

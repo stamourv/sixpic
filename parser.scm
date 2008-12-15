@@ -1,3 +1,10 @@
+;; variables which, when found in programs, have special meanings
+;; when any of these are encountered, it's value is given to the appropriate
+;; compiler variable
+;; for now, these variables must have a literal value
+(define special-variables
+  '((SIXPIC_MEMORY_DIVIDE . memory-divide)))
+
 (define (parse source)
 
   (define (form? keyword source)
@@ -28,6 +35,10 @@
           (cont ast
                 cte)))
 
+      ;; if it's a special variable, use it's value
+      (let ((target (assq id special-variables)))
+	(if target
+	    (eval `(set! ,(cdr target) ,(cadr val))))) ; the value must be a literal
       (if val
           (expression val cte (lambda (ast cte) (def (list ast) cte)))
           (def '() cte))))

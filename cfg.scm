@@ -213,7 +213,7 @@
   (define (move-value from to)
     (let loop ((from (value-bytes from))
 	       (to   (value-bytes to)))
-      (cond ((null? to)) ; done TODO check to see if the order is right when truncated ? FOO
+      (cond ((null? to)) ; done
 	    ((null? from) ; promote the value by padding
 	     (move (new-byte-lit 0) (car to))
 	     (loop from (cdr to)))
@@ -476,7 +476,7 @@
 	       (case id
 		 ((!x)
 		  (test-zero (subast1 ast) bb-false bb-true))
-		 ((x&&y) ;; TODO trouble with literals
+		 ((x&&y)
 		  (let ((bb-true2 (new-bb)))
 		    (test-zero (subast1 ast) bb-true2 bb-false)
 		    (in bb-true2)
@@ -526,7 +526,7 @@
                (bytes2 (value-bytes value2))
                (bytes3 (value-bytes result))
                (ignore-carry-borrow? #t))
-      (if (not (null? bytes3)) ;; TODO test this
+      (if (not (null? bytes3))
 	  (begin (emit
 		  (new-instr (if ignore-carry-borrow?
 				 (case id ((x+y) 'add) ((x-y) 'sub))
@@ -537,35 +537,7 @@
 		 (loop (if (null? bytes1) bytes1 (cdr bytes1))
 		       (if (null? bytes2) bytes2 (cdr bytes2))
 		       (cdr bytes3)
-		       #f)))
-;;       (cond ((null? bytes3)) ; done, we truncate whatever remains
-;; 	    ((and (null? bytes1) (null? bytes2)) ; nothing to add/sub, pad
-;; 	     ;; (move (new-byte-lit 0) (car bytes3)) ;; oops, doesn't work with carry
-;; 	     (emit
-;; 	      (new-instr (if ignore-carry-borrow?
-;; 			     (case id ((x+y) 'add) ((x-y) 'sub))
-;; 			     (case id ((x+y) 'addc) ((x-y) 'subb)))
-;;                         (new-byte-lit 0)
-;; 			(new-byte-lit 0)
-;; 			(car bytes3)))
-;; 	     (loop bytes1 bytes2 (cdr bytes3)))
-;; 	    ())
-;;       (if (not (null? bytes1))
-;;           (let ((byte1 (car bytes1))
-;;                 (byte2 (car bytes2))
-;;                 (byte3 (car bytes3)))
-;;             (emit
-;;              (new-instr (if ignore-carry-borrow?
-;;                             (case id ((x+y) 'add) ((x-y) 'sub))
-;;                             (case id ((x+y) 'addc) ((x-y) 'subb)))
-;;                         byte1
-;;                         byte2
-;;                         byte3))
-;;             (loop (cdr bytes1)
-;;                   (cdr bytes2)
-;;                   (cdr bytes3)
-;;                   #f))) ;; TODO remove
-      ))
+		       #f)))))
 
   (define (do-delayed-post-incdec)
     (if (not (null? delayed-post-incdec))

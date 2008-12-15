@@ -29,3 +29,12 @@ voir si en C, on peut caster de int vers byte, par exemple
 
 faire marcher les < et > sur plusieurs bytes
 
+elimination de tests sur relations avec juste des literaux : 0 > 1
+
+voir si un fonction qui prend un int, a qui on donne un byte marche convenablement
+aussi, voir si casts explicites peuvent marcher commedu monde
+
+
+tableaux
+var SIXPIC_MEMORY_DIVIDE : a partir de cette adresse, la memoire est geree par l'usager
+    TODO : limiter allocation de registres

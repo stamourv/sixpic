@@ -84,132 +84,6 @@
           (for-each bb-analyze-liveness (cfg-bbs cfg))
           (loop)))))
 
-(define (interference-graph cfg)
-
-  (define all-live '())
-
-  (define (interfere x y)
-    (if (not (memq x (byte-cell-interferes-with y)))
-        (begin
-          (byte-cell-interferes-with-set!
-           x
-           (cons y (byte-cell-interferes-with x)))
-          (byte-cell-interferes-with-set!
-           y
-           (cons x (byte-cell-interferes-with y))))))
-
-  (define (interfere-pairwise live)
-    (set! all-live (union all-live live))
-    (for-each (lambda (x)
-                (for-each (lambda (y)
-                            (if (not (eq? x y))
-                                (interfere x y)))
-                          live))
-              live))
-
-  (define (instr-interference-graph instr)
-    (let ((dst (instr-dst instr)))
-      (if (byte-cell? dst)
-          (let ((src1 (instr-src1 instr))
-                (src2 (instr-src2 instr)))
-            (if (byte-cell? src1)
-                (begin
-                  (byte-cell-coalesceable-with-set!
-                   dst
-                   (union (byte-cell-coalesceable-with dst)
-                          (list src1)))
-                  (byte-cell-coalesceable-with-set!
-                   src1
-                   (union (byte-cell-coalesceable-with src1)
-                          (list dst)))))
-            (if (byte-cell? src2)
-                (begin
-                  (byte-cell-coalesceable-with-set!
-                   dst
-                   (union (byte-cell-coalesceable-with dst)
-                          (list src2)))
-                  (byte-cell-coalesceable-with-set!
-                   src2
-                   (union (byte-cell-coalesceable-with src2)
-                          (list dst))))))))
-    (let ((live-before (instr-live-before instr)))
-      (interfere-pairwise live-before)))
-
-  (define (bb-interference-graph bb)
-    (for-each instr-interference-graph (bb-rev-instrs bb)))
-
-  (analyze-liveness cfg)
-
-  (for-each bb-interference-graph (cfg-bbs cfg))
-
-  all-live)
-
-(define (allocate-registers cfg)
-  (let ((all-live (interference-graph cfg)))
-
-    (define (color byte-cell)
-      (let ((coalesce-candidates
-             (keep byte-cell-adr
-                   (diff (byte-cell-coalesceable-with byte-cell)
-                         (byte-cell-interferes-with byte-cell)))))
-        '
-        (pp (list byte-cell: byte-cell;;;;;;;;;;;;;;;
-                  coalesce-candidates
-;                  interferes-with: (byte-cell-interferes-with byte-cell)
-;                  coalesceable-with: (byte-cell-coalesceable-with byte-cell)
-))
-
-        (if #f #;(not (null? coalesce-candidates))
-            (let ((adr (byte-cell-adr (car coalesce-candidates))))
-              (byte-cell-adr-set! byte-cell adr))
-            (let ((neighbours (byte-cell-interferes-with byte-cell)))
-              (let loop1 ((adr 0))
-                (let loop2 ((lst neighbours))
-                  (if (null? lst)
-                      (byte-cell-adr-set! byte-cell adr)
-                      (let ((x (car lst)))
-                        (if (= adr (byte-cell-adr x))
-                            (loop1 (+ adr 1))
-                            (loop2 (cdr lst)))))))))))
-
-    (define (delete byte-cell1 neighbours)
-      (for-each (lambda (byte-cell2)
-                  (let ((lst (byte-cell-interferes-with byte-cell2)))
-                    (byte-cell-interferes-with-set!
-                     byte-cell2
-                     (remove byte-cell1 lst))))
-                neighbours))
-
-    (define (undelete byte-cell1 neighbours)
-      (for-each (lambda (byte-cell2)
-                  (let ((lst (byte-cell-interferes-with byte-cell2)))
-                    (byte-cell-interferes-with-set!
-                     byte-cell2
-                     (cons byte-cell1 lst))))
-                neighbours))
-
-    (define (find-min-neighbours graph)
-      (let loop ((lst graph) (m #f) (byte-cell #f))
-        (if (null? lst)
-            byte-cell
-            (let* ((x (car lst))
-                   (n (length (byte-cell-interferes-with x))))
-              (if (or (not m) (< n m))
-                  (loop (cdr lst) n x)
-                  (loop (cdr lst) m byte-cell))))))
-
-    (define (alloc-reg graph)
-      (if (not (null? graph))
-          (let* ((byte-cell (find-min-neighbours graph))
-                 (neighbours (byte-cell-interferes-with byte-cell)))
-            (let ((new-graph (remove byte-cell graph)))
-              (delete byte-cell neighbours)
-              (alloc-reg new-graph)
-              (undelete byte-cell neighbours))
-            (if (not (byte-cell-adr byte-cell))
-                (color byte-cell)))))
-
-    (alloc-reg all-live)))
 
 ;------------------------------------------------------------------------------
 
@@ -273,7 +147,7 @@
 
 ;; remove conditions whose 2 destination branches are the same, and replaces
 ;; them with simple jumps
-(define (remove-useless-conditions cfg)
+(define (remove-converging-branches cfg)
 
   (define (bb-process bb)
     (let ((instrs (bb-rev-instrs bb))

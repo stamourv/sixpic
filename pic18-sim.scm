@@ -371,7 +371,6 @@
 (define (carry)
   (if (> pic18-carry-flag 0)
       (begin (set! pic18-carry-flag #f) ;; TODO is this how the PIC18 hardware does it ?
-	     (pp "CARRY")
 	     1)
       0))
 
