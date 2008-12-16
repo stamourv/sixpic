@@ -37,4 +37,9 @@ aussi, voir si casts explicites peuvent marcher commedu monde
 
 tableaux
 var SIXPIC_MEMORY_DIVIDE : a partir de cette adresse, la memoire est geree par l'usager
-    TODO : limiter allocation de registres
+ajouter primitives pour dereferencer, a la fois pour reference et pour
+affectation, pour pouvoir utiliser cette memoire
+add arrays in rhs (refs)
+
+
+see test 21, implicit return at the end cannot return array assignations, so array assignations cannot be the last statement, bug ?

@@ -278,6 +278,8 @@
            (literal source cte cont))
           ((form? 'six.identifier source)
            (ref source cte cont))
+	  ((form? 'six.index source)
+	   (array-ref source cte cont))
           ((form? 'six.call source)
            (call source cte cont))
           ((operation? source)
@@ -347,6 +349,18 @@
           (cont (new-ref (def-variable-type binding) binding)
                 cte)
           (error "expected variable" source))))
+
+  (define (array-ref source cte cont)
+    (let* ((id (cadr source))
+	   (index (caddr source)))
+      (ref id
+	   cte
+	   (lambda (ast1 cte)
+	     (expression index
+			 cte
+			 (lambda (ast2 cte)
+			   (cont (new-array-ref ast1 ast2)
+				 cte)))))))
 
   (define (toplevel source cte cont) ;; TODO have an implicit main
     (cond ((form? 'six.define-variable source)

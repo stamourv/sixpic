@@ -607,19 +607,34 @@
 				    (eq? id 'x-y))
 				(add-sub id ext-value-x ext-value-y result))
 			       ((eq? id 'x*y)
-				(error "multiplication not implemented yet"))
-			       (error "...")) ;; TODO implement more
+				(error "multiplication not implemented yet")) ;; TODO maybe just implement multiplication by powers of 2
+			       ((eq? id 'x/y)
+				(error "division not implemented yet")) ;; TODO implement these
+			       ((eq? id 'x%y)
+				(error "modulo not implemented yet")))
                          result)))))
                 ((x=y)
                  (let* ((x (subast1 ast))
                         (y (subast2 ast)))
-                   (if (not (ref? x))
-                       (error "assignment target must be a variable"))
-                   (let ((value-y (expression y)))
-                     (let ((ext-value-y (extend value-y type)))
-                       (let ((result (def-variable-value (ref-def-var x))))
-                         (move-value value-y result)
-                         result)))))
+		   (cond
+		    ((ref? x)
+		     (let ((value-y (expression y)))
+		       (let ((ext-value-y (extend value-y type)))
+			 (let ((result (def-variable-value (ref-def-var x))))
+			   (move-value value-y result)
+			   result))))
+		    ((array-ref? x)
+		     (let ((value-y (expression y))
+			   (base    (ref (array-ref-id x)))
+			   (offset  (expression (array-ref-index x)))
+			   (adress  (alloc-value 'int16))) ;; TODO actual addresses are 12 bits, not 16
+		       (add-sub 'x+y base offset adress)
+		       (move (car  (value-bytes adress)) (get-register FSR0L)) ; lsb
+		       (move (cadr (value-bytes adress)) (get-register FSR0H)) ; msb TODO use only 4 bits
+		       ;; this section of memory is a byte array, only the lsb
+		       ;; of y is used
+		       (move (car (value-bytes value-y)) (get-register INDF0)))) ;; TODO simulator does not support it
+		    (else (error "assignment target must be a variable or an array slot")))))
                 (else
                  (error "binary operation error" ast))))))))
 

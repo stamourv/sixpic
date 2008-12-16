@@ -42,12 +42,15 @@
 (define (new-value bytes)
   (make-value bytes))
 
+;; TODO really in ast ?
 (define-type byte-cell
   adr
   (interferes-with unprintable:)
   (coalesceable-with unprintable:))
 (define (new-byte-cell)
   (make-byte-cell #f '() '()))
+(define (get-register n)
+  (make-byte-cell n '() '()))
 
 (define-type byte-lit
   val)
@@ -121,6 +124,12 @@
   def-var)
 (define (new-ref type def)
   (make-ref #f '() type def))
+
+(define-type-of-expr array-ref
+  id
+  index)
+(define (new-array-ref id index)
+  (make-array-ref #f '() 'byte id index)) ;; TODO the manual memory zone is byte indexed
 
 (define-type-of-expr oper
   op)
