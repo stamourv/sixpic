@@ -1,10 +1,3 @@
-;; variables which, when found in programs, have special meanings
-;; when any of these are encountered, it's value is given to the appropriate
-;; compiler variable
-;; for now, these variables must have a literal value
-(define special-variables
-  '((SIXPIC_MEMORY_DIVIDE . memory-divide)))
-
 (define (parse source)
 
   (define (form? keyword source)
@@ -24,24 +17,51 @@
            (type (caddr source))
            (dims (cadddr source))
            (val (car (cddddr source))))
+      
+      ;; variables which, when found in programs, have special meanings
+      ;; when any of these are encountered, its associated thunk is
+      ;; called
+      (define special-variables
+	(list
+	 (cons 'SIXPIC_MEMORY_DIVIDE
+	       (lambda ()
+		 (set! memory-divide (cadr val)) ; must be a literal
+		 (expression val cte (lambda (ast cte)
+				       (def (list ast) cte)))))
+	 (cons 'SIXPIC_FSR0 ; these 3 must be int16
+	       (lambda ()
+		 (expression val cte
+			     (lambda (ast cte)
+			       (let ((new-var
+				      (new-def-variable
+				       (list ast) id '() 'int16
+				       (new-value (list (get-register FSR0L)
+							(get-register FSR0H)))
+				       '())))
+				 (cont new-var
+				       (cte-extend cte (list new-var))))))))
+	 (cons 'SIXPIC_FSR1
+	       (eval '(special-fsr 1))) ;; TODO does not exist anymore, didn't work, change to be like 0
+	 (cons 'SIXPIC_FSR2
+	       (eval '(special-fsr 2)))))
+
 
       (define (def asts cte)
         (let* ((value
-                (alloc-value type)) ;; TODO use dims to allocate
+                (alloc-value type))
                (ast
                 (new-def-variable asts id '() type value '()))
                (cte
                 (cte-extend cte (list ast))))
           (cont ast
                 cte)))
-
-      ;; if it's a special variable, use it's value
+      ;; if it's a special variable, call its associated thunk instead
       (let ((target (assq id special-variables)))
 	(if target
-	    (eval `(set! ,(cdr target) ,(cadr val))))) ; the value must be a literal
-      (if val
-          (expression val cte (lambda (ast cte) (def (list ast) cte)))
-          (def '() cte))))
+	    ((cdr target))
+	    (if val
+		(expression val cte (lambda (ast cte) (def (list ast) cte)))
+		(def '() cte))))))
 
   (define (define-procedure source cte cont)
     (let* ((id (get-id (cadr source)))
@@ -339,8 +359,15 @@
                                                 cte)))))))))
 
   (define (literal source cte cont)
-    (cont (new-literal 'int (cadr source))
-          cte))
+    (let ((n (cadr source)))
+      (cont (new-literal (cond ((and (>= n 0) (< n 256))
+				'byte)
+			       ((and (>= n 0) (< n 65536))
+				'int16)
+			       (else
+				'int))
+			 n)
+          cte)))
 
   (define (ref source cte cont)
     (let* ((id (cadr source))

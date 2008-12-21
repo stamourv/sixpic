@@ -1,5 +1,9 @@
 ;;; generation of control flow graph
 
+;; special variables whose contents are located in the FSR registers
+;; TODO put here ?
+(define fsr-variables '(SIXPIC_FSR0 SIXPIC_FSR1 SIXPIC_FSR2))
+
 (define-type cfg
   bbs
   next-label-num)
@@ -503,6 +507,8 @@
                   (literal ast))
                  ((ref? ast)
                   (ref ast))
+		 ((array-ref? ast)
+		  (array-ref ast))
                  ((oper? ast)
                   (oper ast))
                  ((call? ast)
@@ -520,6 +526,30 @@
     (let* ((def-var (ref-def-var ast))
            (value (def-variable-value def-var)))
       value))
+
+  ;; calculates an adress in an array by adding the base pointer and the offset
+  ;; and puts the answer in FSR0 so that changes to INDF0 change the array
+  ;; location
+  (define (calculate-adress ast)
+    (let ((base    (ref (array-ref-id ast)))
+	  (offset  (expression (array-ref-index ast)))
+	  (adress  (alloc-value 'int16))) ;; TODO actual addresses are 12 bits, not 16
+      (add-sub 'x+y base offset adress)
+      (move (car  (value-bytes adress)) (get-register FSR0L)) ; lsb
+      (move (cadr (value-bytes adress)) (get-register FSR0H)))) ; msb TODO use only 4 bits
+
+  (define (array-base-name ast)
+    (def-id (ref-def-var (array-ref-id ast))))
+  
+  (define (array-ref ast)
+    ;; this section of memory is a byte array, only the lsb
+    ;; of y is used
+    (let ((base-name (array-base-name ast)))
+      ;; if we have a special FSR variable, no need to calculate the address
+      ;; as it is already in the register
+      (if (not (memq base-name fsr-variables))
+	  (calculate-adress ast)))
+    (new-value (list (get-register INDF0))))
 
   (define (add-sub id value1 value2 result)
     (let loop ((bytes1 (value-bytes value1))
@@ -624,16 +654,16 @@
 			   (move-value value-y result)
 			   result))))
 		    ((array-ref? x)
-		     (let ((value-y (expression y))
-			   (base    (ref (array-ref-id x)))
-			   (offset  (expression (array-ref-index x)))
-			   (adress  (alloc-value 'int16))) ;; TODO actual addresses are 12 bits, not 16
-		       (add-sub 'x+y base offset adress)
-		       (move (car  (value-bytes adress)) (get-register FSR0L)) ; lsb
-		       (move (cadr (value-bytes adress)) (get-register FSR0H)) ; msb TODO use only 4 bits
+		     (let ((value-y   (expression y))
+			   (base-name (array-base-name x)))
+		       (pp (list ID: base-name))
+		       ;; if we have a special FSR variable, no need to calculate the address
+		       ;; as it is already in the register
+		       (if (not (memq base-name fsr-variables))
+			   (calculate-adress x))
 		       ;; this section of memory is a byte array, only the lsb
 		       ;; of y is used
-		       (move (car (value-bytes value-y)) (get-register INDF0)))) ;; TODO simulator does not support it
+		       (move (car (value-bytes value-y)) (get-register INDF0))))
 		    (else (error "assignment target must be a variable or an array slot")))))
                 (else
                  (error "binary operation error" ast))))))))

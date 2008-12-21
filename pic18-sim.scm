@@ -36,6 +36,17 @@
             (arithmetic-shift pic18-zero-flag 2)
             (arithmetic-shift pic18-overflow-flag 3)
             (arithmetic-shift pic18-negative-flag 4)))
+	((assq adr (list (cons INDF0 (cons FSR0H FSR0L))
+			 (cons INDF1 (cons FSR1H FSR1L))
+			 (cons INDF2 (cons FSR2H FSR2L))))
+	 => (lambda (x)
+	      (get-ram (bitwise-ior
+			(arithmetic-shift (u8vector-ref pic18-ram
+							(cadr x))
+					  8)
+			(u8vector-ref pic18-ram
+				      (cddr x))))))
+	;; TODO pre/post inc/dec 0..2
         (else
          (u8vector-ref pic18-ram adr))))
 
@@ -59,6 +70,18 @@
          (set! pic18-zero-flag     (arithmetic-shift (bitwise-and byte 4) -2))
          (set! pic18-overflow-flag (arithmetic-shift (bitwise-and byte 8) -3))
          (set! pic18-negative-flag (arithmetic-shift (bitwise-and byte 16) -4)))
+	((assq adr (list (cons INDF0 (cons FSR0H FSR0L))
+			 (cons INDF1 (cons FSR1H FSR1L))
+			 (cons INDF2 (cons FSR2H FSR2L))))
+	 => (lambda (x)
+	      (set-ram (bitwise-ior ;; TODO factor common code with get-ram ?
+			(arithmetic-shift (u8vector-ref pic18-ram
+							(cadr x))
+					  8)
+			(u8vector-ref pic18-ram
+				      (cddr x)))
+		       byte)))
+	;; TODO all other special array registers
         (else
          (u8vector-set! pic18-ram adr byte))))
 

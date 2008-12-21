@@ -37,9 +37,26 @@ aussi, voir si casts explicites peuvent marcher commedu monde
 
 tableaux
 var SIXPIC_MEMORY_DIVIDE : a partir de cette adresse, la memoire est geree par l'usager
-ajouter primitives pour dereferencer, a la fois pour reference et pour
-affectation, pour pouvoir utiliser cette memoire
-add arrays in rhs (refs)
 
 
 see test 21, implicit return at the end cannot return array assignations, so array assignations cannot be the last statement, bug ?
+
+
+
+
+reconnait si on pre/post inc/dec vars speciales FSRx et on utilise POSTINC0 et cie
+PICOBIT : ajouter bignums (voir code marc), ca fait une contribution
+switchs en tables
+compiler picobit petit bout par petit bout pour voir ou on peut ameliorer
+
+binums dans picobit : 0 = 16 bits de 0 et pointeur vers 16 bits de 0, objet qq part en memoire, ca donne suite infinie de 0
+-1 est meme chose avec juste des 1, -2 est 111..10 et pointeur vers -1, donc ca fait 0 avec infinite de -1, on arrete algos quand les 2 vals sont a 0 ou -1
+p-e avoir un tableau qu ipointe vers -1...10 alloues en permanence, ou p-e avoir 2 espaces de 1 objet pour mettre les operandes en objets d'une primitive, qu'on genere on the fly, voir code marc
+
+p-e autre chose, j'ai le feeling d'avoir oublie de quoi
+
+
+there is a way to put a var in FSR0, but any regular table access would overwrite it, watch out
+
+if a special FSR var, only SIXPIC_FSRX[0] makes any sense, since the address should already be good
+use simple dereference (*) syntax instead, to avoir confusion

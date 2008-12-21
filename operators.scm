@@ -32,18 +32,28 @@
           (else
            (error "int-op1: type error" ast)))))
 
+(define (largest t1 t2) ;; TODO might be used more than juste for int-op2
+  (let loop ((l '(int int32 int16 int8 byte)))
+    (if (null? l)
+	(error "largest: unknown type")
+	(let ((head (car l)))
+	  (if (or (eq? head t1)
+		  (eq? head t2))
+	      head
+	      (loop (cdr l)))))))
+
 (define (type-rule-int-op2 ast)
   (let ((t1 (expr-type (subast1 ast)))
         (t2 (expr-type (subast2 ast))))
     (cond ((and (castable? t1 'int) (castable? t2 'int))
-           'int)
+           (largest t1 t2))
           (else
            (error "int-op2: type error" ast)))))
 
 (define (type-rule-int-assign ast) ;; TODO why the int in the name ?
   (let ((t1 (expr-type (subast1 ast)))
         (t2 (expr-type (subast2 ast))))
-    (if (not (castable? t1 t2))
+    (if (not (castable? t2 t1)) ; the rhs must fit in the lhs
         (error "int-assign: type error" ast))
     t1))
 
