@@ -235,7 +235,7 @@
           (let ((ext-value (extend value (def-procedure-type current-def-proc))))
             (move-value value (def-procedure-value current-def-proc))
             (return-with-no-new-bb current-def-proc))))
-    (in (new-bb))) ;; TODO might cause problems eventually
+    (in (new-bb)))
 
   (define (if1 ast)
     (let* ((bb-join (new-bb))
@@ -472,7 +472,7 @@
       (define (default)
 	(let ((type (expr-type ast))
 	      (value (expression ast)))
-	  (test-value 'x==y value (int->value 0 type) bb-false bb-true))) ;; TODO once != works, use it and flip the target bbs TODO having != here breaks it, no idea why, == with swapped detinations works, though
+	  (test-value 'x==y value (int->value 0 type) bb-false bb-true)))
       
       (cond ((oper? ast)
 	     (let* ((op (oper-op ast))
@@ -527,28 +527,24 @@
            (value (def-variable-value def-var)))
       value))
 
-  ;; calculates an adress in an array by adding the base pointer and the offset
+  ;; calculates an address in an array by adding the base pointer and the offset
   ;; and puts the answer in FSR0 so that changes to INDF0 change the array
   ;; location
-  (define (calculate-adress ast)
-    (let ((base    (ref (array-ref-id ast)))
-	  (offset  (expression (array-ref-index ast)))
-	  (adress  (alloc-value 'int16))) ;; TODO actual addresses are 12 bits, not 16
-      (add-sub 'x+y base offset adress)
-      (move (car  (value-bytes adress)) (get-register FSR0L)) ; lsb
-      (move (cadr (value-bytes adress)) (get-register FSR0H)))) ; msb TODO use only 4 bits
-
+  (define (calculate-address ast)
+    ;; if we have a special FSR variable, no need to calculate the address as
+    ;; it is already in the register
+    (if (not (memq (array-base-name ast) fsr-variables))
+	(let ((base    (ref (array-ref-id ast)))
+	      (offset  (expression (array-ref-index ast)))
+	      (address (new-value (list (get-register FSR0L)
+					(get-register FSR0H))))) ;; TODO actual addresses are 12 bits, not 16
+	  (add-sub 'x+y base offset address))))
+  
   (define (array-base-name ast)
-    (def-id (ref-def-var (array-ref-id ast))))
+    (def-id (ref-def-var (array-ref-id ast)))) ;; TODO if array wasn't a special case, would cover also dereference
   
   (define (array-ref ast)
-    ;; this section of memory is a byte array, only the lsb
-    ;; of y is used
-    (let ((base-name (array-base-name ast)))
-      ;; if we have a special FSR variable, no need to calculate the address
-      ;; as it is already in the register
-      (if (not (memq base-name fsr-variables))
-	  (calculate-adress ast)))
+    (calculate-address ast)
     (new-value (list (get-register INDF0))))
 
   (define (add-sub id value1 value2 result)
@@ -614,13 +610,22 @@
                               (int->value 1 type)
                               result)
                      result)))
-                ((x++ x--)
+                ((x++ x--) ;; TODO not sure this works properly
                  (let ((x (subast1 ast)))
                    (if (not (ref? x))
                        (error "assignment target must be a variable"))
                    (let ((result (def-variable-value (ref-def-var x))))
                      (push-delayed-post-incdec ast)
                      result)))
+		((*x)
+		 (let ((x (subast1 ast)))
+		   ;; TODO merge (calculate-address x)
+		   ;; TODO even if we do not merge with the other array syntax, at least merge with the set for this syntax
+		   (let* ((name (def-id (ref-def-var x)))) ;; TODO use array-base-name once array-refs are not special cases anymore, only diff would be to use subast1 instead of array-ref-id
+		     (if (not (memq name fsr-variables))
+			 (move-value (ref x) (list (get-register FSR0L)
+						     (get-register FSR0H)))))
+		   (new-value (list (get-register INDF0)))))
                 (else
                  (error "unary operation error" ast))))
             (begin
@@ -644,30 +649,31 @@
 				(error "modulo not implemented yet")))
                          result)))))
                 ((x=y)
-                 (let* ((x (subast1 ast))
-                        (y (subast2 ast)))
+                 (let* ((x       (subast1 ast))
+                        (y       (subast2 ast))
+			(value-y (expression y)))
 		   (cond
 		    ((ref? x)
-		     (let ((value-y (expression y)))
-		       (let ((ext-value-y (extend value-y type)))
-			 (let ((result (def-variable-value (ref-def-var x))))
-			   (move-value value-y result)
-			   result))))
+		     (let ((ext-value-y (extend value-y type))) ;; TODO useless for now, what could it have been for ?
+		       (let ((result (def-variable-value (ref-def-var x))))
+			 (move-value value-y result)
+			 result)))
 		    ((array-ref? x)
-		     (let ((value-y   (expression y))
-			   (base-name (array-base-name x)))
-		       (pp (list ID: base-name))
-		       ;; if we have a special FSR variable, no need to calculate the address
-		       ;; as it is already in the register
-		       (if (not (memq base-name fsr-variables))
-			   (calculate-adress x))
-		       ;; this section of memory is a byte array, only the lsb
-		       ;; of y is used
-		       (move (car (value-bytes value-y)) (get-register INDF0))))
+		     (calculate-address x)
+		     ;; this section of memory is a byte array, only the lsb
+		     ;; of y is used
+		     (move (car (value-bytes value-y)) (get-register INDF0)))
+		    ((and (oper? x) (eq? (op-id (oper-op x)) '*x))
+		     (let* ((var (subast1 x))
+			    (name (def-id (ref-def-var var)))) ;; TODO use array-base-name once array-refs are not special cases anymore, only diff would be to use subast1 instead of array-ref-id
+		       (if (not (memq name fsr-variables))
+			   (move-value (ref var) (list (get-register FSR0L)
+						       (get-register FSR0H))))) ;; TODO merge with calculate-address ?
+		     (move (car (value-bytes value-y)) (get-register INDF0)))  ;; TODO this pattern happens at lots of places, will the merging solve this ?
 		    (else (error "assignment target must be a variable or an array slot")))))
                 (else
                  (error "binary operation error" ast))))))))
-
+  
   (define (call ast)
     (let ((def-proc (call-def-proc ast)))
       (for-each (lambda (ast def-var)

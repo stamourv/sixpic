@@ -60,3 +60,8 @@ there is a way to put a var in FSR0, but any regular table access would overwrit
 
 if a special FSR var, only SIXPIC_FSRX[0] makes any sense, since the address should already be good
 use simple dereference (*) syntax instead, to avoir confusion
+
+SYNTAX DE DEREF MARCHE DANS SIX, utiliser
+
+simplifier assignation sur dereference pour utiliser nouvelle version de array-base-name quand array-ref va etre un operateur, pas un cas particulier de syntaxe
+merger les 2 syntaxes

@@ -129,9 +129,10 @@
   (lambda (ast)
     ...))
 
+;; TODO should we handle array index operator this way instead of a special case
 (define-op1 'six.*x '*x
   (lambda (ast)
-    ...)
+    'byte) ; we only have byte arrays
   (lambda (ast)
     ast)
   (lambda (ast)

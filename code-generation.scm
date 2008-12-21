@@ -1,4 +1,4 @@
-;; adress after which memory is allocated by the user, therefore not used for
+;; address after which memory is allocated by the user, therefore not used for
 ;; register allocation
 ;; in programs, located in the SIXPIC_MEMORY_DIVIDE variable
 (define memory-divide #f)

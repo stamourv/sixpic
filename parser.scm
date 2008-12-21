@@ -51,7 +51,7 @@
 							(get-register FSR1H)))
 				       '())))
 				 (cont new-var
-				       (cte-extend cte (list new-var)))))))) ;; TODO does not exist anymore, didn't work, change to be like 0
+				       (cte-extend cte (list new-var))))))))
 	 (cons 'SIXPIC_FSR2
 	       (lambda ()
 		 (expression val cte
