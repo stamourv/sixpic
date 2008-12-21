@@ -65,3 +65,6 @@ SYNTAX DE DEREF MARCHE DANS SIX, utiliser
 
 simplifier assignation sur dereference pour utiliser nouvelle version de array-base-name quand array-ref va etre un operateur, pas un cas particulier de syntaxe
 merger les 2 syntaxes
+
+
+BUG : si on fait SIXPIC_FSR0 = SIXPIC_MEMORY_DIVIDE;, allocation de registres doit merger les 2, et FSR est pas stocke dans FSR, donc on perd le benefices, corriger

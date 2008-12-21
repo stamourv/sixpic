@@ -621,10 +621,14 @@
 		 (let ((x (subast1 ast)))
 		   ;; TODO merge (calculate-address x)
 		   ;; TODO even if we do not merge with the other array syntax, at least merge with the set for this syntax
-		   (let* ((name (def-id (ref-def-var x)))) ;; TODO use array-base-name once array-refs are not special cases anymore, only diff would be to use subast1 instead of array-ref-id
-		     (if (not (memq name fsr-variables))
-			 (move-value (ref x) (list (get-register FSR0L)
-						     (get-register FSR0H)))))
+		   ;; if it's a FSR variable, no adress to set
+		   (if (not (and (ref? x)
+				 (memq (def-id (ref-def-var x)) ;; TODO use array-base-name once array-refs are not special cases anymore, only diff would be to use subast1 instead of array-ref-id
+				       fsr-variables)))
+		       (move-value (expression x)
+				   (new-value (list (get-register FSR0L)
+						    (get-register FSR0H))))
+		       (pp OPT-get:)) ;; TODO oops, seems to grow the code
 		   (new-value (list (get-register INDF0)))))
                 (else
                  (error "unary operation error" ast))))
@@ -664,11 +668,15 @@
 		     ;; of y is used
 		     (move (car (value-bytes value-y)) (get-register INDF0)))
 		    ((and (oper? x) (eq? (op-id (oper-op x)) '*x))
-		     (let* ((var (subast1 x))
-			    (name (def-id (ref-def-var var)))) ;; TODO use array-base-name once array-refs are not special cases anymore, only diff would be to use subast1 instead of array-ref-id
-		       (if (not (memq name fsr-variables))
-			   (move-value (ref var) (list (get-register FSR0L)
-						       (get-register FSR0H))))) ;; TODO merge with calculate-address ?
+		     ;; TODO not always a ref
+		     (let ((address (subast1 x)))
+		       (if (not (and (ref? address)
+				     (memq (def-id (ref-def-var address))  ;; TODO use array-base-name once array-refs are not special cases anymore, only diff would be to use subast1 instead of array-ref-id
+					   fsr-variables)))
+			   (move-value (expression address)
+				       (new-value (list (get-register FSR0L)
+							(get-register FSR0H))))
+			   (pp OPT-set:))) ;; TODO merge with calculate-address ?
 		     (move (car (value-bytes value-y)) (get-register INDF0)))  ;; TODO this pattern happens at lots of places, will the merging solve this ?
 		    (else (error "assignment target must be a variable or an array slot")))))
                 (else

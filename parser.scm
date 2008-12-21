@@ -319,7 +319,7 @@
           ((form? 'six.identifier source)
            (ref source cte cont))
 	  ((form? 'six.index source)
-	   (array-ref source cte cont))
+	   (array-ref source cte cont)) ;; TODO make an operation
           ((form? 'six.call source)
            (call source cte cont))
           ((operation? source)
