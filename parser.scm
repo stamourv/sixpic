@@ -29,7 +29,7 @@
 		 (expression val cte (lambda (ast cte)
 				       (def (list ast) cte)))))
 	 (cons 'SIXPIC_FSR0 ; these 3 must be int16
-	       (lambda ()
+	       (lambda () ;; TODO this code repetition is ugly, but factoring it out did not work
 		 (expression val cte
 			     (lambda (ast cte)
 			       (let ((new-var
@@ -41,9 +41,29 @@
 				 (cont new-var
 				       (cte-extend cte (list new-var))))))))
 	 (cons 'SIXPIC_FSR1
-	       (eval '(special-fsr 1))) ;; TODO does not exist anymore, didn't work, change to be like 0
+	       (lambda ()
+		 (expression val cte
+			     (lambda (ast cte)
+			       (let ((new-var
+				      (new-def-variable
+				       (list ast) id '() 'int16
+				       (new-value (list (get-register FSR1L)
+							(get-register FSR1H)))
+				       '())))
+				 (cont new-var
+				       (cte-extend cte (list new-var)))))))) ;; TODO does not exist anymore, didn't work, change to be like 0
 	 (cons 'SIXPIC_FSR2
-	       (eval '(special-fsr 2)))))
+	       (lambda ()
+		 (expression val cte
+			     (lambda (ast cte)
+			       (let ((new-var
+				      (new-def-variable
+				       (list ast) id '() 'int16
+				       (new-value (list (get-register FSR2L)
+							(get-register FSR2H)))
+				       '())))
+				 (cont new-var
+				       (cte-extend cte (list new-var))))))))))
 
 
       (define (def asts cte)
