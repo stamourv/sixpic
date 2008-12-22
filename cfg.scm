@@ -625,11 +625,13 @@
 		   (if (not (and (ref? x)
 				 (memq (def-id (ref-def-var x)) ;; TODO use array-base-name once array-refs are not special cases anymore, only diff would be to use subast1 instead of array-ref-id
 				       fsr-variables)))
-		       (move-value (expression x)
-				   (new-value (list (get-register FSR0L)
-						    (get-register FSR0H))))
-		       (pp OPT-get:)) ;; TODO oops, seems to grow the code
-		   (new-value (list (get-register INDF0)))))
+		       (begin (move-value (expression x)
+					  (new-value (list (get-register FSR0L)
+							   (get-register FSR0H))))
+			      (new-value (list (get-register INDF0))))
+		       (if (eq? (def-id (ref-def-var x)) 'SIXPIC_FSR1) ;; TODO ugly, fix this
+			   (new-value (list (get-register INDF1)))
+			   (new-value (list (get-register INDF2)))))))
                 (else
                  (error "unary operation error" ast))))
             (begin
@@ -673,11 +675,13 @@
 		       (if (not (and (ref? address)
 				     (memq (def-id (ref-def-var address))  ;; TODO use array-base-name once array-refs are not special cases anymore, only diff would be to use subast1 instead of array-ref-id
 					   fsr-variables)))
-			   (move-value (expression address)
-				       (new-value (list (get-register FSR0L)
-							(get-register FSR0H))))
-			   (pp OPT-set:))) ;; TODO merge with calculate-address ?
-		     (move (car (value-bytes value-y)) (get-register INDF0)))  ;; TODO this pattern happens at lots of places, will the merging solve this ?
+			   (begin (move-value (expression address)
+					      (new-value (list (get-register FSR0L)
+							       (get-register FSR0H)))) ;; TODO merge with calculate-address ?
+				  (move (car (value-bytes value-y)) (get-register INDF0))) ;; TODO this pattern happens at lots of places, will the merging solve this ?
+			   (if (eq? (def-id (ref-def-var address)) 'SIXPIC_FSR1) ;; TODO ugly, fix this
+			       (move (car (value-bytes value-y)) (get-register INDF1))
+			       (move (car (value-bytes value-y)) (get-register INDF2))))))
 		    (else (error "assignment target must be a variable or an array slot")))))
                 (else
                  (error "binary operation error" ast))))))))

@@ -68,3 +68,28 @@ merger les 2 syntaxes
 
 
 BUG : si on fait SIXPIC_FSR0 = SIXPIC_MEMORY_DIVIDE;, allocation de registres doit merger les 2, et FSR est pas stocke dans FSR, donc on perd le benefices, corriger
+p-e, pour regler ca, mettre un flag sur les values pour dire si elle doit etre allouee dans un registre ou non ?
+
+
+de test26, la VM
+			$4:
+000092 E150		    movf    FSR1L, w
+000094 016E		    movwf   1
+000096 012A		    incf    1
+000098 E250		    movf    FSR1H, w
+assez insultant
+
+encore de la vm
+			$12:
+0000AA D950		    movf    FSR2L, w
+0000AC 016E		    movwf   1
+0000AE 012A		    incf    1
+0000B0 DA50		    movf    FSR2H, w
+0000B2 026E		    movwf   2
+0000B4 000E		    movlw   0
+0000B6 0222		    addwfc  2
+0000B8 0150		    movf    1, w
+0000BA E96E		    movwf   FSR0L
+0000BC 0250		    movf    2, w
+0000BE EA6E		    movwf   FSR0H
+pas super, on pourrait tranferer le resultat au fur et a mesure qu'il est calcule, on sauverait des voyages par w
