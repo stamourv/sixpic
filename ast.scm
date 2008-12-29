@@ -125,12 +125,6 @@
 (define (new-ref type def)
   (make-ref #f '() type def))
 
-(define-type-of-expr array-ref
-  id
-  index)
-(define (new-array-ref id index)
-  (make-array-ref #f '() 'byte id index)) ;; TODO the manual memory zone is byte indexed
-
 (define-type-of-expr oper
   op)
 (define (new-oper subasts type op)

@@ -507,8 +507,6 @@
                   (literal ast))
                  ((ref? ast)
                   (ref ast))
-		 ((array-ref? ast)
-		  (array-ref ast))
                  ((oper? ast)
                   (oper ast))
                  ((call? ast)
@@ -526,27 +524,7 @@
     (let* ((def-var (ref-def-var ast))
            (value (def-variable-value def-var)))
       value))
-
-  ;; calculates an address in an array by adding the base pointer and the offset
-  ;; and puts the answer in FSR0 so that changes to INDF0 change the array
-  ;; location
-  (define (calculate-address ast)
-    ;; if we have a special FSR variable, no need to calculate the address as
-    ;; it is already in the register
-    (if (not (memq (array-base-name ast) fsr-variables))
-	(let ((base    (ref (array-ref-id ast)))
-	      (offset  (expression (array-ref-index ast)))
-	      (address (new-value (list (get-register FSR0L)
-					(get-register FSR0H))))) ;; TODO actual addresses are 12 bits, not 16
-	  (add-sub 'x+y base offset address))))
   
-  (define (array-base-name ast)
-    (def-id (ref-def-var (array-ref-id ast)))) ;; TODO if array wasn't a special case, would cover also dereference
-  
-  (define (array-ref ast)
-    (calculate-address ast)
-    (new-value (list (get-register INDF0))))
-
   (define (add-sub id value1 value2 result)
     (let loop ((bytes1 (value-bytes value1))
                (bytes2 (value-bytes value2))
@@ -582,6 +560,30 @@
                        result)))
           (do-delayed-post-incdec))))
 
+  ;; calculates an address in an array by adding the base pointer and the offset
+  ;; and puts the answer in FSR0 so that changes to INDF0 change the array
+  ;; location
+  (define (calculate-address ast)
+    ;; if we have a special FSR variable, no need to calculate the address as
+    ;; it is already in the register
+    (let ((base-name (array-base-name ast))
+	  (index? (eq? (op-id (oper-op ast)) 'index)))
+      (if (not (and base-name
+		    (memq base-name fsr-variables)))
+	  (let ((base    (expression (subast1 ast)))
+		(address (new-value (list (get-register FSR0L)
+					  (get-register FSR0H))))) ;; TODO actual addresses are 12 bits, not 16
+	  (if index?
+	      (add-sub 'x+y base (expression (subast2 ast)) address) ;; TODO offset is not seen
+	      (move-value base address)))))) ; no offset with simple dereference
+  
+  (define (array-base-name ast)
+    ;; returns #f if the lhs is not a direct variable reference
+    ;; ex : *x++ ; (x+y)* ; ...
+    (let ((lhs (subast1 ast)))
+      (and (ref? lhs)
+	   (def-id (ref-def-var lhs)))))
+  
   (define (oper ast)
     (let* ((type (expr-type ast))
            (op (oper-op ast))
@@ -618,20 +620,17 @@
                      (push-delayed-post-incdec ast)
                      result)))
 		((*x)
-		 (let ((x (subast1 ast)))
-		   ;; TODO merge (calculate-address x)
-		   ;; TODO even if we do not merge with the other array syntax, at least merge with the set for this syntax
-		   ;; if it's a FSR variable, no adress to set
-		   (if (not (and (ref? x)
-				 (memq (def-id (ref-def-var x)) ;; TODO use array-base-name once array-refs are not special cases anymore, only diff would be to use subast1 instead of array-ref-id
-				       fsr-variables)))
-		       (begin (move-value (expression x)
-					  (new-value (list (get-register FSR0L)
-							   (get-register FSR0H))))
-			      (new-value (list (get-register INDF0))))
-		       (if (eq? (def-id (ref-def-var x)) 'SIXPIC_FSR1) ;; TODO ugly, fix this
+		 ;; if it's a FSR variable, no adress to set
+		 (let ((base-name (array-base-name ast)))
+		   (if (and (ref? (subast1 ast)) ; do we have a FSR variable ?
+			    base-name
+			    (memq base-name fsr-variables))
+		       (if (eq? base-name 'SIXPIC_FSR1) ;; TODO ugly, fix this
 			   (new-value (list (get-register INDF1)))
-			   (new-value (list (get-register INDF2)))))))
+			   (new-value (list (get-register INDF2))))
+		       (begin (calculate-address ast)
+			      (new-value (list (get-register INDF0)))))))
+		;; TODO merge with setter, and merge both setters
                 (else
                  (error "unary operation error" ast))))
             (begin
@@ -664,25 +663,25 @@
 		       (let ((result (def-variable-value (ref-def-var x))))
 			 (move-value value-y result)
 			 result)))
-		    ((array-ref? x)
-		     (calculate-address x)
+		    ((and (oper? x) (eq? (op-id (oper-op x)) '*x))
+		     (let ((base-name (array-base-name x)))
+		       (if (and (ref? (subast1 x))
+				base-name
+				(memq base-name fsr-variables))
+			   (if (eq? base-name 'SIXPIC_FSR1) ;; TODO ugly, fix this
+			       (move (car (value-bytes value-y)) (get-register INDF1))
+			       (move (car (value-bytes value-y)) (get-register INDF2)))
+			   (begin (calculate-address x)
+				  (move (car (value-bytes value-y)) (get-register INDF0))))))
+		    ((and (oper? x) (eq? (op-id (oper-op x)) 'index))
+		     (calculate-address x) ;; TODO as with references, won't work with SIXPIC_FSR1 or SIXPIC_FSR2
 		     ;; this section of memory is a byte array, only the lsb
 		     ;; of y is used
 		     (move (car (value-bytes value-y)) (get-register INDF0)))
-		    ((and (oper? x) (eq? (op-id (oper-op x)) '*x))
-		     ;; TODO not always a ref
-		     (let ((address (subast1 x)))
-		       (if (not (and (ref? address)
-				     (memq (def-id (ref-def-var address))  ;; TODO use array-base-name once array-refs are not special cases anymore, only diff would be to use subast1 instead of array-ref-id
-					   fsr-variables)))
-			   (begin (move-value (expression address)
-					      (new-value (list (get-register FSR0L)
-							       (get-register FSR0H)))) ;; TODO merge with calculate-address ?
-				  (move (car (value-bytes value-y)) (get-register INDF0))) ;; TODO this pattern happens at lots of places, will the merging solve this ?
-			   (if (eq? (def-id (ref-def-var address)) 'SIXPIC_FSR1) ;; TODO ugly, fix this
-			       (move (car (value-bytes value-y)) (get-register INDF1))
-			       (move (car (value-bytes value-y)) (get-register INDF2))))))
 		    (else (error "assignment target must be a variable or an array slot")))))
+		((index) ; TODO FSR variables won't work with index syntax, the contents of FSR0 will always be fetched, even if SIXPIC_FSR1 is used, for now, this is acceptable, the other syntax should be used instead
+		 (calculate-address ast)
+		 (new-value (list (get-register INDF0))))
                 (else
                  (error "binary operation error" ast))))))))
   

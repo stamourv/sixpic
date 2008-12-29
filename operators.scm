@@ -129,13 +129,20 @@
   (lambda (ast)
     ...))
 
-;; TODO should we handle array index operator this way instead of a special case
 (define-op1 'six.*x '*x
   (lambda (ast)
     'byte) ; we only have byte arrays
   (lambda (ast)
     ast)
   (lambda (ast)
+    ...))
+
+(define-op2 'six.index 'index
+  (lambda (ast)
+    'byte) ; we only have byte arrays
+  (lambda (ast)
+    ast)
+  (lambda (asr)
     ...))
 
 (define-op2 'six.x/y 'x/y
