@@ -1,7 +1,6 @@
 ;;; generation of control flow graph
 
 ;; special variables whose contents are located in the FSR registers
-;; TODO put here ?
 (define fsr-variables '(SIXPIC_FSR0 SIXPIC_FSR1 SIXPIC_FSR2))
 
 (define-type cfg
@@ -574,7 +573,7 @@
 		(address (new-value (list (get-register FSR0L)
 					  (get-register FSR0H))))) ;; TODO actual addresses are 12 bits, not 16
 	  (if index?
-	      (add-sub 'x+y base (expression (subast2 ast)) address) ;; TODO offset is not seen
+	      (add-sub 'x+y base (expression (subast2 ast)) address)
 	      (move-value base address)))))) ; no offset with simple dereference
   
   (define (array-base-name ast)
@@ -583,6 +582,11 @@
     (let ((lhs (subast1 ast)))
       (and (ref? lhs)
 	   (def-id (ref-def-var lhs)))))
+
+  (define (get-indf base-name)
+    (if (eq? base-name 'SIXPIC_FSR1)
+	(new-value (list (get-register INDF1)))
+	(new-value (list (get-register INDF2)))))
   
   (define (oper ast)
     (let* ((type (expr-type ast))
@@ -625,12 +629,9 @@
 		   (if (and (ref? (subast1 ast)) ; do we have a FSR variable ?
 			    base-name
 			    (memq base-name fsr-variables))
-		       (if (eq? base-name 'SIXPIC_FSR1) ;; TODO ugly, fix this
-			   (new-value (list (get-register INDF1)))
-			   (new-value (list (get-register INDF2))))
+		       (get-indf base-name)
 		       (begin (calculate-address ast)
 			      (new-value (list (get-register INDF0)))))))
-		;; TODO merge with setter, and merge both setters
                 (else
                  (error "unary operation error" ast))))
             (begin
@@ -668,9 +669,7 @@
 		       (if (and (ref? (subast1 x))
 				base-name
 				(memq base-name fsr-variables))
-			   (if (eq? base-name 'SIXPIC_FSR1) ;; TODO ugly, fix this
-			       (move (car (value-bytes value-y)) (get-register INDF1))
-			       (move (car (value-bytes value-y)) (get-register INDF2)))
+			   (get-indf base-name)
 			   (begin (calculate-address x)
 				  (move (car (value-bytes value-y)) (get-register INDF0))))))
 		    ((and (oper? x) (eq? (op-id (oper-op x)) 'index))
