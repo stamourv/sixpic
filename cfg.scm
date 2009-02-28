@@ -204,9 +204,9 @@
 
   (define (block ast)
     (if (block-name ast) ; named block ?
-	(begin (let ((old-bb bb))
-		     (in (new-bb))
-		     (add-succ old-bb bb))
+	(begin (let ((new (new-bb)))
+		 (gen-goto new)
+		 (in new))
 	       (bb-label-name-set! bb (block-name ast)) ))
     (for-each statement (ast-subasts ast)))
 
@@ -414,7 +414,7 @@
 		 (bytes2 (value-bytes value2)))
 	;; TODO won't work with values of different widths
 	(let ((byte1 (car bytes1))
-	      (byte2 (car bytes2)))
+	      (byte2 (car bytes2))) ;; TODO FAILS HERE if value2 is shorter than value1 BAD
 	  (if (null? (cdr bytes1))
 	      (test-byte id byte1 byte2 bb-true bb-false)
 	      (let ((bb-true2 (new-bb)))
@@ -542,6 +542,18 @@
 		       (cdr bytes3)
 		       #f)))))
 
+  (define (mul value1 value2 result)
+    ;; for now, multiplication is limited to 8 bits values. any larger
+    ;; values will be truncated. the result is a 16 bit value
+    ;; TODO implement multiplication for larger values, if necessary in PICOBIT
+    (emit (new-instr 'mul
+		     (car (value-bytes value1))
+		     (car (value-bytes value2))))
+    ;; the result goes into the PIC18 multiplication registers
+    (move-value (new-value (list (get-register PRODL)
+				 (get-register PRODH)))
+		result))
+  
   (define (do-delayed-post-incdec)
     (if (not (null? delayed-post-incdec))
         (let* ((ast (car delayed-post-incdec))

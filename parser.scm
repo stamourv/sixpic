@@ -123,7 +123,7 @@
 		(tail (cdr source)))
 	    (if (or (form? 'six.label head) ; we complete the block with a list of named blocks
 		    (form? 'six.case  head))
-		(named-block-list source
+		(named-block-list source ;; TODO pass it the first statement
 				  cte
 				  cont) ; will return a list of named blocks
 		(statement head
@@ -142,6 +142,7 @@
 
   ;; returns a list of the named blocks (implicit blocks delimited by labels) present in the given tree
   ;; useful for switch and goto
+  ;; TODO returns that ?
   (define (named-block-list source cte cont)
     (define (b source cte cont name body-so-far)
       (if (null? source)
@@ -166,17 +167,22 @@
 				(append body-so-far (list ast)))))))))
     (let ((new-cont
 	   (lambda (name cte)
-	     (b (cdr source)
-		cte
-		cont
-		name
-		'()))))
+	     (statement (caddar source)
+			cte
+			(lambda (ast cte)
+			  (b (cdr source)
+			     cte
+			     cont
+			     name
+			     ;; the first statement is in the case/label form
+			     (list ast)))))))
+      
       (if (form? 'six.case (car source)) ; the label is a case
-	(literal (cadar source)
-		 cte
-		 (lambda (name cte)
-		   (new-cont (list 'case (literal-val name)) cte)))
-	(new-cont (cadar source) cte)))) ; ordinary label
+	  (literal (cadar source)
+		   cte
+		   (lambda (name cte)
+		     (new-cont (list 'case (literal-val name)) cte)))
+	  (new-cont (cadar source) cte)))) ; ordinary label
   
   (define (statement source cte cont)
     (cond ((form? 'six.define-variable source)
@@ -254,7 +260,7 @@
                                             (cont (new-if (list ast1 ast2 ast3))
                                                   cte))))))))
 
-  (define (switch source cte cont)
+  (define (switch source cte cont) ;; TODO WILL NEED TO BE CHANGED
     (expression (cadr source)
 		cte
 		(lambda (ast1 cte) ; we matched the paren expr		  

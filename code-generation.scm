@@ -184,6 +184,12 @@
   (define (subwfb adr)
     (emit (list 'subwfb adr)))
 
+  (define (mullw adr)
+    (emit (list 'mullw adr)))
+
+  (define (mulwf adr)
+    (emit (list 'mulwf adr)))
+  
   (define (cpfseq adr)
     (emit (list 'cpfseq adr)))
 
@@ -333,6 +339,8 @@
                                          ((subb)
                                           (subwfb z))
                                          (else (error "..."))))))))
+			 ((mul)
+			  TODO) ;; TODO FOO implement multiplication, choose between mullw and mulwf, no need to do shifts, I guess, since multiplications are 1 cycle
                          ((goto)
                           (let* ((succs (bb-succs bb))
                                  (dest (car succs)))
@@ -431,6 +439,10 @@
        (subwf (cadr instr)))
       ((subwfb)
        (subwfb (cadr instr)))
+      ((mullw)
+       (mullw (cadr instr)))
+      ((mulwf)
+       (mulwf (cadr instr)))
       ((cpfseq)
        (cpfseq (cadr instr)))
       ((cpfslt)
@@ -464,7 +476,7 @@
 
   '(display "------------------ GENERATED CODE\n")
 
-  (asm-display-listing (current-output-port))
+  '(asm-display-listing (current-output-port))
 
   (asm-write-hex-file (string-append filename ".hex")) ;; TODO move to main ?
 

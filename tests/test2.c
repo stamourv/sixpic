@@ -7,7 +7,7 @@ int n;
 
 void f()
 {
-  while (n > 0)
+  while (n) // TODO doesn't work with > 0
     {
     foo:
       x = x+n;
