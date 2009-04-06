@@ -32,7 +32,7 @@
           (else
            (error "int-op1: type error" ast)))))
 
-(define (largest t1 t2) ;; TODO might be used more than juste for int-op2
+(define (largest t1 t2)
   (let loop ((l '(int int32 int16 int8 byte)))
     (if (null? l)
 	(error "largest: unknown type")

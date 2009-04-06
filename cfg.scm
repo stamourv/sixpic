@@ -226,7 +226,7 @@
     (let* ((bb-join (new-bb))
            (bb-then (new-bb))
            (bb-else (new-bb)))
-      (test-expression (subast1 ast) bb-then bb-else) ;; TODO invert ?
+      (test-expression (subast1 ast) bb-then bb-else)
       (in bb-then)
       (statement (subast2 ast))
       (gen-goto bb-join)
@@ -531,13 +531,14 @@
     (let* ((lx (length (value-bytes (expression x)))) ;; TODO can't handle literals... I don't get it, see add-sub, maybe use the type to determine instead
 	   (ly (length (value-bytes (expression y)))) ;; TODO we end up doing some work that call will also end up doing, wasteful, but I don't see another way
 	   (op (string->symbol ; mul8_8, mul8_16, etc
-		(string-append "mul" ;; TODO watch out for signed / unsigned
+		;; for now, only unsigned multiplications are supported
+		(string-append "mul"
 			       (number->string (* lx 8)) "_"
 			       (number->string (* ly 8)))))
 	   ;; find the definition of the predefined routine in the initial cte
-	   (def-proc (car (memp (lambda (x) (eq? (def-id x) op)) ;; TODO ugly
+	   (def-proc (car (memp (lambda (x) (eq? (def-id x) op))
 				initial-cte))))
-      ;; put the result of the call where the rest of the expression expects it TODO wasteful, or will register allocation coalesce these ?
+      ;; put the result of the call where the rest of the expression expects it
       (move-value (call (new-call (list x y) ;; TODO actually, take the subsasts of the arithmetic expression, instead of separately ?
 				  type
 				  def-proc))
@@ -595,7 +596,7 @@
   
   (define (array-base-name ast)
     ;; returns #f if the lhs is not a direct variable reference
-    ;; ex : *x++ ; (x+y)* ; ...
+    ;; eg : *x++ ; (x+y)* ; ...
     (let ((lhs (subast1 ast)))
       (and (ref? lhs)
 	   (def-id (ref-def-var lhs)))))
@@ -708,12 +709,12 @@
                  (error "binary operation error" ast))))))))
 
   ;; generates the cfg for a predefined routine and adds it to the current cfg
-  (define (include-predefined-routine proc) ;; TODO put elsewhere ?
+  (define (include-predefined-routine proc)
     (let ((id (def-id proc))
 	  (params (def-procedure-params proc))
 	  (value (def-procedure-value proc))
 	  (old-bb bb)
-          (entry (new-bb))) ;; TODO taken from def-procedure, or something like that, abstract
+          (entry (new-bb))) ;; TODO insipired from def-procedure, abstract
       (def-procedure-entry-set! proc entry)
       (set! current-def-proc proc)
       (in entry)
@@ -723,22 +724,12 @@
 	       (y (cadr params))
 	       (z (value-bytes value)))
 	   (define (get-cell var)
-	     (car (value-bytes (def-variable-value var)))) ;; TODO IMPLEMENT LITERAL MULTIPLICATION IN THWE SIMULATOR
+	     (car (value-bytes (def-variable-value var)))) ;; TODO implement literal multiplication in the simulator
 	   (emit (new-instr 'mul (get-cell x) (get-cell y) #f)) ;; TODO have a destination (actually 2, for the 2 parts of PROD), instead of leaving the values in PROD and moving them here
 	   (move (get-register PRODL) (car z)) ;; TODO big or little endian ? TODO talking about PRODL/H here is an abstraction leak, pass 
 	   (move (get-register PRODH) (cadr z)))))
       ;; TODO alloc-value if intermediary results are needed, wouldn't be as optimal as directly adding prodl and prodh to the right register, but makes it more generic, maybe register allocation could fix this suboptimality ? (actually, for the moment, we play with the PROD registers right here, so it's not that subobtimal)
-      (return-with-no-new-bb proc) ;; TODO not sure the right value gets returned NO IT'S NOT. FOO
-
-;;         (define (return ast) ;; TODO use this... but what I have looks the same
-;;     (if (null? (ast-subasts ast))
-;;         (return-with-no-new-bb current-def-proc)
-;;         (let ((value (expression (subast1 ast))))
-;;           (let ((ext-value (extend value (def-procedure-type current-def-proc))))
-;;             (move-value value (def-procedure-value current-def-proc))
-;;             (return-with-no-new-bb current-def-proc))))
-;;     (in (new-bb)))
-      
+      (return-with-no-new-bb proc)
       (set! current-def-proc #f)
       (resolve-all-gotos entry (list-named-bbs entry '()) '())
       (in old-bb)))

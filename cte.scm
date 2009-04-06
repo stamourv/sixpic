@@ -80,7 +80,7 @@
 	;; TODO maybe use some for the fsr variables ? and have the address be the fsr registers
 	
 	;; for multiplication
-	;; TODO FOO do others
+	;; TODO do others
 	(predefine-routine 'mul8_8 'int16 '(byte byte))
 	
 	;; TODO maybe use predefine fun and have jump to a function already in rom ? then have some kind of linking to see if it's used, and if so, put the code in

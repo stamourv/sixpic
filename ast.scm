@@ -42,7 +42,6 @@
 (define (new-value bytes)
   (make-value bytes))
 
-;; TODO really in ast ?
 (define-type byte-cell
   adr
   (interferes-with unprintable:)

@@ -29,19 +29,19 @@
                            live)
                           live))))
                  ((return-instr? instr)
-					;(pp (list instr: instr))
+		  ;;(pp (list instr: instr))
                   (let ((def-proc (return-instr-def-proc instr)))
                     (let ((live
                            (if (def-procedure? def-proc)
                                (def-procedure-live-after-calls def-proc)
                                (value-bytes def-proc))))
 		      (let ((live (keep byte-cell? live)))
-					;(pp (list live: live))
+			;;(pp (list live: live))
 			(set! live-after live)
 			live)))
 		  )
                  (else
-					;(pp (list instr: instr))
+		  ;;(pp (list instr: instr))
                   (let* ((src1 (instr-src1 instr))
                          (src2 (instr-src2 instr))
                          (dst (instr-dst instr))
@@ -111,12 +111,12 @@
                                 (chase-branch-cascade old-dest
                                                       (cons bb seen))))
                            ;; (if (not (eq? old-dest new-dest)) ;; TODO this seems to be a shortcut, and it broke a few things, so removed
-;;                                (begin
-;; 				 (pp (list "CASCADE" (bb-label-num bb)))
-;;                                  (bb-succs-set! bb
-;;                                                 (remove old-dest (bb-succs bb)))
-;;                                  (bb-preds-set! old-dest
-;;                                                 (remove bb (bb-preds old-dest)))))
+			   ;;      (begin
+			   ;; (pp (list "CASCADE" (bb-label-num bb)))
+			   ;; (bb-succs-set! bb
+			   ;; (remove old-dest (bb-succs bb)))
+			   ;;  (bb-preds-set! old-dest
+			   ;;  (remove bb (bb-preds old-dest)))))
                            new-dest)))
                       (else
                        bb))

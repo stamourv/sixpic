@@ -307,7 +307,7 @@
                                       (else
                                        (move-reg x z)
                                        (move-reg y WREG)))
-				(case (instr-id instr) ;; TODO used to be in each branch of the cond, now is abstracted test to see if it still works
+				(case (instr-id instr)
 				  ((add)  (addwf z))
 				  ((addc) (addwfc z))
 				  ((sub)  (subwf z))
@@ -325,7 +325,7 @@
                               (let ((x (byte-cell-adr src1)) ;; TODO how to be sure that we can't get the case of the 1st arg being a literal, but not the 2nd ?
                                     (y (byte-cell-adr src2)))
 				(move-reg x WREG)
-				(mulwf y)))) ;; TODO seems to take the same argument twice, see test32
+				(mulwf y))))
 			 
 			 ((and ior xor) ;; TODO similar to add sub and co, except that I removed the literal part
 			  (let ((x (if (byte-lit? src1)

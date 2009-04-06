@@ -260,7 +260,7 @@
                                             (cont (new-if (list ast1 ast2 ast3))
                                                   cte))))))))
 
-  (define (switch source cte cont) ;; TODO WILL NEED TO BE CHANGED
+  (define (switch source cte cont)
     (expression (cadr source)
 		cte
 		(lambda (ast1 cte) ; we matched the paren expr		  
