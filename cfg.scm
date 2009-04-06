@@ -1,7 +1,7 @@
 ;;; generation of control flow graph
 
 ;; special variables whose contents are located in the FSR registers
-(define fsr-variables '(SIXPIC_FSR0 SIXPIC_FSR1 SIXPIC_FSR2))
+(define fsr-variables '(SIXPIC_FSR0 SIXPIC_FSR1 SIXPIC_FSR2)) ;; TODO use the predefined variables from cte.scm instead ?
 
 (define-type cfg
   bbs
@@ -78,31 +78,22 @@
 
   (define bb #f) ; current bb
 
-  (define (in x)
-    (set! bb x))
+  (define (in x) (set! bb x))
 
-  (define (new-bb)
-    (add-bb cfg))
+  (define (new-bb) (add-bb cfg))
 
-  (define (emit instr)
-    (add-instr bb instr))
+  (define (emit instr) (add-instr bb instr))
 
   (define current-def-proc #f)
   (define break-stack '())
   (define continue-stack '())
   (define delayed-post-incdec '())
 
-  (define (push-break x)
-    (set! break-stack (cons x break-stack)))
+  (define (push-break x) (set! break-stack (cons x break-stack)))
+  (define (pop-break)    (set! break-stack (cdr break-stack)))
 
-  (define (pop-break)
-    (set! break-stack (cdr break-stack)))
-
-  (define (push-continue x)
-    (set! continue-stack (cons x continue-stack)))
-
-  (define (pop-continue)
-    (set! continue-stack (cdr continue-stack)))
+  (define (push-continue x) (set! continue-stack (cons x continue-stack)))
+  (define (pop-continue)    (set! continue-stack (cdr continue-stack)))
 
   (define (push-delayed-post-incdec x)
     (set! delayed-post-incdec (cons x delayed-post-incdec)))
@@ -133,24 +124,23 @@
             (let ((ext-value (extend value (def-variable-type ast))))
               (move-value value (def-variable-value ast)))))))
 
+  ;; resolve the C gotos by setting the appropriate successor to their bb
+  (define (resolve-all-gotos start table visited)
+    (if (not (memq start visited))
+	(begin (for-each (lambda (x)
+			   (if (and (eq? (instr-id x) 'goto)
+				    (instr-dst x)) ; unresolved label
+			       (let ((target (assoc (instr-dst x) table)))
+				 (if target
+				     (begin (add-succ start (cdr target))
+					    (instr-dst-set! x #f))
+				     (error "invalid goto target" (instr-dst x))))))
+			 (bb-rev-instrs start))
+	       (for-each (lambda (x)
+			   (resolve-all-gotos x table (cons start visited)))
+			 (bb-succs start)))))
+  
   (define (def-procedure ast)
-
-    ;; resolve the C gotos by setting the appropriate successor to their bb
-    (define (resolve-all-gotos start table visited)
-      (if (not (memq start visited))
-	  (begin (for-each (lambda (x)
-			     (if (and (eq? (instr-id x) 'goto)
-				      (instr-dst x)) ; unresolved label
-				 (let ((target (assoc (instr-dst x) table)))
-				   (if target
-				       (begin (add-succ start (cdr target))
-					      (instr-dst-set! x #f))
-				       (error "invalid goto target" (instr-dst x))))))
-			   (bb-rev-instrs start))
-		 (for-each (lambda (x)
-			     (resolve-all-gotos x table (cons start visited)))
-			   (bb-succs start)))))
-    
     (let ((old-bb bb)
           (entry (new-bb)))
       (def-procedure-entry-set! ast entry)
@@ -175,32 +165,20 @@
 	'()))
 
   (define (statement ast)
-    (cond ((def-variable? ast)
-           (def-variable ast))
-          ((block? ast)
-           (block ast))
-          ((return? ast)
-           (return ast))
-          ((if? ast)
-           (if (null? (cddr (ast-subasts ast)))
-               (if1 ast)
-               (if2 ast)))
-          ((while? ast)
-           (while ast))
-          ((do-while? ast)
-           (do-while ast))
-          ((for? ast)
-           (for ast))
-	  ((switch? ast)
-	   (switch ast))
-	  ((break? ast)
-	   (break ast))
-	  ((continue? ast)
-	   (continue ast))
-	  ((goto? ast)
-	   (goto ast))
-          (else
-           (expression ast))))
+    (cond ((def-variable? ast) (def-variable ast))
+          ((block? ast)        (block ast))
+          ((return? ast)       (return ast))
+          ((if? ast)           (if (null? (cddr (ast-subasts ast)))
+				   (if1 ast)
+				   (if2 ast)))
+          ((while? ast)        (while ast))
+          ((do-while? ast)     (do-while ast))
+          ((for? ast)          (for ast))
+	  ((switch? ast)       (switch ast))
+	  ((break? ast)        (break ast))
+	  ((continue? ast)     (continue ast))
+	  ((goto? ast)         (goto ast))
+          (else                (expression ast))))
 
   (define (block ast)
     (if (block-name ast) ; named block ?
@@ -216,7 +194,7 @@
   (define (move-value from to)
     (let loop ((from (value-bytes from))
 	       (to   (value-bytes to)))
-      (cond ((null? to)) ; done
+      (cond ((null? to))  ; done
 	    ((null? from) ; promote the value by padding
 	     (move (new-byte-lit 0) (car to))
 	     (loop from (cdr to)))
@@ -319,7 +297,8 @@
       (for-each (lambda (x) ; generate each case
 		  (in (new-bb)) ; this bb will be given the name of the case
 		  (add-succ decision-bb bb)
-		  (if (null? (bb-succs prev-bb)) ; if the previous case didn't end in a break, fall through
+		  ;; if the previous case didn't end in a break, fall through
+		  (if (null? (bb-succs prev-bb))
 		      (let ((curr bb))
 			(in prev-bb)
 			(gen-goto curr)
@@ -542,17 +521,43 @@
 		       (cdr bytes3)
 		       #f)))))
 
-  (define (mul value1 value2 result)
-    ;; for now, multiplication is limited to 8 bits values. any larger
-    ;; values will be truncated. the result is a 16 bit value
-    ;; TODO implement multiplication for larger values, if necessary in PICOBIT
-    (emit (new-instr 'mul
-		     (car (value-bytes value1))
-		     (car (value-bytes value2))))
-    ;; the result goes into the PIC18 multiplication registers
-    (move-value (new-value (list (get-register PRODL)
-				 (get-register PRODH)))
-		result))
+  (define (mul x y type result)
+    ;; finds the appropriate multiplication routine (depending on the length
+    ;; of each argument) and turns the multiplication into a call to the
+    ;; routine
+    ;; the arguments must be the asts of the 2 arguments (x and y) and the
+    ;; type of the returned value, since these are what are expected by the
+    ;; call function
+    (let* ((lx (length (value-bytes (expression x)))) ;; TODO can't handle literals... I don't get it, see add-sub, maybe use the type to determine instead
+	   (ly (length (value-bytes (expression y)))) ;; TODO we end up doing some work that call will also end up doing, wasteful, but I don't see another way
+	   (op (string->symbol ; mul8_8, mul8_16, etc
+		(string-append "mul" ;; TODO watch out for signed / unsigned
+			       (number->string (* lx 8)) "_"
+			       (number->string (* ly 8)))))
+	   ;; find the definition of the predefined routine in the initial cte
+	   (def-proc (car (memp (lambda (x) (eq? (def-id x) op)) ;; TODO ugly
+				initial-cte))))
+      ;; put the result of the call where the rest of the expression expects it TODO wasteful, or will register allocation coalesce these ?
+      (move-value (call (new-call (list x y) ;; TODO actually, take the subsasts of the arithmetic expression, instead of separately ?
+				  type
+				  def-proc))
+		  result)))
+
+  ;; bitwise and, or, xor TODO not ? no, elsewhere since it's unary
+  ;; TODO similar to add-sub and probably others, abstract multi-byte operations
+  (define (bitwise id value1 value2 result)
+    (let loop ((bytes1 (value-bytes value1))
+               (bytes2 (value-bytes value2))
+               (bytes3 (value-bytes result)))
+      (if (not (null? bytes3))
+	  (begin (emit
+		  (new-instr (case id ((x&y) 'and) ((|x\|y|) 'ior) ((x^y) 'xor))
+			     (if (null? bytes1) (new-byte-lit 0) (car bytes1))
+			     (if (null? bytes2) (new-byte-lit 0) (car bytes2))
+			     (car bytes3)))
+		 (loop (if (null? bytes1) bytes1 (cdr bytes1))
+		       (if (null? bytes2) bytes2 (cdr bytes2))
+		       (cdr bytes3))))))
   
   (define (do-delayed-post-incdec)
     (if (not (null? delayed-post-incdec))
@@ -648,7 +653,7 @@
                  (error "unary operation error" ast))))
             (begin
               (case id
-                ((x+y x-y x*y x/y x%y)
+                ((x+y x-y x*y x/y x%y x&y |x\|y| x^y)
                  (let* ((x (subast1 ast))
                         (y (subast2 ast)))
                    (let* ((value-x (expression x))
@@ -660,11 +665,17 @@
 				    (eq? id 'x-y))
 				(add-sub id ext-value-x ext-value-y result))
 			       ((eq? id 'x*y)
-				(error "multiplication not implemented yet")) ;; TODO maybe just implement multiplication by powers of 2
+				;; the asts of x and y must be used, since mul
+				;; calls call
+				(mul x y type result))
 			       ((eq? id 'x/y)
 				(error "division not implemented yet")) ;; TODO implement these
 			       ((eq? id 'x%y)
-				(error "modulo not implemented yet")))
+				(error "modulo not implemented yet"))
+			       ((or (eq? id 'x&y)
+				   (eq? id '|x\|y|)
+				   (eq? id 'x^y))
+				(bitwise id ext-value-x ext-value-y result)))
                          result)))))
                 ((x=y)
                  (let* ((x       (subast1 ast))
@@ -695,9 +706,50 @@
 		 (new-value (list (get-register INDF0))))
                 (else
                  (error "binary operation error" ast))))))))
+
+  ;; generates the cfg for a predefined routine and adds it to the current cfg
+  (define (include-predefined-routine proc) ;; TODO put elsewhere ?
+    (let ((id (def-id proc))
+	  (params (def-procedure-params proc))
+	  (value (def-procedure-value proc))
+	  (old-bb bb)
+          (entry (new-bb))) ;; TODO taken from def-procedure, or something like that, abstract
+      (def-procedure-entry-set! proc entry)
+      (set! current-def-proc proc)
+      (in entry)
+      (case id
+	((mul8_8)
+	 (let ((x (car params))
+	       (y (cadr params))
+	       (z (value-bytes value)))
+	   (define (get-cell var)
+	     (car (value-bytes (def-variable-value var)))) ;; TODO IMPLEMENT LITERAL MULTIPLICATION IN THWE SIMULATOR
+	   (emit (new-instr 'mul (get-cell x) (get-cell y) #f)) ;; TODO have a destination (actually 2, for the 2 parts of PROD), instead of leaving the values in PROD and moving them here
+	   (move (get-register PRODL) (car z)) ;; TODO big or little endian ? TODO talking about PRODL/H here is an abstraction leak, pass 
+	   (move (get-register PRODH) (cadr z)))))
+      ;; TODO alloc-value if intermediary results are needed, wouldn't be as optimal as directly adding prodl and prodh to the right register, but makes it more generic, maybe register allocation could fix this suboptimality ? (actually, for the moment, we play with the PROD registers right here, so it's not that subobtimal)
+      (return-with-no-new-bb proc) ;; TODO not sure the right value gets returned NO IT'S NOT. FOO
+
+;;         (define (return ast) ;; TODO use this... but what I have looks the same
+;;     (if (null? (ast-subasts ast))
+;;         (return-with-no-new-bb current-def-proc)
+;;         (let ((value (expression (subast1 ast))))
+;;           (let ((ext-value (extend value (def-procedure-type current-def-proc))))
+;;             (move-value value (def-procedure-value current-def-proc))
+;;             (return-with-no-new-bb current-def-proc))))
+;;     (in (new-bb)))
+      
+      (set! current-def-proc #f)
+      (resolve-all-gotos entry (list-named-bbs entry '()) '())
+      (in old-bb)))
   
   (define (call ast)
     (let ((def-proc (call-def-proc ast)))
+      (if (and (memq (def-id def-proc) predefined-routines)
+	       (not (def-procedure-entry def-proc)))
+	  ;; it's the first time we encounter this predefined routine, generate
+	  ;; the corresponding cfg
+	  (include-predefined-routine def-proc))
       (for-each (lambda (ast def-var)
                   (let ((value (expression ast)))
                     (let ((ext-value (extend value (def-variable-type def-var))))

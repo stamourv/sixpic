@@ -434,6 +434,6 @@
                cte))))
 
   (program source
-           (initial-cte)
+           initial-cte
            (lambda (ast cte)
              ast)))

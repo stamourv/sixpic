@@ -13,6 +13,20 @@
 
 ;------------------------------------------------------------------------------
 
+;; temporary solution, to support more than int
+(set! ##six-types ;; TODO unsigned types ?
+  '((int    . #f)
+    (byte   . #f)
+    (int8   . #f)
+    (int16  . #f)
+    (int32  . #f)
+    (char   . #f)
+    (bool   . #f)
+    (void   . #f)
+    (float  . #f)
+    (double . #f)
+    (obj    . #f)))
+
 (define (read-source filename)
   (shell-command (string-append "cpp -P " filename " > " filename ".tmp"))
 ;;   (##read-all-as-a-begin-expr-from-path ;; TODO use vectorized notation to have info on errors (where in the source)
@@ -41,10 +55,10 @@
 
   (let ((source (read-source filename)))
     '(pretty-print source)
-    (let ((ast (parse source)))
+    (let* ((ast (parse source)))
       '(pretty-print ast)
       (let ((cfg (generate-cfg ast)))
-	(print-cfg-bbs cfg)
+	'(print-cfg-bbs cfg)
 	(pretty-print cfg)
         (remove-branch-cascades-and-dead-code cfg)
 	(remove-converging-branches cfg)
@@ -53,6 +67,11 @@
 	'(print-cfg-bbs cfg)
         '(pretty-print cfg)
         (let ((code (code-gen filename cfg)))
-          '(pretty-print code)
+	  (asm-assemble)
+	  '(display "------------------ GENERATED CODE\n")
+	  (asm-display-listing (current-output-port))
+	  (asm-write-hex-file (string-append filename ".hex"))
+	  (asm-end!)
 	  '(display "------------------ EXECUTION USING SIMULATOR\n")
-	  '(execute-hex-file (string-append filename ".hex")))))))
+	  (execute-hex-file (string-append filename ".hex"))
+	  #t)))))

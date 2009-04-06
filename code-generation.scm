@@ -150,52 +150,49 @@
 
   (define (movlw val)
     (emit (list 'movlw val)))
-
   (define (movwf adr)
     (emit (list 'movwf adr)))
-
   (define (movfw adr)
     (emit (list 'movfw adr)))
-
   (define (movff src dst)
     (emit (list 'movff src dst)))
 
   (define (clrf adr)
     (emit (list 'clrf adr)))
-
   (define (setf adr)
     (emit (list 'setf adr)))
 
   (define (incf adr)
     (emit (list 'incf adr)))
-
   (define (decf adr)
     (emit (list 'decf adr)))
 
   (define (addwf adr)
     (emit (list 'addwf adr)))
-
   (define (addwfc adr)
     (emit (list 'addwfc adr)))
 
   (define (subwf adr)
     (emit (list 'subwf adr)))
-
   (define (subwfb adr)
     (emit (list 'subwfb adr)))
 
   (define (mullw adr)
     (emit (list 'mullw adr)))
-
   (define (mulwf adr)
     (emit (list 'mulwf adr)))
+
+  (define (andwf adr)
+    (emit (list 'andwf adr)))
+  (define (iorwf adr)
+    (emit (list 'iorwf adr)))
+  (define (xorwf adr)
+    (emit (list 'xorwf adr)))
   
   (define (cpfseq adr)
     (emit (list 'cpfseq adr)))
-
   (define (cpfslt adr)
     (emit (list 'cpfslt adr)))
-
   (define (cpfsgt adr)
     (emit (list 'cpfsgt adr)))
 
@@ -272,7 +269,9 @@
                                 (byte-cell-adr src1))
                             (or (not (byte-cell? src2))
                                 (byte-cell-adr src2)))
+
                        (case (instr-id instr)
+			 
                          ((move)
                           (if (byte-lit? src1)
                               (let ((n (byte-lit-val src1))
@@ -281,6 +280,7 @@
                               (let ((x (byte-cell-adr src1))
                                     (z (byte-cell-adr dst)))
                                 (move-reg x z))))
+			 
                          ((add addc sub subb)
                           (if (byte-lit? src2)
                               (let ((n (byte-lit-val src2))
@@ -289,58 +289,68 @@
                                     (move-lit (byte-lit-val src1) z)
                                     (move-reg (byte-cell-adr src1) z))
                                 (case (instr-id instr)
-                                  ((add)
-                                   (cond ((= n 1)
-                                          (incf z))
-                                         ((= n #xff)
-                                          (decf z))
-                                         (else
-                                          (movlw n)
-                                          (addwf z))))
-                                  ((addc)
-                                   (movlw n)
-                                   (addwfc z))
-                                  ((sub)
-                                   (cond ((= n 1)
-                                          (decf z))
-                                         ((= n #xff)
-                                          (incf z))
-                                         (else
-                                          (movlw n)
-                                          (subwf z))))
-                                  ((subb)
-                                   (movlw n)
-                                   (subwfb z))))
+                                  ((add)  (cond ((= n 1)    (incf z))
+						((= n #xff) (decf z))
+						(else       (movlw n)
+							    (addwf z))))
+                                  ((addc) (movlw n) (addwfc z))
+                                  ((sub)  (cond ((= n 1)    (decf z))
+						((= n #xff) (incf z))
+						(else       (movlw n)
+							    (subwf z))))
+                                  ((subb) (movlw n) (subwfb z))))
                               (let ((x (byte-cell-adr src1))
                                     (y (byte-cell-adr src2))
                                     (z (byte-cell-adr dst)))
                                 (cond ((and (not (= x y)) (= y z))
-                                       (move-reg x WREG)
-                                       (case (instr-id instr)
-                                         ((add)
-                                          (addwf z))
-                                         ((addc)
-                                          (addwfc z))
-                                         ((sub)
-                                          (subwfr z))
-                                         ((subb)
-                                          (subwfbr z))
-                                         (else (error "..."))))
+                                       (move-reg x WREG))
                                       (else
                                        (move-reg x z)
-                                       (move-reg y WREG)
-                                       (case (instr-id instr)
-                                         ((add)
-                                          (addwf z))
-                                         ((addc)
-                                          (addwfc z))
-                                         ((sub)
-                                          (subwf z))
-                                         ((subb)
-                                          (subwfb z))
-                                         (else (error "..."))))))))
-			 ((mul)
-			  TODO) ;; TODO FOO implement multiplication, choose between mullw and mulwf, no need to do shifts, I guess, since multiplications are 1 cycle
+                                       (move-reg y WREG)))
+				(case (instr-id instr) ;; TODO used to be in each branch of the cond, now is abstracted test to see if it still works
+				  ((add)  (addwf z))
+				  ((addc) (addwfc z))
+				  ((sub)  (subwf z))
+				  ((subb) (subwfb z))
+				  (else   (error "..."))))))
+			 
+			 ((mul) ; 8 by 8 multiplication
+			  (if (byte-lit? src2)
+                              (let ((n (byte-lit-val src2)))
+                                (if (byte-lit? src1) ;; TODO will probably never be called with literals, since it's always inside a function
+				    (movlw   (byte-lit-val src1))
+                                    (movereg (byte-cell-adr src1) WREG))
+				;; literal multiplication
+				(mullw n))
+                              (let ((x (byte-cell-adr src1)) ;; TODO how to be sure that we can't get the case of the 1st arg being a literal, but not the 2nd ?
+                                    (y (byte-cell-adr src2)))
+				(move-reg x WREG)
+				(mulwf y)))) ;; TODO seems to take the same argument twice, see test32
+			 
+			 ((and ior xor) ;; TODO similar to add sub and co, except that I removed the literal part
+			  (let ((x (if (byte-lit? src1)
+				       (byte-lit-val src1)
+				       (byte-cell-adr src1)))
+				(y (if (byte-lit? src2)
+				       (byte-lit-val src2)
+				       (byte-cell-adr src2)))
+				(z (byte-cell-adr dst)))
+			    (cond ((byte-lit? src1)
+				   (if (byte-lit? src2)
+				       (move-lit y z)
+				       (move-reg y z))
+				   (movlw x)) ;; TODO not sure it will work
+				  ((and (not (= x y)) (= y z))
+				   (move-reg x WREG))
+				  (else
+				   (move-reg x z)
+				   (move-reg y WREG)))
+			    (case (instr-id instr)
+			      ((and) (andwf z))
+			      ((ior) (iorwf z))
+			      ((xor) (xorwf z))
+			      (else (error "...")))))
+			 
                          ((goto)
                           (let* ((succs (bb-succs bb))
                                  (dest (car succs)))
@@ -443,6 +453,12 @@
        (mullw (cadr instr)))
       ((mulwf)
        (mulwf (cadr instr)))
+      ((andwf)
+       (andwf (cadr instr)))
+      ((iorwf)
+       (iorwf (cadr instr)))
+      ((xorwf)
+       (xorwf (cadr instr)))
       ((cpfseq)
        (cpfseq (cadr instr)))
       ((cpfslt)
@@ -470,17 +486,7 @@
 
   (let ((code (linearize-and-cleanup cfg)))
 ;    (pretty-print code)
-    (for-each gen code))
-
-  (asm-assemble)
-
-  '(display "------------------ GENERATED CODE\n")
-
-  '(asm-display-listing (current-output-port))
-
-  (asm-write-hex-file (string-append filename ".hex")) ;; TODO move to main ?
-
-  (asm-end!))
+    (for-each gen code)))
 
 (define (code-gen filename cfg)
   (allocate-registers cfg)

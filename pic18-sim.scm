@@ -209,12 +209,15 @@
             (loop (+ i 1)))))))
 
 (define (byte-oriented opcode mnemonic flags-changed operation)
-  (byte-oriented-aux opcode mnemonic flags-changed operation #f))
-
+  (byte-oriented-aux opcode mnemonic flags-changed operation 'wreg))
 (define (byte-oriented-file opcode mnemonic flags-changed operation)
-  (byte-oriented-aux opcode mnemonic flags-changed operation #t))
+  (byte-oriented-aux opcode mnemonic flags-changed operation 'file))
+(define (byte-oriented-wide opcode mnemonic flags-changed operation dest)
+  ;; for use with instructions that have results more than a byte wide, such
+  ;; as multiplication. the result goes at the given addresses
+  (byte-oriented-aux opcode mnemonic flags-changed operation dest)) ;; TODO do the same for literals
 
-(define (byte-oriented-aux opcode mnemonic flags-changed operation file?)
+(define (byte-oriented-aux opcode mnemonic flags-changed operation dest)
   (let* ((f (bitwise-and opcode #xff))
          (adr (if (= 0 (bitwise-and opcode #x100))
                   (if (= 0 (bitwise-and f #x80)) f (+ f #xf00))
@@ -223,15 +226,27 @@
         (display (list (last-pc) "	" mnemonic "	"
                        (let ((x (assv adr file-reg-names)))
                          (if x (cdr x) (list "0x" (number->string adr 16))))
-                       (if (or file? (not (= 0 (bitwise-and opcode #x200))))
-                           ""
-                           ", w")
+                       (if (or (eq? dest 'wreg)
+			       (= 0 (bitwise-and opcode #x200)))
+                           ", w"
+                           "")
                        "")))
     (let* ((result (operation (get-ram adr)))
            (result-8bit (bitwise-and result #xff)))
-      (if (or file? (not (= 0 (bitwise-and opcode #x200))))
-          (set-ram adr result-8bit)
-          (set-wreg result-8bit))
+      (cond ((list? dest)
+	     ;; result is more than a byte wide (i.e. multiplication)
+	     ;; put it in the right destinations (dest is a list of addresses)
+	     (let loop ((dest dest) (result result))
+	       (if (not (null? dest))
+		   ;; the head of the list is the lsb
+		   (begin (set-ram (car dest) (bitwise-and result #xff))
+			  (loop (cdr dest) (arithmetic-shift result -8))))))
+	    ((or (eq? dest 'file) (not (= 0 (bitwise-and opcode #x200))))
+	     ;; the result goes in memory (file)
+	     (set-ram adr result-8bit))
+	    ((eq? dest 'wreg)
+	     ;; result goes in wreg
+	     (set-wreg result-8bit)))
       (if (not (eq? flags-changed 'none))
           (begin
             (set-zero-flag (if (= 0 result-8bit) 1 0))
@@ -519,9 +534,10 @@
 
 (decode-opcode #b0000001 9
   (lambda (opcode)
-    (byte-oriented-file opcode "mulwf" 'none
+    (byte-oriented-wide opcode "mulwf" 'none
      (lambda (f)
-       (* f (get-wreg))))))
+       (* f (get-wreg)))
+     (list PRODL PRODH))))
 
 (decode-opcode #b0110110 9
   (lambda (opcode)
