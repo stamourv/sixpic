@@ -81,7 +81,8 @@
 	
 	;; for multiplication
 	;; TODO do others
-	(predefine-routine 'mul8_8 'int16 '(byte byte))
+	(predefine-routine 'mul8_8  'int16 '(byte  byte))
+	(predefine-routine 'mul16_8 'int24 '(int16 byte))
 	
 	;; TODO maybe use predefine fun and have jump to a function already in rom ? then have some kind of linking to see if it's used, and if so, put the code in
 	))

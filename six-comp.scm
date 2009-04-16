@@ -19,6 +19,7 @@
     (byte   . #f)
     (int8   . #f)
     (int16  . #f)
+    (int24  . #f) ;; TODO useful ? is currently used for 8x16 multiplications
     (int32  . #f)
     (char   . #f)
     (bool   . #f)

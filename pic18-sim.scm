@@ -191,7 +191,7 @@
 
 (define (illegal-opcode opcode)
   (if trace-instr
-      (display (list (last-pc) "	*illegal*")))
+      (print (list (last-pc) "	*illegal*")))
   (error "illegal opcode" opcode))
 
 (define decode-vector
@@ -223,7 +223,7 @@
                   (if (= 0 (bitwise-and f #x80)) f (+ f #xf00))
                   (+ f (arithmetic-shift (get-bsr) 8)))))
     (if trace-instr
-        (display (list (last-pc) "	" mnemonic "	"
+        (print (list (last-pc) "	" mnemonic "	"
                        (let ((x (assv adr file-reg-names)))
                          (if x (cdr x) (list "0x" (number->string adr 16))))
                        (if (or (eq? dest 'wreg)
@@ -270,7 +270,7 @@
                   (+ f (arithmetic-shift (get-bsr) 8))))
          (b (bitwise-and (arithmetic-shift opcode -9) 7)))
     (if trace-instr
-        (display (list (last-pc) "	" mnemonic "	"
+        (print (list (last-pc) "	" mnemonic "	"
                        (let ((x (assv adr file-reg-names)))
                          (if x (cdr x) (list "0x" (number->string adr 16))))
                        ", "
@@ -293,7 +293,7 @@
   (let* ((n (bitwise-and opcode #xff))
          (adr (+ (get-pc) (* 2 (if (> n #x7f) (- n #x100) n)))))
     (if trace-instr
-        (display (list (last-pc) "	" mnemonic "	"
+        (print (list (last-pc) "	" mnemonic "	"
                        "0x"
                        (number->string adr 16)
                        "")))
@@ -306,7 +306,7 @@
   (let* ((n (bitwise-and opcode #x7ff))
          (adr (+ (get-pc) (* 2 (if (> n #x3ff) (- n #x800) n)))))
     (if trace-instr
-        (display (list (last-pc) "	" mnemonic "	"
+        (print (list (last-pc) "	" mnemonic "	"
                        "0x"
                        (number->string adr 16)
                        "")))
@@ -319,7 +319,7 @@
   (let ((adr (* 2 (+ (bitwise-and opcode #xff)
                      (arithmetic-shift (get-program-mem) 8)))))
     (if trace-instr
-        (display (list (last-pc) "	" mnemonic "	"
+        (print (list (last-pc) "	" mnemonic "	"
                        "0x"
                        (number->string adr 16)
                        (if (= 0 (bitwise-and opcode #x100))
@@ -335,7 +335,7 @@
   (let ((adr (* 2 (+ (bitwise-and opcode #xff)
                      (arithmetic-shift (get-program-mem) 8)))))
     (if trace-instr
-        (display (list (last-pc) "	" mnemonic "	"
+        (print (list (last-pc) "	" mnemonic "	"
                        "0x"
                        (number->string adr 16)
                        "")))
@@ -344,7 +344,7 @@
 (define (literal-operation opcode mnemonic flags-changed operation)
   (let ((k (bitwise-and opcode #xff)))
     (if trace-instr
-        (display (list (last-pc) "	" mnemonic "	"
+        (print (list (last-pc) "	" mnemonic "	"
                        (if (< k 10) k (list "0x" (number->string k 16)))
                        "")))
     (let* ((result (operation k))
@@ -380,25 +380,25 @@
 
 (define (dump-mem)
 
-  (display "	")
+  (print "	")
   (let loop ((i 0))
     (if (< i 10)
         (begin
-          (display (list (hex (u8vector-ref pic18-ram i)) " "))
+          (print (list (hex (u8vector-ref pic18-ram i)) " "))
           (loop (+ i 1)))))
-  (display (list "  WREG=" (hex (get-wreg)) "\n")))
+  (print (list "  WREG=" (hex (get-wreg)) "\n")))
 
 (define (pic18-execute)
   (set! pic18-exit #f)
   (set! pic18-cycles 0)
   (if trace-instr
-      (display "				"))
+      (print "				"))
   (let loop ()
     (if trace-instr
         (dump-mem))
     (if pic18-exit
         (begin
-          (display (list "WREG = d'" (get-wreg) "'\n")))
+          (print (list "WREG = d'" (get-wreg) "'\n")))
         (let ((opcode (get-program-mem)))
           (let ((proc (vector-ref decode-vector (arithmetic-shift opcode -8))))
             (proc opcode)
@@ -714,62 +714,62 @@
 (decode-opcode #b1111 12
   (lambda (opcode)
     (if trace-instr
-        (display (list (last-pc) "	nop	")))))
+        (print (list (last-pc) "	nop	")))))
 
 (decode-opcode #b00000000 8
   (lambda (opcode)
     (cond ((= opcode #b0000000000000100)
            (if trace-instr
-               (display (list (last-pc) "	clrwdt	")))
+               (print (list (last-pc) "	clrwdt	")))
            (clrwdt opcode))
           ((= opcode #b0000000000000111)
            (if trace-instr
-               (display (list (last-pc) "	daw	")))
+               (print (list (last-pc) "	daw	")))
            (daw opcode))
           ((= opcode #b0000000000000000)
            (if trace-instr
-               (display (list (last-pc) "	nop	"))))
+               (print (list (last-pc) "	nop	"))))
           ((= opcode #b0000000000000110)
            (if trace-instr
-               (display (list (last-pc) "	pop	")))
+               (print (list (last-pc) "	pop	")))
            (stack-pop))
           ((= opcode #b0000000000000101)
            (if trace-instr
-               (display (list (last-pc) "	push	")))
+               (print (list (last-pc) "	push	")))
            (stack-push (get-pc)))
           ((= opcode #b0000000011111111)
            (if trace-instr
-               (display (list (last-pc) "	reset	")))
+               (print (list (last-pc) "	reset	")))
            (set-pc 0))
           ((= opcode #b0000000000010000)
            (if trace-instr
-               (display (list (last-pc) "	retfie	")))
+               (print (list (last-pc) "	retfie	")))
            (get-program-mem)
            (stack-pop))
           ((= opcode #b0000000000010001)
            (if trace-instr
-               (display (list (last-pc) "	retfie	FAST")))
+               (print (list (last-pc) "	retfie	FAST")))
            (error "retfie fast not implemented")
            (get-program-mem)
            (stack-pop))
           ((= opcode #b0000000000010010)
            (if trace-instr
-               (display (list (last-pc) "	return	")))
+               (print (list (last-pc) "	return	")))
            (get-program-mem)
            (stack-pop))
           ((= opcode #b0000000000010011)
            (if trace-instr
-               (display (list (last-pc) "	return	FAST")))
+               (print (list (last-pc) "	return	FAST")))
            (error "return fast not implemented")
            (get-program-mem)
            (stack-pop))
           ((= opcode #b0000000000000011)
            (if trace-instr
-               (display (list (last-pc) "	sleep	")))
+               (print (list (last-pc) "	sleep	")))
            (set! pic18-exit #t))
           (else
            (if trace-instr
-               (display (list (last-pc) "	???	")))
+               (print (list (last-pc) "	???	")))
            (error "???")))))
 
 ; Literal operations.

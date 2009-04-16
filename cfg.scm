@@ -504,14 +504,14 @@
       value))
   
   (define (add-sub id value1 value2 result)
-    (let loop ((bytes1 (value-bytes value1))
+    (let loop ((bytes1 (value-bytes value1)) ; car is lsb
                (bytes2 (value-bytes value2))
                (bytes3 (value-bytes result))
                (ignore-carry-borrow? #t))
       (if (not (null? bytes3))
 	  (begin (emit
 		  (new-instr (if ignore-carry-borrow?
-				 (case id ((x+y) 'add) ((x-y) 'sub))
+				 (case id ((x+y) 'add)  ((x-y) 'sub))
 				 (case id ((x+y) 'addc) ((x-y) 'subb)))
 			     (if (null? bytes1) (new-byte-lit 0) (car bytes1))
 			     (if (null? bytes2) (new-byte-lit 0) (car bytes2))
@@ -528,21 +528,30 @@
     ;; the arguments must be the asts of the 2 arguments (x and y) and the
     ;; type of the returned value, since these are what are expected by the
     ;; call function
-    (let* ((lx (length (value-bytes (expression x)))) ;; TODO can't handle literals... I don't get it, see add-sub, maybe use the type to determine instead
-	   (ly (length (value-bytes (expression y)))) ;; TODO we end up doing some work that call will also end up doing, wasteful, but I don't see another way
-	   (op (string->symbol ; mul8_8, mul8_16, etc
-		;; for now, only unsigned multiplications are supported
-		(string-append "mul"
-			       (number->string (* lx 8)) "_"
-			       (number->string (* ly 8)))))
-	   ;; find the definition of the predefined routine in the initial cte
-	   (def-proc (car (memp (lambda (x) (eq? (def-id x) op))
-				initial-cte))))
-      ;; put the result of the call where the rest of the expression expects it
-      (move-value (call (new-call (list x y) ;; TODO actually, take the subsasts of the arithmetic expression, instead of separately ?
-				  type
-				  def-proc))
-		  result)))
+    (let ((lx (length (value-bytes (expression x))))
+	  (ly (length (value-bytes (expression y))))) ;; TODO we end up doing some work that call will also end up doing, wasteful, but I don't see another way
+      ;; to avoid code duplication (i.e. habing a routine for 8 by 16
+      ;; multplication and one for 16 by 8), the longest operand goes first
+      (if (> ly lx)
+	  (let ((tmp1 y)
+		(tmp2 ly))
+	    (set! y x)
+	    (set! x tmp1)
+	    (set! ly lx)
+	    (set! lx tmp2)))
+      (let* ((op (string->symbol ; mul8_8, mul8_16, etc
+		  ;; for now, only unsigned multiplications are supported
+		  (string-append "mul"
+				 (number->string (* lx 8)) "_"
+				 (number->string (* ly 8)))))
+	     ;; find the definition of the predefined routine in the initial cte
+	     (def-proc (car (memp (lambda (x) (eq? (def-id x) op))
+				  initial-cte))))
+	;; put the result of the call where the rest of the expression expects it
+	(move-value (call (new-call (list x y) ;; TODO actually, take the subsasts of the arithmetic expression, instead of separately ?
+				    type
+				    def-proc))
+		    result))))
 
   ;; bitwise and, or, xor TODO not ? no, elsewhere since it's unary
   ;; TODO similar to add-sub and probably others, abstract multi-byte operations
@@ -634,7 +643,7 @@
                               (int->value 1 type)
                               result)
                      result)))
-                ((x++ x--) ;; TODO not sure this works properly
+                ((x++ x--)
                  (let ((x (subast1 ast)))
                    (if (not (ref? x))
                        (error "assignment target must be a variable"))
@@ -710,6 +719,8 @@
 
   ;; generates the cfg for a predefined routine and adds it to the current cfg
   (define (include-predefined-routine proc)
+    (define (get-bytes var)
+      (value-bytes (def-variable-value var)))
     (let ((id (def-id proc))
 	  (params (def-procedure-params proc))
 	  (value (def-procedure-value proc))
@@ -719,15 +730,34 @@
       (set! current-def-proc proc)
       (in entry)
       (case id
+	
 	((mul8_8)
 	 (let ((x (car params))
 	       (y (cadr params))
 	       (z (value-bytes value)))
-	   (define (get-cell var)
-	     (car (value-bytes (def-variable-value var)))) ;; TODO implement literal multiplication in the simulator
-	   (emit (new-instr 'mul (get-cell x) (get-cell y) #f)) ;; TODO have a destination (actually 2, for the 2 parts of PROD), instead of leaving the values in PROD and moving them here
-	   (move (get-register PRODL) (car z)) ;; TODO big or little endian ? TODO talking about PRODL/H here is an abstraction leak, pass 
-	   (move (get-register PRODH) (cadr z)))))
+	   ;; TODO implement literal multiplication in the simulator
+	   (emit (new-instr 'mul (car (get-bytes x)) (car (get-bytes y)) #f))
+	   ;; TODO talking about prodl/h here is abstraction leak, maybe have 2 destinations for the instruction
+	   (move (get-register PRODL) (car z)) ; lsb
+	   (move (get-register PRODH) (cadr z))))
+	
+	((mul16_8)
+	 (let* ((x  (car params)) ;; TODO make sure endianness is ok
+		(x0 (car (get-bytes x))) ; lsb
+		(x1 (cadr (get-bytes x)))
+		(y  (cadr params))
+		(y0 (car (get-bytes y)))
+		(z  (value-bytes value))
+		(z2 (car z)) ; lsb
+		(z1 (cadr z))
+		(z0 (caddr z)))
+	   (emit (new-instr 'mul y0 x1 #f))
+	   (move (get-register PRODH) z1)
+	   (move (get-register PRODL) z2)
+	   (emit (new-instr 'mul y0 x0 #f))
+	   (move (get-register PRODH) z0)
+	   (emit (new-instr 'add  (get-register PRODL) z1 z1))
+	   (emit (new-instr 'addc z0 (new-byte-lit 0) z0)))))
       ;; TODO alloc-value if intermediary results are needed, wouldn't be as optimal as directly adding prodl and prodh to the right register, but makes it more generic, maybe register allocation could fix this suboptimality ? (actually, for the moment, we play with the PROD registers right here, so it's not that subobtimal)
       (return-with-no-new-bb proc)
       (set! current-def-proc #f)
