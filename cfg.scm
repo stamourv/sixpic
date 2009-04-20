@@ -220,6 +220,7 @@
       (test-expression (subast1 ast) bb-then bb-join)
       (in bb-then)
       (statement (subast2 ast))
+      (gen-goto bb-join)
       (in bb-join)))
 
   (define (if2 ast)
@@ -388,45 +389,75 @@
 	     (emit (new-instr id byte1 byte2 #f))))) ;; TODO doesn't change from if we had literals, at least not now
 
     (define (test-value id value1 value2 bb-true bb-false)
-      (let loop ((bytes1  (value-bytes value1)) ; lsb first
-		 (bytes2  (value-bytes value2))
-		 (padded1 '())
-		 (padded2 '()))
-	(if (not (and (null? bytes1) (null? bytes2)))
-	    ;; note: won't work with signed types, as the padding is done
-	    ;; with 0s only
-	    (let ((byte1 (if (null? bytes1) (new-byte-lit 0) (car bytes1)))
-		  (byte2 (if (null? bytes2) (new-byte-lit 0) (car bytes2))))
-	      (loop (cdr bytes1) (cdr bytes2)
-		    (cons byte1 padded1) (cons byte2 padded2)))
-	    ;; now so the test itself, using the padded values
-	    ;; the comparisons are done msb-first, for < and >
-	    (let loop2 ((bytes1 padded1) ; msb first
-			(bytes2 padded2))
-	      (if (null? (cdr bytes1)) ;; TODO TEST IT
-		  (test-byte id byte1 byte2 bb-true bb-false)
-		  (let ((bb-true2 (new-bb)))
-		    (test-byte id byte1 byte2 bb-true2 bb-false)
-		    (in bb-true2)
-		    (loop (cdr bytes1) (cdr bytes2))))))))
+      	 (let loop ((bytes1  (value-bytes value1)) ; lsb first
+		    (bytes2  (value-bytes value2))
+		    (padded1 '())
+		    (padded2 '()))
+	   (if (not (and (null? bytes1) (null? bytes2)))
+	       ;; note: won't work with signed types, as the padding is done
+	       ;; with 0s only
+	       (loop (if (null? bytes1) bytes1 (cdr bytes1)) ;; TODO ugly
+		     (if (null? bytes2) bytes2 (cdr bytes2))
+		     (cons (if (null? bytes1) (new-byte-lit 0) (car bytes1))
+			   padded1)
+		     (cons (if (null? bytes2) (new-byte-lit 0) (car bytes2))
+			   padded2))
+	       ;; now so the test itself, using the padded values
+	       ;; the comparisons are done msb-first, for < and >
+	       (case id
+		 ((x==y) ; unlike < and >, must check all bytes, so is simpler
+		  (let loop2 ((bytes1 padded1)
+			      (bytes2 padded2))
+		    (let ((byte1 (car bytes1))
+			  (byte2 (car bytes2)))
+		      (if (null? (cdr bytes1)) ;; TODO factor with code for < and > ?
+			  (test-byte 'x==y byte1 byte2 bb-true bb-false)
+			  (let ((bb-true2 (new-bb)))
+			    (test-byte 'x==y byte1 byte2 bb-true2 bb-false)
+			    (in bb-true2)
+			    (loop2 (cdr bytes1) (cdr bytes2)))))))
+		 
+		 (else ; < and >
+		  (let loop2 ((bytes1 padded1) ; msb first
+			      (bytes2 padded2))
+		    (let ((byte1 (car bytes1))
+			  (byte2 (car bytes2)))
+		      (if (null? (cdr bytes1))
+			  (test-byte id byte1 byte2 bb-true bb-false)
+			  (let ((bb-test-equal (new-bb))
+				(bb-keep-going (new-bb)))
+			    ;; if the test is true for the msb, the whole test
+			    ;; is true
+			    (test-byte id byte1 byte2 bb-true bb-test-equal)
+			    ;; if not, check for equality, if both bytes are
+			    ;; equal, keep going
+			    (in bb-test-equal) ;; TODO is this the most efficient way ?
+			    (test-byte 'x==y byte1 byte2 bb-keep-going bb-false)
+			    ;; TODO do some analysis to check the value already in w, in this case, it won't change between both tests, so no need to charge it back, as is done now
+			    (in bb-keep-going)
+			    (loop2 (cdr bytes1) (cdr bytes2)))))))))))
     
     (define (test-relation id x y bb-true bb-false)
-      (cond ((and (literal? x) (not (literal? y))) ; literals must be in the last argument for code generation
+      (cond ((and (literal? x) (not (literal? y)))
+	     ;; literals must be in the last argument for code generation
+	     ;; flip the relation if needed
 	     (test-relation (case id
-			      ((x==y x!=y) id)
-			      ((x<y) 'x>y)
-			      ((x>y) 'x<y)
-			      ((x<=y) 'x>=y)
-			      ((x>=y) 'x<=y)
+			      ((x==y x!=y) id) ; commutative, no change
+			      ((x<y)       'x>y)
+			      ((x>y)       'x<y)
+			      ((x<=y)      'x>=y)
+			      ((x>=y)      'x<=y)
 			      (else (error "relation error")))
 			    y
 			    x
 			    bb-true
 			    bb-false))
-	    ((assq id '((x!=y . x==y) (x<=y . x>y) (x>=y . x<y))) ; flip the destination blocks to have a simpler comparison
+	    ((assq id '((x!=y . x==y) (x<=y . x>y) (x>=y . x<y)))
+	     ;; flip the destination blocks to have a simpler comparison
 	     =>
 	     (lambda (z) (test-relation (cdr z) x y bb-false bb-true)))
 	    (else
+	     ;; normal case
 ;; 	     ' ;; TODO use these special cases, but fall back on the current implementation for default
 ;; 	     (case id
 ;; 	       ((x==y)
@@ -459,7 +490,8 @@
       (define (default)
 	(let ((type (expr-type ast))
 	      (value (expression ast)))
-	  (test-value 'x==y value (int->value 0 type) bb-false bb-true)))
+	  ;; since nonzero is true, we must swap the destinations to use ==
+	  (test-value 'x==y value (int->value 0 type) bb-false bb-true))) ;; TODO should probably call test-relation, instead, no shortcuts
       
       (cond ((oper? ast)
 	     (let* ((op (oper-op ast))
@@ -808,18 +840,27 @@
       (in old-bb)))
   
   (define (call ast)
-    (let ((def-proc (call-def-proc ast)))
+    (let* ((def-proc   (call-def-proc ast))
+	   (arguments  (ast-subasts ast))
+	   (parameters (def-procedure-params def-proc)))
       (if (and (memq (def-id def-proc) predefined-routines)
 	       (not (def-procedure-entry def-proc)))
 	  ;; it's the first time we encounter this predefined routine, generate
 	  ;; the corresponding cfg
 	  (include-predefined-routine def-proc))
+      ;; argument number check
+      (if (not (= (length arguments) (length parameters)))
+	  (error (string-append "wrong number of arguments given to function "
+				(symbol->string (def-id def-proc)) ": "
+				(number->string (length arguments)) " given, "
+				(number->string (length parameters))
+				" expected")))
       (for-each (lambda (ast def-var)
                   (let ((value (expression ast)))
                     (let ((ext-value (extend value (def-variable-type def-var))))
                       (move-value value (def-variable-value def-var)))))
-                (ast-subasts ast)
-                (def-procedure-params def-proc))
+                arguments
+                parameters)
       (emit (new-call-instr def-proc))
       (let ((value (def-procedure-value def-proc)))
         (let ((result (alloc-value (def-procedure-type def-proc))))

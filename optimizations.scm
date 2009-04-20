@@ -163,9 +163,11 @@
 ;------------------------------------------------------------------------------
 
 ;; removes dead instructions (instructions after a return or after all jumps)
-(define (remove-dead-instructions cfg) ;; TODO was not tested thoroughly
+(define (remove-dead-instructions cfg)
 
   (define (bb-process bb)
+    ;; since instructions are in erverse order, loop until we find a jump,
+    ;; and keep everything after
     (let loop ((instrs (reverse (bb-rev-instrs bb)))
 	       (new-instrs '()))
       (let* ((head (car instrs))
