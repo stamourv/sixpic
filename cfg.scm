@@ -194,7 +194,7 @@
   (define (move-value from to)
     (let loop ((from (value-bytes from))
 	       (to   (value-bytes to)))
-      (cond ((null? to))  ; done
+      (cond ((null? to))  ; done, we truncate the rest
 	    ((null? from) ; promote the value by padding
 	     (move (new-byte-lit 0) (car to))
 	     (loop from (cdr to)))
@@ -388,18 +388,27 @@
 	     (emit (new-instr id byte1 byte2 #f))))) ;; TODO doesn't change from if we had literals, at least not now
 
     (define (test-value id value1 value2 bb-true bb-false)
-      ;; note: for multi-byte values, only x==y works properly TODO fix it, will depend on byte order, is car the lsb or msb ?
-      (let loop ((bytes1 (value-bytes value1))
-		 (bytes2 (value-bytes value2)))
-	;; TODO won't work with values of different widths
-	(let ((byte1 (car bytes1))
-	      (byte2 (car bytes2))) ;; TODO FAILS HERE if value2 is shorter than value1 BAD
-	  (if (null? (cdr bytes1))
-	      (test-byte id byte1 byte2 bb-true bb-false)
-	      (let ((bb-true2 (new-bb)))
-		(test-byte id byte1 byte2 bb-true2 bb-false)
-		(in bb-true2)
-		(loop (cdr bytes1) (cdr bytes2)))))))
+      (let loop ((bytes1  (value-bytes value1)) ; lsb first
+		 (bytes2  (value-bytes value2))
+		 (padded1 '())
+		 (padded2 '()))
+	(if (not (and (null? bytes1) (null? bytes2)))
+	    ;; note: won't work with signed types, as the padding is done
+	    ;; with 0s only
+	    (let ((byte1 (if (null? bytes1) (new-byte-lit 0) (car bytes1)))
+		  (byte2 (if (null? bytes2) (new-byte-lit 0) (car bytes2))))
+	      (loop (cdr bytes1) (cdr bytes2)
+		    (cons byte1 padded1) (cons byte2 padded2)))
+	    ;; now so the test itself, using the padded values
+	    ;; the comparisons are done msb-first, for < and >
+	    (let loop2 ((bytes1 padded1) ; msb first
+			(bytes2 padded2))
+	      (if (null? (cdr bytes1)) ;; TODO TEST IT
+		  (test-byte id byte1 byte2 bb-true bb-false)
+		  (let ((bb-true2 (new-bb)))
+		    (test-byte id byte1 byte2 bb-true2 bb-false)
+		    (in bb-true2)
+		    (loop (cdr bytes1) (cdr bytes2))))))))
     
     (define (test-relation id x y bb-true bb-false)
       (cond ((and (literal? x) (not (literal? y))) ; literals must be in the last argument for code generation
@@ -742,22 +751,56 @@
 	   (move (get-register PRODH) (cadr z))))
 	
 	((mul16_8)
-	 (let* ((x  (car params)) ;; TODO make sure endianness is ok
-		(x0 (car (get-bytes x))) ; lsb
-		(x1 (cadr (get-bytes x)))
-		(y  (cadr params))
-		(y0 (car (get-bytes y)))
+	 (let* ((x  (get-bytes (car params))) ;; TODO make sure endianness is ok
+		(x0 (car x)) ; lsb
+		(x1 (cadr x))
+		(y  (get-bytes (cadr params)))
+		(y0 (car y))
 		(z  (value-bytes value))
-		(z2 (car z)) ; lsb
+		(z0 (car z)) ; lsb
 		(z1 (cadr z))
-		(z0 (caddr z)))
+		(z2 (caddr z)))
 	   (emit (new-instr 'mul y0 x1 #f))
-	   (move (get-register PRODH) z1)
-	   (move (get-register PRODL) z2)
+	   (move (get-register PRODH) z2)
+	   (move (get-register PRODL) z1)
+
 	   (emit (new-instr 'mul y0 x0 #f))
-	   (move (get-register PRODH) z0)
+	   (move (get-register PRODL) z0)
+	   (emit (new-instr 'add  (get-register PRODH) z1 z1))
+	   (emit (new-instr 'addc z2 (new-byte-lit 0) z2))))
+
+	((mul16_16)
+	 (let* ((x  (get-bytes (car params)))
+		(x0 (car x))
+		(x1 (cadr x))
+		(y  (get-bytes (cadr params)))
+		(y0 (car y))
+		(y1 (cadr y))
+		(z  (value-bytes value))
+		(z0 (car z))
+		(z1 (cadr z))
+		(z2 (caddr z))
+		(z3 (cadddr z)))
+
+	   (emit (new-instr 'mul x1 y1 #f))
+	   (move (get-register PRODH) z3)
+	   (move (get-register PRODL) z2)
+
+	   (emit (new-instr 'mul x0 y0 #f))
+	   (move (get-register PRODH) z1)
+	   (move (get-register PRODL) z0)
+
+	   (emit (new-instr 'mul x0 y1 #f))
 	   (emit (new-instr 'add  (get-register PRODL) z1 z1))
-	   (emit (new-instr 'addc z0 (new-byte-lit 0) z0)))))
+	   (emit (new-instr 'addc (get-register PRODH) z2 z2))
+	   (emit (new-instr 'addc z3 (new-byte-lit 0) z3))
+
+	   (emit (new-instr 'mul x1 y0 #f))
+	   (emit (new-instr 'add  (get-register PRODL) z1 z1))
+	   (emit (new-instr 'addc (get-register PRODH) z2 z2))
+	   (emit (new-instr 'addc z3 (new-byte-lit 0) z3))))
+	;; TODO have 16-32 and 32-32 ? needed for picobit ?
+	)
       ;; TODO alloc-value if intermediary results are needed, wouldn't be as optimal as directly adding prodl and prodh to the right register, but makes it more generic, maybe register allocation could fix this suboptimality ? (actually, for the moment, we play with the PROD registers right here, so it's not that subobtimal)
       (return-with-no-new-bb proc)
       (set! current-def-proc #f)

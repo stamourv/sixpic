@@ -27,6 +27,7 @@
     (float  . #f)
     (double . #f)
     (obj    . #f)))
+;; TODO typedef should add to this list
 
 (define (read-source filename)
   (shell-command (string-append "cpp -P " filename " > " filename ".tmp"))

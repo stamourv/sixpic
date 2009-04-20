@@ -1,18 +1,5 @@
 ;;; operators
 
-(define (castable? from to)
-  (if (eq? from to)
-      #t ; base case
-      (case to
-	((int)
-	 (foldl (lambda (x y) (or x (castable? from y)))
-		#f
-		'(byte int8 int16 int32)))
-	((bool)
-	 (eq? from 'int))
-	;; TODO ajouter casts vers byte, int16, etc, probably not needed since operations are done on ints, and useless operations (on bytes that would not exist) are optimized away
-	(else #f))))
-
 (define operators '())
 
 (define (define-op1 six-id id type-rule constant-fold code-gen)
@@ -25,15 +12,15 @@
         (cons (make-op2 six-id id type-rule constant-fold code-gen)
               operators)))
 
+;; no need for type checks, every type sixpic supports can be casted to / from
+;; ints (except void, but this is a non-issue) and promotion (by padding) and
+;; truncation is done at the cfg level
+;; TODO really ignore the void issue ? assigning the "result" of a void function to an int variable should be an error
 (define (type-rule-int-op1 ast)
-  (let ((t1 (expr-type (subast1 ast))))
-    (cond ((castable? t1 'int)
-           'int)
-          (else
-           (error "int-op1: type error" ast)))))
+  (expr-type (subast1 ast)))
 
 (define (largest t1 t2)
-  (let loop ((l '(int int32 int16 int8 byte)))
+  (let loop ((l '(int int32 int16 int8 byte))) ;; TODO FOO, use the functions type->bytes and bytes->type instead
     (if (null? l)
 	(error "largest: unknown type")
 	(let ((head (car l)))
@@ -45,37 +32,23 @@
 (define (type-rule-int-op2 ast)
   (let ((t1 (expr-type (subast1 ast)))
         (t2 (expr-type (subast2 ast))))
-    (cond ((and (castable? t1 'int) (castable? t2 'int))
-           (largest t1 t2))
-          (else
-           (error "int-op2: type error" ast)))))
+    (largest t1 t2)))
 
 (define (type-rule-int-assign ast) ;; TODO why the int in the name ?
-  (let ((t1 (expr-type (subast1 ast)))
-        (t2 (expr-type (subast2 ast))))
-    (if (not (castable? t2 t1)) ; the rhs must fit in the lhs
-        (error "int-assign: type error" ast))
+  (let ((t1 (expr-type (subast1 ast))))
+    ;; the type of the rhs is irrelevant, since it will be promoted
+    ;; or truncated at the cfg level
     t1))
 
 (define (type-rule-int-comp-op2 ast)
-  (let ((t1 (expr-type (subast1 ast)))
-        (t2 (expr-type (subast2 ast))))
-    (cond ((and (castable? t1 'int) (castable? t2 'int))
-           'bool)
-          (else
-           (error "int-comp-op2: type error" ast)))))
+  'bool) ;; TODO why even bother ? anything can be casted to int to be used as argument here, old version is in garbage (and in version control) if needed
 
 (define (type-rule-bool-op2 ast)
-  (let ((t1 (expr-type (subast1 ast)))
-        (t2 (expr-type (subast2 ast))))
-    (cond ((and (castable? t1 'bool) (castable? t2 'bool))
-           'bool)
-          (else
-           (error "bool-op2: type error" ast)))))
+  'bool) ;; TODO same here
 
 (define-op1 'six.!x '!x
   type-rule-int-op1
-  (lambda (ast) ;; TODO implement these
+  (lambda (ast) ;; TODO implement these ?
     ast)
   (lambda (ast)
     ...))
@@ -123,7 +96,11 @@
     ...))
 
 (define-op2 'six.x*y 'x*y
-  type-rule-int-op2
+  ;; products can be as wide as the sum of the widths of the operands
+  (lambda (ast)
+    (let ((l1 (type->bytes (expr-type (subast1 ast))))
+	  (l2 (type->bytes (expr-type (subast2 ast)))))
+      (bytes->type (+ l1 l2))))
   (lambda (ast)
     ast)
   (lambda (ast)
@@ -146,7 +123,7 @@
     ...))
 
 (define-op2 'six.x/y 'x/y
-  type-rule-int-op2
+  type-rule-int-op2 ;; TODO really ?
   (lambda (ast)
     ast)
   (lambda (ast)
