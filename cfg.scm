@@ -95,8 +95,17 @@
   (define (push-continue x) (set! continue-stack (cons x continue-stack)))
   (define (pop-continue)    (set! continue-stack (cdr continue-stack)))
 
-  (define (push-delayed-post-incdec x)
-    (set! delayed-post-incdec (cons x delayed-post-incdec)))
+  (define (push-delayed-post-incdec ast)
+    (set! delayed-post-incdec (cons ast delayed-post-incdec))
+    ;; moves the original value to a new location (so it won't be modified)
+    ;; and returns that location to the original expression
+    (let ((x (subast1 ast)))
+      (if (not (ref? x))
+	  (error "assignment target must be a variable")
+	  (let* ((def-var (ref-def-var x))
+		 (result  (alloc-value (def-variable-type def-var))))
+	    (move-value (def-variable-value def-var) result)
+	    result))))
 
   (define (program ast)
     (let loop ((asts (ast-subasts ast)))
@@ -622,6 +631,8 @@
             (if (not (ref? x))
                 (error "assignment target must be a variable"))
             (let ((result (def-variable-value (ref-def-var x))))
+	      ;; clobbers the original value, which is fine, since it
+	      ;; was moved somewhere else for the expression
               (add-sub (if (eq? id 'x++) 'x+y 'x-y)
                        result
                        (int->value 1 type)
@@ -689,9 +700,9 @@
                  (let ((x (subast1 ast)))
                    (if (not (ref? x))
                        (error "assignment target must be a variable"))
-                   (let ((result (def-variable-value (ref-def-var x))))
-                     (push-delayed-post-incdec ast)
-                     result)))
+		   ;; push-delayed-post-incdec moves the original value
+		   ;; somewhere else, and returns that location
+		   (push-delayed-post-incdec ast)))
 		((*x)
 		 ;; if it's a FSR variable, no adress to set
 		 (let ((base-name (array-base-name ast)))
