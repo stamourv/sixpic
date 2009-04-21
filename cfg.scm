@@ -491,6 +491,7 @@
 	(let ((type (expr-type ast))
 	      (value (expression ast)))
 	  ;; since nonzero is true, we must swap the destinations to use ==
+	  ;; TODO use int->value ? the padding is done automatically later on...
 	  (test-value 'x==y value (int->value 0 type) bb-false bb-true))) ;; TODO should probably call test-relation, instead, no shortcuts
       
       (cond ((oper? ast)
@@ -706,37 +707,40 @@
               (case id
                 ((x+y x-y x*y x/y x%y x&y |x\|y| x^y)
                  (let* ((x (subast1 ast))
-                        (y (subast2 ast))) ;; TODO where is the case of 2 literals found ?
-		   ;; only the second argument can be a literal TODO don't forget the case where both are
-		   (if (literal? x)
-		       (let ((tmp x))
-			 (set! x y)
-			 (set! y tmp)
-			 (if (memq id '(x-y x/y x%y))
-			     ;; the operation is not commutative, a simple
-			     ;; swap would give the wrong result
-			     (error "a literal as first argument of a non-commutative operation is not supported")))) ;; TODO fix this
-                   (let* ((value-x (expression x))
-                          (value-y (expression y)))
-                     (let* ((ext-value-x (extend value-x type))
-                            (ext-value-y (extend value-y type)))
-                       (let ((result (alloc-value type)))
-                         (cond ((or (eq? id 'x+y)
-				    (eq? id 'x-y))
-				(add-sub id ext-value-x ext-value-y result))
-			       ((eq? id 'x*y)
-				;; the asts of x and y must be used, since mul
-				;; calls call
-				(mul x y type result))
-			       ((eq? id 'x/y)
-				(error "division not implemented yet")) ;; TODO implement these
-			       ((eq? id 'x%y)
-				(error "modulo not implemented yet"))
-			       ((or (eq? id 'x&y)
-				   (eq? id '|x\|y|)
-				   (eq? id 'x^y))
-				(bitwise id ext-value-x ext-value-y result)))
-                         result)))))
+                        (y (subast2 ast)))
+		   ;; TODO use the extend function to do the padding, instead of doing it ad hoc everywhere
+                   (let* ((value-x (extend (expression x) type))
+                          (value-y (extend (expression y) type)))
+		     ;; unless both arguments are literals, only the second can
+		     ;; be one
+		     (if (and (literal? x) (not (literal? y)))
+			 (if (memq id '(x+y x*y x&y |x\|y| x^y))
+			     ;; the operator is commutative, we can swap the args
+			     (let ((tmp value-x))
+			       (set! value-x value-y)
+			       (set! value-y tmp))
+			     ;; the operator is not commutative, we have to
+			     ;; allocate the first argument somewhere
+			     (let ((dest (alloc-value (expr-type x))))
+			       (move-value value-x dest)
+			       (set! value-x dest))))
+		     (let ((result (alloc-value type)))
+		       (cond ((or (eq? id 'x+y) ;; TODO why not case here ?
+				  (eq? id 'x-y))
+			      (add-sub id value-x value-y result))
+			     ((eq? id 'x*y)
+			      ;; the asts of x and y must be used, since mul
+			      ;; calls call
+			      (mul x y type result))
+			     ((eq? id 'x/y)
+			      (error "division not implemented yet")) ;; TODO implement these
+			     ((eq? id 'x%y)
+			      (error "modulo not implemented yet"))
+			     ((or (eq? id 'x&y)
+				  (eq? id '|x\|y|)
+				  (eq? id 'x^y))
+			      (bitwise id value-x value-y result)))
+		       result))))
                 ((x=y)
                  (let* ((x       (subast1 ast))
                         (y       (subast2 ast))

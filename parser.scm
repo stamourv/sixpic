@@ -313,7 +313,7 @@
                                                       (cont (new-for
                                                              (list ast1
                                                                    (or ast2
-                                                                       (new-literal 'int 1))
+                                                                       (new-literal 'byte 1))
                                                                    (or ast3
                                                                        (new-block '()))
                                                                    ast4))
@@ -384,6 +384,7 @@
 
   (define (literal source cte cont)
     (let ((n (cadr source)))
+      ;; TODO might need to be expanded
       (cont (new-literal (cond ((and (>= n 0) (< n 256))
 				'byte)
 			       ((and (>= n 0) (< n 65536))

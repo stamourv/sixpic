@@ -521,10 +521,18 @@
 
 (decode-opcode #b1100 12
   (lambda (opcode)
-    '(byte-to-byte "movff")
-    (byte-oriented opcode "movff" 'none
-      (lambda (f)
-	f)))) ;; TODO doesn't work
+    (let* ((src (bitwise-and opcode #xfff))
+	   ;; the destination is in the second 16-bit part, need to fetch
+	   (dst (bitwise-and (get-program-mem) #xfff)))
+      (if trace-instr
+	  (print (list (last-pc) "	movff	"
+		       (let ((x (assv src file-reg-names)))
+			 (if x (cdr x) (list "0x" (number->string src 16))))
+		       ", "
+		       (let ((x (assv dst file-reg-names)))
+			 (if x (cdr x) (list "0x" (number->string dst 16)))) ;; TODO printing 2 args ruins the formatting
+                       "")))
+      (set-ram dst (get-ram src)))))
 
 (decode-opcode #b0110111 9
   (lambda (opcode)

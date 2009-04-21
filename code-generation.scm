@@ -229,10 +229,11 @@
           ((= dst WREG)
            (movfw src))
           (else
-           (movfw src)
-	   (movwf dst)
-	   ;(movff src dst) ; takes 2 cycles (as much as movfw src ; movwf dst), but takes only 1 instruction TODO not implemented in the simulator
-	   )))
+;;         (movfw src)
+;;         (movwf dst)
+	   ;; takes 2 cycles (as much as movfw src ; movwf dst), but takes
+	   ;; only 1 instruction
+	   (movff src dst))))
 
   (define (bb-linearize bb)
     (let ((label-num (bb-label-num bb)))
@@ -302,9 +303,24 @@
                               (let ((x (byte-cell-adr src1))
                                     (y (byte-cell-adr src2))
                                     (z (byte-cell-adr dst)))
-                                (cond ((and (not (= x y)) (= y z))
+                                (cond ((and (not (= x y))
+					    (= y z)
+					    (memq (instr-id instr)
+						  '(add addc)))
+				       ;; since this basically swaps the
+				       ;; arguments, it can't be used for
+				       ;; subtraction
                                        (move-reg x WREG))
-                                      (else
+				      ((and (not (= x y))
+					    (= y z))
+				       ;; for subtraction, preserves argument
+				       ;; order
+				       (move-reg y WREG)
+				       ;; this NEEDS to be done with movff, or
+				       ;; else wreg will get clobbered and this
+				       ;; won't work
+				       (move-reg x z))
+                                      (else ;; TODO check if it could be merged with the previous case
                                        (move-reg x z)
                                        (move-reg y WREG)))
 				(case (instr-id instr)
@@ -316,18 +332,24 @@
 			 
 			 ((mul) ; 8 by 8 multiplication
 			  (if (byte-lit? src2)
+			      ;; since multiplication is commutative, the
+			      ;; arguments are set up so the second one will
+			      ;; be a literal if the operator is applied on a
+			      ;; literal and a variable
                               (let ((n (byte-lit-val src2)))
                                 (if (byte-lit? src1) ;; TODO will probably never be called with literals, since it's always inside a function
 				    (movlw   (byte-lit-val src1))
                                     (movereg (byte-cell-adr src1) WREG))
 				;; literal multiplication
 				(mullw n))
-                              (let ((x (byte-cell-adr src1)) ;; TODO how to be sure that we can't get the case of the 1st arg being a literal, but not the 2nd ?
+                              (let ((x (byte-cell-adr src1))
                                     (y (byte-cell-adr src2)))
 				(move-reg x WREG)
 				(mulwf y))))
 			 
 			 ((and ior xor) ;; TODO similar to add sub and co, except that I removed the literal part
+			  ;; no instructions for bitwise operations involving
+			  ;; literals exist on the PIC18
 			  (let ((x (if (byte-lit? src1)
 				       (byte-lit-val src1)
 				       (byte-cell-adr src1)))
