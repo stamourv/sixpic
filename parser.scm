@@ -22,48 +22,12 @@
       ;; when any of these are encountered, its associated thunk is
       ;; called
       (define special-variables
-	(list
+	(list ;; TODO try to fit this with the predefined variables in cte.scm, then store its value somewhere in a global, I guess
 	 (cons 'SIXPIC_MEMORY_DIVIDE
 	       (lambda ()
 		 (set! memory-divide (cadr val)) ; must be a literal
 		 (expression val cte (lambda (ast cte)
-				       (def (list ast) cte)))))
-	 (cons 'SIXPIC_FSR0 ; these 3 must be int16
-	       (lambda () ;; TODO this code repetition is ugly, but factoring it out did not work
-		 (expression val cte
-			     (lambda (ast cte)
-			       (let ((new-var
-				      (new-def-variable
-				       (list ast) id '() 'int16
-				       (new-value (list (get-register FSR0L)
-							(get-register FSR0H)))
-				       '())))
-				 (cont new-var
-				       (cte-extend cte (list new-var))))))))
-	 (cons 'SIXPIC_FSR1 ;; TODO use the predefined stuff in cte.scm ?
-	       (lambda ()
-		 (expression val cte
-			     (lambda (ast cte)
-			       (let ((new-var
-				      (new-def-variable
-				       (list ast) id '() 'int16
-				       (new-value (list (get-register FSR1L)
-							(get-register FSR1H)))
-				       '())))
-				 (cont new-var
-				       (cte-extend cte (list new-var))))))))
-	 (cons 'SIXPIC_FSR2
-	       (lambda ()
-		 (expression val cte
-			     (lambda (ast cte)
-			       (let ((new-var
-				      (new-def-variable
-				       (list ast) id '() 'int16
-				       (new-value (list (get-register FSR2L)
-							(get-register FSR2H)))
-				       '())))
-				 (cont new-var
-				       (cte-extend cte (list new-var))))))))))
+				       (def (list ast) cte)))))))
 
 
       (define (def asts cte)

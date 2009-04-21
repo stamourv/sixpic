@@ -1,6 +1,8 @@
-(define (predefine-var id type adr)
+(define (predefine-var id type addresses)
   (let* ((value
-          (new-value (list (make-byte-cell adr '() '()))))
+	  ;; adrs is the list of addresses this variable is stored at
+          (new-value (map (lambda (x) (make-byte-cell x '() '()))
+			  addresses)))
          (ast
           (new-def-variable '() id '() type value '())))
     ast))
@@ -16,7 +18,8 @@
          (params
           (map (lambda (x)
 		 ;; parameters don't need names here
-                 (predefine-var 'foo (car x) (cdr x)))
+		 ;; TODO this does not support parameters wider than 1 byte, but this function is not used for any useful function anyway
+                 (predefine-var 'foo (car x) (list (cdr x))))
                param-defs))
          (ast
           (new-def-procedure '() id '() type value params))
@@ -41,50 +44,32 @@
     (new-def-procedure '() id '() type (alloc-value type) params)))
 
 (define initial-cte ;; TODO clean this up
-  (list (predefine-var 'X 'byte 5)
-        (predefine-var 'Y 'byte 6)
-        (predefine-var 'Z 'byte 7)
-        (predefine-fun 'FLASH_execute_erase
-                       'void
-                       '()
-                       #x1EE)
-        (predefine-fun 'FLASH_execute_write
-                       'void
-                       '()
-                       #x1F0)
-        (predefine-fun 'led_set
-                       'void
-                       (list (cons 'byte WREG))
-                       #x1F2)
-        (predefine-fun 'irda_tx_wake_up
-                       'void
-                       '()
-                       #x1F4)
-        (predefine-fun 'irda_tx_raw
-                       'void
-                       (list (cons 'byte WREG))
-                       #x1F6)
-        (predefine-fun 'irda_rx_raw
-                       'byte
-                       '()
-                       #x1F8)
-        (predefine-fun 'sleep_mode
-                       'void
-                       '()
-                       #x1FA)
-        (predefine-fun 'exec_client
-                       'void
-                       '()
-                       #x1FC)
-
-	;; TODO maybe use some for the fsr variables ? and have the address be the fsr registers
+  (list
+   (predefine-var 'X 'byte '(5))
+   (predefine-var 'Y 'byte '(6))
+   (predefine-var 'Z 'byte '(7))
+   
+   (predefine-fun 'FLASH_execute_erase 'void '() #x1EE)
+   (predefine-fun 'FLASH_execute_write 'void '() #x1F0)
+   (predefine-fun 'led_set 'void (list (cons 'byte WREG)) #x1F2)
+   (predefine-fun 'irda_tx_wake_up 'void '() #x1F4)
+   (predefine-fun 'irda_tx_raw 'void (list (cons 'byte WREG)) #x1F6)
+   (predefine-fun 'irda_rx_raw 'byte '() #x1F8)
+   (predefine-fun 'sleep_mode 'void '() #x1FA)
+   (predefine-fun 'exec_client 'void '() #x1FC)
+   
+   ;; special variables
+   ;; TODO fit the memory divide here too
+   (predefine-var 'SIXPIC_FSR0 'int16 (list FSR0L FSR0H))
+   (predefine-var 'SIXPIC_FSR1 'int16 (list FSR1L FSR1H))
+   (predefine-var 'SIXPIC_FSR2 'int16 (list FSR2L FSR2H))
 	
-	;; for multiplication
-	(predefine-routine 'mul8_8   'int16 '(byte  byte))
-	(predefine-routine 'mul16_8  'int24 '(int16 byte))
-	(predefine-routine 'mul16_16 'int32 '(int16 int16))
-	;; TODO maybe use predefine fun and have jump to a function already in rom ? then have some kind of linking to see if it's used, and if so, put the code in
-	))
+   ;; for multiplication
+   (predefine-routine 'mul8_8   'int16 '(byte  byte))
+   (predefine-routine 'mul16_8  'int24 '(int16 byte))
+   (predefine-routine 'mul16_16 'int32 '(int16 int16))
+   ;; TODO maybe use predefine fun and have jump to a function already in rom ? then have some kind of linking to see if it's used, and if so, put the code in)
+   ))
 
 (define (cte-extend cte bindings)
   (append bindings cte))

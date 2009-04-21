@@ -1,7 +1,7 @@
 ;;; generation of control flow graph
 
 ;; special variables whose contents are located in the FSR registers
-(define fsr-variables '(SIXPIC_FSR0 SIXPIC_FSR1 SIXPIC_FSR2)) ;; TODO use the predefined variables from cte.scm instead ?
+(define fsr-variables '(SIXPIC_FSR0 SIXPIC_FSR1 SIXPIC_FSR2))
 
 (define-type cfg
   bbs
@@ -650,11 +650,12 @@
       (if (not (and base-name
 		    (memq base-name fsr-variables)))
 	  (let ((base    (expression (subast1 ast)))
-		(address (new-value (list (get-register FSR0L)
+		(address (new-value (list (get-register FSR0L) ;; TODO doesn't work...
 					  (get-register FSR0H))))) ;; TODO actual addresses are 12 bits, not 16
 	  (if index?
 	      (add-sub 'x+y base (expression (subast2 ast)) address)
-	      (move-value base address)))))) ; no offset with simple dereference
+	      ;; no offset with simple dereference
+	      (move-value base address))))))
   
   (define (array-base-name ast)
     ;; returns #f if the lhs is not a direct variable reference
@@ -664,6 +665,7 @@
 	   (def-id (ref-def-var lhs)))))
 
   (define (get-indf base-name)
+    ;; INDF0 is not here, since it's already used for regular array accesses
     (if (eq? base-name 'SIXPIC_FSR1)
 	(new-value (list (get-register INDF1)))
 	(new-value (list (get-register INDF2)))))
@@ -757,19 +759,23 @@
                         (y       (subast2 ast))
 			(value-y (expression y)))
 		   (cond
+		    ;; lhs is a variable
 		    ((ref? x)
 		     (let ((ext-value-y (extend value-y type))) ;; TODO useless for now, what could it have been for ?
 		       (let ((result (def-variable-value (ref-def-var x))))
 			 (move-value value-y result)
 			 result)))
+		    ;; lhs is a pointer dereference
 		    ((and (oper? x) (eq? (op-id (oper-op x)) '*x))
-		     (let ((base-name (array-base-name x)))
+		     (let ((base-name (array-base-name x))
+			   (val       (car (value-bytes value-y))))
 		       (if (and (ref? (subast1 x))
 				base-name
 				(memq base-name fsr-variables))
-			   (get-indf base-name)
+			   (move val (car (value-bytes (get-indf base-name))))
 			   (begin (calculate-address x)
-				  (move (car (value-bytes value-y)) (get-register INDF0))))))
+				  (move val (get-register INDF0))))))
+		    ;; lhs is an indexed array access
 		    ((and (oper? x) (eq? (op-id (oper-op x)) 'index))
 		     (calculate-address x) ;; TODO as with references, won't work with SIXPIC_FSR1 or SIXPIC_FSR2
 		     ;; this section of memory is a byte array, only the lsb
