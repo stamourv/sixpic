@@ -40,7 +40,7 @@
 				       '())))
 				 (cont new-var
 				       (cte-extend cte (list new-var))))))))
-	 (cons 'SIXPIC_FSR1
+	 (cons 'SIXPIC_FSR1 ;; TODO use the predefined stuff in cte.scm ?
 	       (lambda ()
 		 (expression val cte
 			     (lambda (ast cte)

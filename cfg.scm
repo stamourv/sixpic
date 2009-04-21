@@ -684,7 +684,7 @@
                               (int->value 1 type)
                               result)
                      result)))
-                ((x++ x--)
+                ((x++ x--) ;; TODO the delay does not work
                  (let ((x (subast1 ast)))
                    (if (not (ref? x))
                        (error "assignment target must be a variable"))
@@ -706,7 +706,16 @@
               (case id
                 ((x+y x-y x*y x/y x%y x&y |x\|y| x^y)
                  (let* ((x (subast1 ast))
-                        (y (subast2 ast)))
+                        (y (subast2 ast))) ;; TODO where is the case of 2 literals found ?
+		   ;; only the second argument can be a literal TODO don't forget the case where both are
+		   (if (literal? x)
+		       (let ((tmp x))
+			 (set! x y)
+			 (set! y tmp)
+			 (if (memq id '(x-y x/y x%y))
+			     ;; the operation is not commutative, a simple
+			     ;; swap would give the wrong result
+			     (error "a literal as first argument of a non-commutative operation is not supported")))) ;; TODO fix this
                    (let* ((value-x (expression x))
                           (value-y (expression y)))
                      (let* ((ext-value-x (extend value-x type))
@@ -849,7 +858,7 @@
 	  ;; the corresponding cfg
 	  (include-predefined-routine def-proc))
       ;; argument number check
-      (if (not (= (length arguments) (length parameters)))
+      (if (not (= (length arguments) (length parameters))) ;; TODO check at parse time ?
 	  (error (string-append "wrong number of arguments given to function "
 				(symbol->string (def-id def-proc)) ": "
 				(number->string (length arguments)) " given, "
