@@ -650,12 +650,13 @@
       (if (not (and base-name
 		    (memq base-name fsr-variables)))
 	  (let ((base    (expression (subast1 ast)))
-		(address (new-value (list (get-register FSR0L) ;; TODO doesn't work...
+		(address (new-value (list (get-register FSR0L)
 					  (get-register FSR0H))))) ;; TODO actual addresses are 12 bits, not 16
-	  (if index?
-	      (add-sub 'x+y base (expression (subast2 ast)) address)
-	      ;; no offset with simple dereference
-	      (move-value base address))))))
+	    (if index?
+		(add-sub 'x+y base (expression (subast2 ast)) address)
+		;; no offset with simple dereference
+		(move-value base address)))
+	  (error "You used the array index syntax with a FSR variable, didn't you? I told you not to."))))
   
   (define (array-base-name ast)
     ;; returns #f if the lhs is not a direct variable reference
@@ -698,7 +699,7 @@
                               (int->value 1 type)
                               result)
                      result)))
-                ((x++ x--) ;; TODO the delay does not work
+                ((x++ x--)
                  (let ((x (subast1 ast)))
                    (if (not (ref? x))
                        (error "assignment target must be a variable"))
@@ -761,7 +762,7 @@
 		   (cond
 		    ;; lhs is a variable
 		    ((ref? x)
-		     (let ((ext-value-y (extend value-y type))) ;; TODO useless for now, what could it have been for ?
+		     (let ((ext-value-y (extend value-y type))) ;; TODO useless for now
 		       (let ((result (def-variable-value (ref-def-var x))))
 			 (move-value value-y result)
 			 result)))
@@ -777,12 +778,17 @@
 				  (move val (get-register INDF0))))))
 		    ;; lhs is an indexed array access
 		    ((and (oper? x) (eq? (op-id (oper-op x)) 'index))
-		     (calculate-address x) ;; TODO as with references, won't work with SIXPIC_FSR1 or SIXPIC_FSR2
+		     ;; note: this will throw an error if SIXPIC_FSR{1,2} is
+		     ;; used. this is by design, as it would clobber the value
+		     ;; in the FSR registers, which goes against their purpose
+		     ;; of storing a user-chosen value
+		     (calculate-address x)
 		     ;; this section of memory is a byte array, only the lsb
 		     ;; of y is used
 		     (move (car (value-bytes value-y)) (get-register INDF0)))
 		    (else (error "assignment target must be a variable or an array slot")))))
-		((index) ; TODO FSR variables won't work with index syntax, the contents of FSR0 will always be fetched, even if SIXPIC_FSR1 is used, for now, this is acceptable, the other syntax should be used instead
+		((index)
+		 ;; note: throws an error if given SIXPIC_FSR{1,2}, see above
 		 (calculate-address ast)
 		 (new-value (list (get-register INDF0))))
                 (else

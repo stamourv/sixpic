@@ -374,6 +374,9 @@
 			      (else (error "...")))))
 			 
                          ((goto)
+			  (if (null? (bb-succs bb))
+			      ;; TODO happens more often than I'd like to admit
+			      (error "I think you might have given me an empty source file."))
                           (let* ((succs (bb-succs bb))
                                  (dest (car succs)))
                             (bra (bb-label dest))
