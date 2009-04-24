@@ -58,7 +58,7 @@
   (let ((source (read-source filename)))
     '(pretty-print source)
     (let* ((ast (parse source)))
-      '(pretty-print ast)
+      (pretty-print ast)
       (let ((cfg (generate-cfg ast)))
 	'(print-cfg-bbs cfg)
 	'(pretty-print cfg)

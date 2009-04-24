@@ -20,16 +20,11 @@
   (expr-type (subast1 ast)))
 
 (define (largest t1 t2)
-  (let loop ((l '(int int32 int16 int8 byte))) ;; TODO FOO, use the functions type->bytes and bytes->type instead
-    (if (null? l)
-	(error "largest: unknown type")
-	(let ((head (car l)))
-	  (if (or (eq? head t1)
-		  (eq? head t2))
-	      head
-	      (loop (cdr l)))))))
+  (if (> (type->bytes t1) (type->bytes t2))
+      t1
+      t2))
 
-(define (type-rule-int-op2 ast)
+(define (type-rule-int-op2 ast) ;; TODO since we only consider the arguments (and not the size of the variable which will ultimately hold the result), we might end up with some early truncation : ex : 200 + 200, largest is 1 byte, but the result is 2, if the result goes in a int16 ,it should be 400, not 400 - 256, maybe always have some slack ? would be wasteful
   (let ((t1 (expr-type (subast1 ast)))
         (t2 (expr-type (subast2 ast))))
     (largest t1 t2)))
@@ -157,15 +152,27 @@
   (lambda (ast)
     ...))
 
-(define-op2 'six.x<<y 'x<<y
-  type-rule-int-op2
+(define-op2 'six.x<<y 'x<<y ;; TODO would really need to check the length of the destination, what we have here is just a hack
+  (lambda (ast)
+    (if (not (literal? (subast2 ast)))
+	(error "only shifting by literals is supported"))
+    (let ((l1 (type->bytes (expr-type (subast1 ast))))
+	  (v2 (literal-val (subast2 ast))))
+      ;; we might have to add some bytes to the result
+      (bytes->type (+ l1 (ceiling (/ v2 8))))))
   (lambda (ast)
     ast)
   (lambda (ast)
     ...))
 
 (define-op2 'six.x>>y 'x>>y
-  type-rule-int-op2
+  (lambda (ast)
+    (if (not (literal? (subast2 ast)))
+	(error "only shifting by literals is supported"))
+    (let ((l1 (type->bytes (expr-type (subast1 ast))))
+	  (v2 (literal-val (subast2 ast))))
+      ;; we might be able to shave some bytes off
+      (bytes->type (- l1 (floor (/ v2 8))))))
   (lambda (ast)
     ast)
   (lambda (ast)

@@ -599,10 +599,33 @@
 	     (def-proc (car (memp (lambda (x) (eq? (def-id x) op))
 				  initial-cte))))
 	;; put the result of the call where the rest of the expression expects it
-	(move-value (call (new-call (list x y) ;; TODO actually, take the subsasts of the arithmetic expression, instead of separately ?
+	(move-value (call (new-call (list x y)
 				    type
 				    def-proc))
 		    result))))
+
+  (define (shift id x y result)
+    (let ((bytes1 (value-bytes x))
+	  (bytes2 (value-bytes y))
+	  (bytes3 (value-bytes result))) ;; TODO not used for now, but will be once we cover all the cases
+      ;; if the second argument is a literal and a multiple of 8, we can simply
+      ;; chop bytes off or add padding to the first argument
+      (let ((y (car bytes2)))
+	;; note: I assume that if the first byte is a literal, the others will
+	;; be as well. I doubt any other case could happen here.
+	;; TODO actually, we construct such a case just after by adding literal 0s at the end. watch out for it, and adjust
+	(pp (list RES: (length bytes3))) ;; FOO
+	(if (and (byte-lit? y) (= (modulo (byte-lit-val y) 8) 0))
+	    (let loop ((n (/ (byte-lit-val y) 8))
+		       (x bytes1)) ;; TODO differentiate between l and r, and have some bigger return values for l, since it might not fit FOO, check if truncation occurs too early, TEST IT
+	      (if (= n 0)
+		  (move-value (new-value x) result)
+		  (loop (- n 1)
+			(case id
+			  ((x<<y) (cons (new-byte-lit 0) x))
+			  ((x>>y) (cdr x))))))
+	    ;; TODO handle the other cases, at least the other literal cases
+	    (error "shifting only implemented for literal multiples of 8")))))
 
   ;; bitwise and, or, xor TODO not ? no, elsewhere since it's unary
   ;; TODO similar to add-sub and probably others, abstract multi-byte operations
@@ -719,7 +742,7 @@
                  (error "unary operation error" ast))))
             (begin
               (case id
-                ((x+y x-y x*y x/y x%y x&y |x\|y| x^y)
+                ((x+y x-y x*y x/y x%y x&y |x\|y| x^y x>>y x<<y)
                  (let* ((x (subast1 ast))
                         (y (subast2 ast)))
 		   ;; TODO use the extend function to do the padding, instead of doing it ad hoc everywhere
@@ -739,21 +762,13 @@
 			       (move-value value-x dest)
 			       (set! value-x dest))))
 		     (let ((result (alloc-value type)))
-		       (cond ((or (eq? id 'x+y) ;; TODO why not case here ?
-				  (eq? id 'x-y))
-			      (add-sub id value-x value-y result))
-			     ((eq? id 'x*y)
-			      ;; the asts of x and y must be used, since mul
-			      ;; calls call
-			      (mul x y type result))
-			     ((eq? id 'x/y)
-			      (error "division not implemented yet")) ;; TODO implement these
-			     ((eq? id 'x%y)
-			      (error "modulo not implemented yet"))
-			     ((or (eq? id 'x&y)
-				  (eq? id '|x\|y|)
-				  (eq? id 'x^y))
-			      (bitwise id value-x value-y result)))
+		       (case id
+			 ((x+y x-y)        (add-sub id value-x value-y result))
+			 ((x*y)            (mul x y type result))
+			 ((x/y)            (error "division not implemented yet"))
+			 ((x%y)            (mod value-x value-y result)) ;; TODO oops, not implemented yet
+			 ((x&y |x\|y| x^y) (bitwise id value-x value-y result))
+			 ((x>>y x<<y)      (shift id value-x value-y result)))
 		       result))))
                 ((x=y)
                  (let* ((x       (subast1 ast))
