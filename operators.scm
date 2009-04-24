@@ -95,7 +95,7 @@
     ;; of the result
     (if (literal? (subast1 ast))
 	;; the number of bits needed by the result is lg(y)
-	(bytes->type (ceiling (/ (log y) (log 2) 8)))
+	(bytes->type (ceiling (/ (log (literal-val (subast1 ast))) (log 2) 8)))
 	;; fall back to the general case
 	(type-rule-int-op2 ast)))
   (lambda (ast)
@@ -140,12 +140,11 @@
 	;; ex : the smallest value which needs 2 bytes to encode is 256, and
 	;; dividing by 256 is equivalent to truncating the 8 lowest bits, and
 	;; so on
-	(let (((l1 (type->bytes (expr-type (subast1 ast))))
-	       (l2 (ceiling (/ (log y) (log 2) 8)))))
+	(let ((l1 (type->bytes (expr-type (subast1 ast))))
+	      (l2 (ceiling (/ (log y) (log 2) 8))))
 	  (bytes->type (- (max l1 l2) (- l2 1))))
 	;; fall back to the general case
 	(type-rule-int-op2 ast)))
-  type-rule-int-op2
   (lambda (ast)
     ast)
   (lambda (ast)

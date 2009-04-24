@@ -604,18 +604,36 @@
 				    def-proc))
 		    result))))
 
+  (define (mod x y result)
+    (let ((bytes1 (value-bytes x)) ;; TODO common pattern, abstract
+	  (bytes2 (value-bytes y))
+	  (bytes3 (value-bytes result)))
+      ;; if y is a literal and a power of 2, we can do a bitwise and
+      (let ((y0 (car bytes2)))
+	(if (and (byte-lit? y0)
+		 (let ((x (/ (log (value->int y)) (log 2))))
+		   (= (floor x) x)))
+	    ;; bitwise and with y - 1
+	    (bitwise 'x&y
+		     x
+		     (int->value (- (value->int y) 1)
+				 (bytes->type (length bytes2)))
+		     result)
+	    ;; TODO for the general case, try to optimise the case where division and modulo are used together, since they are used together
+	    (error "modulo is only supported for powers of 2")))))
+
   (define (shift id x y result)
     (let ((bytes1 (value-bytes x))
 	  (bytes2 (value-bytes y))
 	  (bytes3 (value-bytes result))) ;; TODO not used for now, but will be once we cover all the cases
       ;; if the second argument is a literal and a multiple of 8, we can simply
       ;; chop bytes off or add padding to the first argument
-      (let ((y (car bytes2)))
+      (let ((y0 (car bytes2)))
 	;; note: I assume that if the first byte is a literal, the others will
 	;; be as well. I doubt any other case could happen here.
 	;; TODO actually, we construct such a case just after by adding literal 0s at the end. watch out for it, and adjust
-	(if (and (byte-lit? y) (= (modulo (byte-lit-val y) 8) 0))
-	    (let loop ((n (/ (byte-lit-val y) 8))
+	(if (and (byte-lit? y0) (= (modulo (byte-lit-val y0) 8) 0))
+	    (let loop ((n (/ (byte-lit-val y0) 8)) ;; TODO only uses the first byte, but then again, shifting by 255 should be enough
 		       (x bytes1))
 	      (if (= n 0)
 		  (move-value (new-value x) result)
@@ -624,6 +642,7 @@
 			  ((x<<y) (cons (new-byte-lit 0) x))
 			  ((x>>y) (cdr x))))))
 	    ;; TODO handle the other cases, at least the other literal cases
+	    ;; TODO for the general case, have a routine that does the loop, instead of having loops everywhere
 	    (error "shifting only implemented for literal multiples of 8")))))
 
   ;; bitwise and, or, xor TODO not ? no, elsewhere since it's unary
@@ -747,8 +766,10 @@
 		   ;; TODO use the extend function to do the padding, instead of doing it ad hoc everywhere
                    (let* ((value-x (extend (expression x) type))
                           (value-y (extend (expression y) type)))
-		     ;; unless both arguments are literals, only the second can
-		     ;; be one
+		     ;; since code generation does not accept literals as first
+		     ;; arguments unless both arguments are, if this is the
+		     ;; case, we either have to swap the arguments (if
+		     ;; possible) or allocate the argument somewhere
 		     (if (and (literal? x) (not (literal? y)))
 			 (if (memq id '(x+y x*y x&y |x\|y| x^y))
 			     ;; the operator is commutative, we can swap the args
@@ -764,8 +785,8 @@
 		       (case id
 			 ((x+y x-y)        (add-sub id value-x value-y result))
 			 ((x*y)            (mul x y type result))
-			 ((x/y)            (error "division not implemented yet"))
-			 ((x%y)            (mod value-x value-y result)) ;; TODO oops, not implemented yet
+			 ((x/y)            (error "division not implemented yet")) ;; TODO optimise for powers of 2
+			 ((x%y)            (mod value-x value-y result))
 			 ((x&y |x\|y| x^y) (bitwise id value-x value-y result))
 			 ((x>>y x<<y)      (shift id value-x value-y result)))
 		       result))))

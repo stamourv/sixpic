@@ -87,9 +87,23 @@
                 (arithmetic-shift n -8)
                 (cons (new-byte-lit (modulo n 256))
                       rev-bytes))))))
+(define (value->int val)
+  (let loop ((bytes (reverse (value-bytes val)))
+	     (n     0))
+    (if (null? bytes)
+	n
+	(loop (cdr bytes)
+	      (+ (* 256 n) (byte-lit-val (car bytes)))))))
 
-(define (extend value type)
-  value);;;;;;;;;;;;;;;;;;;;;
+(define (extend value type) ;; TODO instead of carrying types around, use the length instead
+  (let loop ((rev-bytes (reverse (value-bytes value)))
+	     (n         (max 0 (- (type->bytes type)
+				  (length (value-bytes value))))))
+    (if (= n 0)
+	(new-value (reverse rev-bytes))
+	(let ((new (new-byte-cell)))
+	  ;; TODO need to move 0 in there ?
+	  (loop (cons new rev-bytes) (- n 1)))))) ;; TODO get rid of ad-hoc padding
 
 (define (alloc-value type)
   (let ((len (type->bytes type)))
