@@ -317,7 +317,7 @@
 		  (set! prev-bb bb))
 		(cdr (ast-subasts ast)))
       (if (null? (bb-succs prev-bb)) ; if the last case didn't end in a break, fall through to the exit
-	  (add-succ prev-bb exit-bb))
+	  (gen-goto exit-bb))
       (bb-succs-set! decision-bb (reverse (bb-succs decision-bb))) ; preserving the order is important in the absence of break
       (set! case-list (list-named-bbs decision-bb '()))
       (set! default (keep (lambda (x) (eq? (car x) 'default))
@@ -565,10 +565,7 @@
 				 (case id ((x+y) 'add)  ((x-y) 'sub))
 				 (case id ((x+y) 'addc) ((x-y) 'subb)))
 			     (car bytes1) (car bytes2) (car bytes3)))
-		 (loop (if (null? bytes1) bytes1 (cdr bytes1))
-		       (if (null? bytes2) bytes2 (cdr bytes2))
-		       (cdr bytes3)
-		       #f)))))
+		 (loop (cdr bytes1) (cdr bytes2) (cdr bytes3) #f)))))
 
   (define (mul x y type result)
     ;; finds the appropriate multiplication routine (depending on the length
