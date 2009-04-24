@@ -205,7 +205,7 @@
 	       (to   (value-bytes to)))
       (cond ((null? to))  ; done, we truncate the rest
 	    ((null? from) ; promote the value by padding
-	     (move (new-byte-lit 0) (car to))
+	     (move (new-byte-lit 0) (car to)) ;; TODO still some ad-hoc padding, but since it's mostly used internally, it's hard to get rid of
 	     (loop from (cdr to)))
 	    (else
 	     (move (car from) (car to))
@@ -407,7 +407,7 @@
 	       ;; with 0s only
 	       (loop (if (null? bytes1) bytes1 (cdr bytes1)) ;; TODO ugly
 		     (if (null? bytes2) bytes2 (cdr bytes2))
-		     (cons (if (null? bytes1) (new-byte-lit 0) (car bytes1))
+		     (cons (if (null? bytes1) (new-byte-lit 0) (car bytes1)) ;; TODO use extend ?
 			   padded1)
 		     (cons (if (null? bytes2) (new-byte-lit 0) (car bytes2))
 			   padded2))
@@ -564,9 +564,7 @@
 		  (new-instr (if ignore-carry-borrow?
 				 (case id ((x+y) 'add)  ((x-y) 'sub))
 				 (case id ((x+y) 'addc) ((x-y) 'subb)))
-			     (if (null? bytes1) (new-byte-lit 0) (car bytes1))
-			     (if (null? bytes2) (new-byte-lit 0) (car bytes2))
-			     (car bytes3)))
+			     (car bytes1) (car bytes2) (car bytes3)))
 		 (loop (if (null? bytes1) bytes1 (cdr bytes1))
 		       (if (null? bytes2) bytes2 (cdr bytes2))
 		       (cdr bytes3)
@@ -654,9 +652,7 @@
       (if (not (null? bytes3))
 	  (begin (emit
 		  (new-instr (case id ((x&y) 'and) ((|x\|y|) 'ior) ((x^y) 'xor))
-			     (if (null? bytes1) (new-byte-lit 0) (car bytes1))
-			     (if (null? bytes2) (new-byte-lit 0) (car bytes2))
-			     (car bytes3)))
+			     (car bytes1) (car bytes2) (car bytes3)))
 		 (loop (if (null? bytes1) bytes1 (cdr bytes1))
 		       (if (null? bytes2) bytes2 (cdr bytes2))
 		       (cdr bytes3))))))
@@ -694,7 +690,10 @@
 		(address (new-value (list (get-register FSR0L)
 					  (get-register FSR0H))))) ;; TODO actual addresses are 12 bits, not 16
 	    (if index?
-		(add-sub 'x+y base (expression (subast2 ast)) address)
+		;; we pad up to int16, since it is the size of the addresses
+		(let ((value1 (extend base 'int16))
+		      (value2 (extend (expression (subast2 ast)) 'int16)))
+		  (add-sub 'x+y value1 value2 address))
 		;; no offset with simple dereference
 		(move-value base address)))
 	  (error "You used the array index syntax with a FSR variable, didn't you? I told you not to."))))
