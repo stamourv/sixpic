@@ -614,10 +614,9 @@
 	;; note: I assume that if the first byte is a literal, the others will
 	;; be as well. I doubt any other case could happen here.
 	;; TODO actually, we construct such a case just after by adding literal 0s at the end. watch out for it, and adjust
-	(pp (list RES: (length bytes3))) ;; FOO
 	(if (and (byte-lit? y) (= (modulo (byte-lit-val y) 8) 0))
 	    (let loop ((n (/ (byte-lit-val y) 8))
-		       (x bytes1)) ;; TODO differentiate between l and r, and have some bigger return values for l, since it might not fit FOO, check if truncation occurs too early, TEST IT
+		       (x bytes1))
 	      (if (= n 0)
 		  (move-value (new-value x) result)
 		  (loop (- n 1)

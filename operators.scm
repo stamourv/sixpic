@@ -24,12 +24,14 @@
       t1
       t2))
 
-(define (type-rule-int-op2 ast) ;; TODO since we only consider the arguments (and not the size of the variable which will ultimately hold the result), we might end up with some early truncation : ex : 200 + 200, largest is 1 byte, but the result is 2, if the result goes in a int16 ,it should be 400, not 400 - 256, maybe always have some slack ? would be wasteful
+(define (type-rule-int-op2 ast)
+  ;; used for any binary operation involving two integers where the result is
+  ;; of the size of the biggest operand (subtraction, bitwise operations, ...)
   (let ((t1 (expr-type (subast1 ast)))
         (t2 (expr-type (subast2 ast))))
     (largest t1 t2)))
 
-(define (type-rule-int-assign ast) ;; TODO why the int in the name ?
+(define (type-rule-assign ast)
   (let ((t1 (expr-type (subast1 ast))))
     ;; the type of the rhs is irrelevant, since it will be promoted
     ;; or truncated at the cfg level
@@ -48,7 +50,11 @@
   (lambda (ast)
     ...))
 
+
 (define-op1 'six.++x '++x
+  ;; unlike addition, we do not need to add an extra byte just in case
+  ;; since the destination and the source are the same, we won't have any
+  ;; unexpected truncation problems
   type-rule-int-op1
   (lambda (ast)
     ast)
@@ -84,7 +90,14 @@
     ...))
 
 (define-op2 'six.x%y 'x%y
-  type-rule-int-op2
+  (lambda (ast)
+    ;; if we know the second operand, we can have an upper bound on the size
+    ;; of the result
+    (if (literal? (subast1 ast))
+	;; the number of bits needed by the result is lg(y)
+	(bytes->type (ceiling (/ (log y) (log 2) 8)))
+	;; fall back to the general case
+	(type-rule-int-op2 ast)))
   (lambda (ast)
     ast)
   (lambda (ast)
@@ -118,14 +131,34 @@
     ...))
 
 (define-op2 'six.x/y 'x/y
-  type-rule-int-op2 ;; TODO really ?
+  (lambda (ast)
+    ;; if we know the second operand, we can have an upper bound on the size
+    ;; of the result
+    (if (literal? (subast1 ast))
+	;; for every byte over 1 in the length of y, we can remove a byte from
+	;; the result
+	;; ex : the smallest value which needs 2 bytes to encode is 256, and
+	;; dividing by 256 is equivalent to truncating the 8 lowest bits, and
+	;; so on
+	(let (((l1 (type->bytes (expr-type (subast1 ast))))
+	       (l2 (ceiling (/ (log y) (log 2) 8)))))
+	  (bytes->type (- (max l1 l2) (- l2 1))))
+	;; fall back to the general case
+	(type-rule-int-op2 ast)))
+  type-rule-int-op2
   (lambda (ast)
     ast)
   (lambda (ast)
     ...))
 
 (define-op2 'six.x+y 'x+y
-  type-rule-int-op2
+  (lambda (ast)
+    (let ((l1 (type->bytes (expr-type (subast1 ast))))
+	  (l2 (type->bytes (expr-type (subast2 ast)))))
+      ;; the extra byte is needed in some cases
+      ;; for example : 200 + 200 = 400
+      ;; both operands are 1  byte wide, but the result is 2 bytes wide
+      (bytes->type (+ (max l1 l2) 1))))
   (lambda (ast)
     ast)
   (lambda (ast)
@@ -152,7 +185,7 @@
   (lambda (ast)
     ...))
 
-(define-op2 'six.x<<y 'x<<y ;; TODO would really need to check the length of the destination, what we have here is just a hack
+(define-op2 'six.x<<y 'x<<y ;; TODO for the general case, would give scary results (a single byte for y can still mean a shift by 255)
   (lambda (ast)
     (if (not (literal? (subast2 ast)))
 	(error "only shifting by literals is supported"))
@@ -279,78 +312,78 @@
   (lambda (ast)
     ...))
 
-(define-op2 'six.x%=y 'x%=y
-  type-rule-int-assign
+(define-op2 'six.x%=y 'x%=y ;; TODO these don't work
+  type-rule-assign
   (lambda (ast)
     ast)
   (lambda (ast)
     ...))
 
 (define-op2 'six.x&=y 'x&=y
-  type-rule-int-assign
+  type-rule-assign
   (lambda (ast)
     ast)
   (lambda (ast)
     ...))
 
 (define-op2 'six.x*=y 'x*=y
-  type-rule-int-assign
+  type-rule-assign
   (lambda (ast)
     ast)
   (lambda (ast)
     ...))
 
 (define-op2 'six.x+=y 'x+=y
-  type-rule-int-assign
+  type-rule-assign
   (lambda (ast)
     ast)
   (lambda (ast)
     ...))
 
 (define-op2 'six.x-=y 'x-=y
-  type-rule-int-assign
+  type-rule-assign
   (lambda (ast)
     ast)
   (lambda (ast)
     ...))
 
 (define-op2 'six.x/=y 'x/=y
-  type-rule-int-assign
+  type-rule-assign
   (lambda (ast)
     ast)
   (lambda (ast)
     ...))
 
 (define-op2 'six.x<<=y 'x<<=y
-  type-rule-int-assign
+  type-rule-assign
   (lambda (ast)
     ast)
   (lambda (ast)
     ...))
 
 (define-op2 'six.x=y 'x=y
-  type-rule-int-assign
+  type-rule-assign
   (lambda (ast)
     ast)
   (lambda (ast)
     ...))
 
 (define-op2 'six.x>>=y 'x>>=y
-  type-rule-int-assign
+  type-rule-assign
   (lambda (ast)
     ast)
   (lambda (ast)
     ...))
 
 (define-op2 'six.x^=y 'x^=y
-  type-rule-int-assign
+  type-rule-assign
   (lambda (ast)
     ast)
   (lambda (ast)
     ...))
 
 (define-op2 '|six.x\|=y| '|x\|=y|
-  type-rule-int-assign
+  type-rule-assign
   (lambda (ast)
     ast)
   (lambda (ast)
