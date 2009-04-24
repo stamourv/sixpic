@@ -1,4 +1,4 @@
-#! gsi-script -:dar
+#!/usr/bin/env gsi
 
 (include "pic18-sim.scm")
 (include "utilities.scm")

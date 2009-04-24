@@ -62,8 +62,14 @@
     (int8  . 1)
     (int16 . 2)
     (int24 . 3)
-    (int32 . 4) ;; TODO should the default int be 32 bits ?
-    (int   . 4)))
+    (int32 . 4)
+    (int   . 4) ;; TODO should the default int be 32 bits ?
+    ;; this last one is not actually used by user code
+    ;; it's only here for internal purposes (i.e. for the addition of 2 32-bit
+    ;; values, which would need 5 bytes to hold the result, even if it will be
+    ;; truncated later on)
+    ;; TODO is this such a good idea ?
+    (int40 . 5)))
 
 (define (type->bytes type)
   (cond ((assq type types-bytes)
@@ -101,9 +107,7 @@
 				  (length (value-bytes value))))))
     (if (= n 0)
 	(new-value (reverse rev-bytes))
-	(let ((new (new-byte-cell)))
-	  ;; TODO need to move 0 in there ?
-	  (loop (cons new rev-bytes) (- n 1)))))) ;; TODO get rid of ad-hoc padding
+	(loop (cons (new-byte-cell) rev-bytes) (- n 1))))) ;; TODO would need to move 0 in the new byte ?
 
 (define (alloc-value type)
   (let ((len (type->bytes type)))
