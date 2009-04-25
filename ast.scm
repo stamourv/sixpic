@@ -102,12 +102,17 @@
 	      (+ (* 256 n) (byte-lit-val (car bytes)))))))
 
 (define (extend value type) ;; TODO instead of carrying types around, use the length instead
-  (let loop ((rev-bytes (reverse (value-bytes value)))
-	     (n         (max 0 (- (type->bytes type)
-				  (length (value-bytes value))))))
-    (if (= n 0)
-	(new-value (reverse rev-bytes))
-	(loop (cons (new-byte-cell) rev-bytes) (- n 1))))) ;; TODO would need to move 0 in the new byte ?
+  ;; literals must be extended with literal 0s, while variables must be
+  ;; extended with byte cells
+  (let* ((bytes (value-bytes value))
+	 (lit?  (byte-lit? (car bytes))))
+    (let loop ((rev-bytes (reverse bytes)) ;; TODO put in cfg.scm ?
+	       (n         (max 0 (- (type->bytes type) (length bytes)))))
+      (if (= n 0)
+	  (new-value (reverse rev-bytes))
+	  (loop (cons (if lit? (new-byte-lit 0) (new-byte-cell))
+		      rev-bytes)
+		(- n 1)))))) ;; TODO would need to move 0 in the new byte ?
 
 (define (alloc-value type)
   (let ((len (type->bytes type)))

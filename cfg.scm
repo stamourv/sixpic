@@ -759,7 +759,6 @@
                 ((x+y x-y x*y x/y x%y x&y |x\|y| x^y x>>y x<<y)
                  (let* ((x (subast1 ast))
                         (y (subast2 ast)))
-		   ;; TODO use the extend function to do the padding, instead of doing it ad hoc everywhere
                    (let* ((value-x (extend (expression x) type))
                           (value-y (extend (expression y) type)))
 		     ;; since code generation does not accept literals as first
