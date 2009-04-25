@@ -188,6 +188,9 @@
     (emit (list 'iorwf adr)))
   (define (xorwf adr)
     (emit (list 'xorwf adr)))
+
+  (define (comf adr)
+    (emit (list 'comf adr)))
   
   (define (cpfseq adr)
     (emit (list 'cpfseq adr)))
@@ -372,6 +375,13 @@
 			      ((ior) (iorwf z))
 			      ((xor) (xorwf z))
 			      (else (error "...")))))
+
+			 ((not)
+			  (let ((z (byte-cell-adr dst)))
+			    (if (byte-lit? src1)
+				(move-lit (byte-lit-val  src1) z)
+				(move-reg (byte-cell-adr src1) z))
+			    (comf z)))
 			 
                          ((goto)
 			  (if (null? (bb-succs bb))
@@ -484,6 +494,8 @@
        (iorwf (cadr instr)))
       ((xorwf)
        (xorwf (cadr instr)))
+      ((comf)
+       (comf (cadr instr)))
       ((cpfseq)
        (cpfseq (cadr instr)))
       ((cpfslt)

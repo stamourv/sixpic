@@ -647,12 +647,17 @@
                (bytes2 (value-bytes value2))
                (bytes3 (value-bytes result)))
       (if (not (null? bytes3))
-	  (begin (emit
-		  (new-instr (case id ((x&y) 'and) ((|x\|y|) 'ior) ((x^y) 'xor))
+	  (begin
+	    (emit (new-instr (case id ((x&y) 'and) ((|x\|y|) 'ior) ((x^y) 'xor))
 			     (car bytes1) (car bytes2) (car bytes3)))
-		 (loop (if (null? bytes1) bytes1 (cdr bytes1))
-		       (if (null? bytes2) bytes2 (cdr bytes2))
-		       (cdr bytes3))))))
+	    (loop (cdr bytes1) (cdr bytes2) (cdr bytes3))))))
+
+  (define (bitwise-negation x result)
+    (let loop ((bytes1 (value-bytes x))
+	       (bytes2 (value-bytes result)))
+      (if (not (null? bytes2))
+	  (begin (emit (new-instr 'not (car bytes1) #f (car bytes2)))
+		 (loop (cdr bytes1) (cdr bytes2))))))
   
   (define (do-delayed-post-incdec)
     (if (not (null? delayed-post-incdec))
@@ -716,16 +721,17 @@
         (if (op1? op)
             (begin
               (case id
-                ((-x)
-                 (let ((x (subast1 ast)))
-                   (let ((value-x (expression x)))
-                     (let ((ext-value-x (extend value-x type)))
-                       (let ((result (alloc-value type)))
-                         (add-sub 'x-y
-                                  (int->value 0 type)
-                                  ext-value-x
-                                  result)
-                         result)))))
+                ((-x ~x)
+		 (let ((x (extend (expression (subast1 ast))
+				  type))
+		       (result (alloc-value type)))
+		   (case id
+		     ((-x) (add-sub 'x-y
+				    (int->value 0 type)
+				    x
+				    result))
+		     ((~x) (bitwise-negation x result)))
+		   result))
                 ((++x --x)
                  (let ((x (subast1 ast)))
                    (if (not (ref? x))
