@@ -286,6 +286,13 @@
   (define (expression source cte cont)
     (cond ((form? 'six.literal source)
            (literal source cte cont))
+	  ((form? 'six.prefix source)
+	   ;; this is a hack to support hexadecimal values
+	   ;; SIX does not parse C-style hex values (0x...), but falls back on
+	   ;; the regular parser when it encounters Scheme-style hex values
+	   ;; (#x...) and wraps them in a six.prefix.
+	   ;; TODO support C-style hex values
+	   (literal `(six.literal ,(cadr source)) cte cont))
           ((form? 'six.identifier source)
            (ref source cte cont))
           ((form? 'six.call source)
