@@ -52,9 +52,6 @@
 
 
 (define-op1 'six.++x '++x
-  ;; unlike addition, we do not need to add an extra byte just in case
-  ;; since the destination and the source are the same, we won't have any
-  ;; unexpected truncation problems
   type-rule-int-op1
   (lambda (ast)
     ast)
@@ -97,18 +94,14 @@
 	;; the number of bits needed by the result is lg(y)
 	(bytes->type (ceiling (/ (log (literal-val (subast1 ast))) (log 2) 8)))
 	;; fall back to the general case
-	(type-rule-int-op2 ast)))
+	(type-rule-int-op2 ast))) ;; TODO is this optimization worth it, or does it break the samentics of C ?
   (lambda (ast)
     ast)
   (lambda (ast)
     ...))
 
 (define-op2 'six.x*y 'x*y
-  ;; products can be as wide as the sum of the widths of the operands
-  (lambda (ast)
-    (let ((l1 (type->bytes (expr-type (subast1 ast))))
-	  (l2 (type->bytes (expr-type (subast2 ast)))))
-      (bytes->type (+ l1 l2))))
+  type-rule-int-op2
   (lambda (ast)
     ast)
   (lambda (ast)
@@ -144,20 +137,14 @@
 	      (l2 (ceiling (/ (log y) (log 2) 8))))
 	  (bytes->type (- (max l1 l2) (- l2 1))))
 	;; fall back to the general case
-	(type-rule-int-op2 ast)))
+	(type-rule-int-op2 ast))) ;; TODO as for modulo, is this optimisation worth it ? if so, & could have a similar or, by being the size of the smaller operand
   (lambda (ast)
     ast)
   (lambda (ast)
     ...))
 
 (define-op2 'six.x+y 'x+y
-  (lambda (ast)
-    (let ((l1 (type->bytes (expr-type (subast1 ast))))
-	  (l2 (type->bytes (expr-type (subast2 ast)))))
-      ;; the extra byte is needed in some cases
-      ;; for example : 200 + 200 = 400
-      ;; both operands are 1  byte wide, but the result is 2 bytes wide
-      (bytes->type (+ (max l1 l2) 1))))
+  type-rule-int-op2
   (lambda (ast)
     ast)
   (lambda (ast)

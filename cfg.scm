@@ -568,36 +568,58 @@
 		 (loop (cdr bytes1) (cdr bytes2) (cdr bytes3) #f)))))
 
   (define (mul x y type result)
-    ;; finds the appropriate multiplication routine (depending on the length
-    ;; of each argument) and turns the multiplication into a call to the
-    ;; routine
-    ;; the arguments must be the asts of the 2 arguments (x and y) and the
-    ;; type of the returned value, since these are what are expected by the
-    ;; call function
-    (let ((lx (length (value-bytes (expression x))))
-	  (ly (length (value-bytes (expression y))))) ;; TODO we end up doing some work that call will also end up doing, wasteful, but I don't see another way
-      ;; to avoid code duplication (i.e. habing a routine for 8 by 16
-      ;; multplication and one for 16 by 8), the longest operand goes first
-      (if (> ly lx)
-	  (let ((tmp1 y)
-		(tmp2 ly))
-	    (set! y x)
-	    (set! x tmp1)
-	    (set! ly lx)
-	    (set! lx tmp2)))
-      (let* ((op (string->symbol ; mul8_8, mul8_16, etc
-		  ;; for now, only unsigned multiplications are supported
-		  (string-append "mul"
-				 (number->string (* lx 8)) "_"
-				 (number->string (* ly 8)))))
-	     ;; find the definition of the predefined routine in the initial cte
-	     (def-proc (car (memp (lambda (x) (eq? (def-id x) op))
-				  initial-cte))))
-	;; put the result of the call where the rest of the expression expects it
-	(move-value (call (new-call (list x y)
-				    type
-				    def-proc))
-		    result))))
+    (let* ((value-x (expression x))
+	   (value-y (expression y))
+	   (bytes-x (value-bytes value-x))
+	   (bytes-y (value-bytes value-y))
+	   (lx (length bytes-x))
+	   (ly (length bytes-y)))
+      ;; if this a multiplication by 2 or 4, we use additions instead
+      ;; at this point, only y (or both x and y) can contain a literal
+      (if (and (= ly 1)
+	       (byte-lit? (car bytes-y))
+	       (let ((v (byte-lit-val (car bytes-y))))
+		 (or (= v 2) (= v 4))))
+	  (case (byte-lit-val (car bytes-y))
+	    ((2) (add-sub 'x+y value-x value-x result)) ; simple addition
+	    ((4) (let ((tmp (alloc-value (bytes->type
+					  (length (value-bytes result))))))
+		   (add-sub 'x+y value-x value-x tmp)
+		   (add-sub 'x+y tmp tmp result))))
+	  ;; if not, we have to do it the long way
+	  (begin
+	    ;; finds the appropriate multiplication routine (depending on the
+	    ;; length of each argument) and turns the multiplication into a
+	    ;; call to the routine
+	    ;; the arguments must be the asts of the 2 arguments (x and y) and
+	    ;; the type of the returned value, since these are what are
+	    ;; expected by the call function
+	    ;; TODO we end up doing some work that call will also end up doing, wasteful, but I don't see another way
+
+	    ;; to avoid code duplication (i.e. habing a routine for 8 by 16
+	    ;; multplication and one for 16 by 8), the longest operand goes first
+	    (if (> ly lx)
+		(let ((tmp1 y)
+		      (tmp2 ly))
+		  (set! y x)
+		  (set! x tmp1)
+		  (set! ly lx)
+		  (set! lx tmp2)))
+	    (let* ((op (string->symbol ; mul8_8, mul8_16, etc
+			;; for now, only unsigned multiplications are supported
+			(string-append "mul"
+				       (number->string (* lx 8)) "_"
+				       (number->string (* ly 8)))))
+		   ;; find the definition of the predefined routine in the
+		   ;; initial cte
+		   (def-proc (car (memp (lambda (x) (eq? (def-id x) op))
+					initial-cte))))
+	      ;; put the result of the call where the rest of the expression
+	      ;; expects it
+	      (move-value (call (new-call (list x y)
+					  type
+					  def-proc))
+			  result))))))
 
   (define (mod x y result)
     (let ((bytes1 (value-bytes x)) ;; TODO common pattern, abstract
