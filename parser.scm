@@ -305,26 +305,41 @@
            (error "expected expression" source))))
 
   (define (operation op source cte cont)
-    (if (op1? op)
-        (expression (cadr source)
-                    cte
-                    (lambda (ast1 cte)
-                      (let ((ast
-                             (new-oper (list ast1) #f op)))
-                        (expr-type-set! ast ((op-type-rule op) ast))
-                        (cont ((op-constant-fold op) ast)
-                              cte))))
-        (expression (cadr source)
-                    cte
-                    (lambda (ast1 cte)
-                      (expression (caddr source)
-                                  cte
-                                  (lambda (ast2 cte)
-                                    (let ((ast
-                                           (new-oper (list ast1 ast2) #f op)))
-                                      (expr-type-set! ast ((op-type-rule op) ast))
-                                      (cont ((op-constant-fold op) ast)
-                                            cte))))))))
+    (define (continue ast cte)
+      (expr-type-set! ast ((op-type-rule op) ast))
+      (cont ((op-constant-fold op) ast)
+	    cte))
+    (cond ((op1? op)
+	   (expression
+	    (cadr source)
+	    cte
+	    (lambda (ast1 cte)
+	      (continue (new-oper (list ast1) #f op) cte))))
+	  ((op2? op)
+	   (expression
+	    (cadr source)
+	    cte
+	    (lambda (ast1 cte)
+	      (expression
+	       (caddr source)
+	       cte
+	       (lambda (ast2 cte)
+		 (continue (new-oper (list ast1 ast2) #f op) cte))))))
+	  (else ; ternary operator
+	   (expression
+	    (cadr source)
+	    cte
+	    (lambda (ast1 cte)
+	      (expression
+	       (caddr source)
+	       cte
+	       (lambda (ast2 cte)
+		 (expression
+		  (cadddr source)
+		  cte
+		  (lambda (ast3 cte)
+		    (continue (new-oper (list ast1 ast2 ast3) #f op)
+			      cte))))))))))
 
   (define (call source cte cont)
     (let* ((id (get-id (cadr source)))

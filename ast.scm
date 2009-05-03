@@ -58,18 +58,13 @@
 
 (define types-bytes
   '((void  . 0)
+    (bool  . 1)
     (byte  . 1)
     (int8  . 1)
     (int16 . 2)
     (int24 . 3)
     (int32 . 4)
-    (int   . 4) ;; TODO should the default int be 32 bits ?
-    ;; this last one is not actually used by user code
-    ;; it's only here for internal purposes (i.e. for the addition of 2 32-bit
-    ;; values, which would need 5 bytes to hold the result, even if it will be
-    ;; truncated later on)
-    ;; TODO is this such a good idea ?
-    (int40 . 5)))
+    (int   . 4))) ;; TODO should the default int be 32 bits ?
 
 (define (type->bytes type)
   (cond ((assq type types-bytes)
@@ -167,7 +162,7 @@
    (make-oper #f subasts type op)))
 
 (define-type-of-expr call
-  def-proc)
+  (def-proc unprintable:))
 (define (new-call subasts type proc-def)
   (multi-link-parent!
    subasts
@@ -249,3 +244,4 @@
 
 (define-type-of-op op1)
 (define-type-of-op op2)
+(define-type-of-op op3)

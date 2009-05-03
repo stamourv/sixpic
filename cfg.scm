@@ -631,11 +631,12 @@
 		 (let ((x (/ (log (value->int y)) (log 2))))
 		   (= (floor x) x)))
 	    ;; bitwise and with y - 1
-	    (bitwise 'x&y
-		     x
-		     (int->value (- (value->int y) 1)
-				 (bytes->type (length bytes2)))
-		     result)
+	    (begin (let* ((l   (bytes->type (length bytes2)))
+			  (tmp (alloc-value l)))
+		     (move-value (int->value (- (value->int y) 1)
+					     (bytes->type (length bytes2)))
+				 tmp)
+		     (bitwise 'x&y x tmp result)))
 	    ;; TODO for the general case, try to optimise the case where division and modulo are used together, since they are used together
 	    (error "modulo is only supported for powers of 2")))))
 

@@ -61,7 +61,7 @@
       '(pretty-print ast)
       (let ((cfg (generate-cfg ast)))
 	'(print-cfg-bbs cfg)
-	(pretty-print cfg)
+	'(pretty-print cfg)
         (remove-branch-cascades-and-dead-code cfg)
 	(remove-converging-branches cfg)
 	(remove-dead-instructions cfg)

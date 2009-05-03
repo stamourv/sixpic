@@ -2,15 +2,16 @@
 
 (define operators '())
 
+(define (define-op constructor six-id id type-rule constant-fold code-gen)
+  (set! operators
+        (cons (constructor six-id id type-rule constant-fold code-gen)
+              operators)))
 (define (define-op1 six-id id type-rule constant-fold code-gen)
-  (set! operators
-        (cons (make-op1 six-id id type-rule constant-fold code-gen)
-              operators)))
-
+  (define-op make-op1 six-id id type-rule constant-fold code-gen))
 (define (define-op2 six-id id type-rule constant-fold code-gen)
-  (set! operators
-        (cons (make-op2 six-id id type-rule constant-fold code-gen)
-              operators)))
+  (define-op make-op2 six-id id type-rule constant-fold code-gen))
+(define (define-op3 six-id id type-rule constant-fold code-gen)
+  (define-op make-op3 six-id id type-rule constant-fold code-gen))
 
 ;; no need for type checks, every type sixpic supports can be casted to / from
 ;; ints (except void, but this is a non-issue) and promotion (by padding) and
@@ -282,9 +283,12 @@
   (lambda (ast)
     ...))
 
-(define-op2 'six.x?y:z 'x?y:z
+(define-op3 'six.x?y:z 'x?y:z
   (lambda (ast)
-    ...)
+    ;; largest of the 2 branches
+    (let ((t1 (expr-type (subast2 ast)))
+	  (t2 (expr-type (subast3 ast))))
+    (largest t1 t2)))
   (lambda (ast)
     ast)
   (lambda (ast)
