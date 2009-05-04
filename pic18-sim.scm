@@ -408,7 +408,7 @@
 
 (define (carry)
   (if (> pic18-carry-flag 0)
-      (begin (set! pic18-carry-flag #f) ;; TODO is this how the PIC18 hardware does it ?
+      (begin (set! pic18-carry-flag #f)
 	     1)
       0))
 
@@ -587,7 +587,7 @@
   (lambda (opcode)
     (byte-oriented opcode "subfwb" 'c-dc-z-ov-n
      (lambda (f)
-       (- (get-wreg) f (carry)))))) ;; TODO was (- 1 (carry)), but caused problems with the other
+       (- (get-wreg) f (carry))))))
 
 (decode-opcode #b010111 10
   (lambda (opcode)
@@ -599,7 +599,7 @@
   (lambda (opcode)
     (byte-oriented opcode "subwfb" 'c-dc-z-ov-n
      (lambda (f)
-       (- f (get-wreg) (carry)))))) ;; TODO !carry didn't work
+       (- f (get-wreg) (carry))))))
 
 (decode-opcode #b001110 10
   (lambda (opcode)

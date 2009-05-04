@@ -16,7 +16,6 @@
 ;; no need for type checks, every type sixpic supports can be casted to / from
 ;; ints (except void, but this is a non-issue) and promotion (by padding) and
 ;; truncation is done at the cfg level
-;; TODO really ignore the void issue ? assigning the "result" of a void function to an int variable should be an error
 (define (type-rule-int-op1 ast)
   (expr-type (subast1 ast)))
 
@@ -39,10 +38,10 @@
     t1))
 
 (define (type-rule-int-comp-op2 ast)
-  'bool) ;; TODO why even bother ? anything can be casted to int to be used as argument here, old version is in garbage (and in version control) if needed
+  'bool)
 
 (define (type-rule-bool-op2 ast)
-  'bool) ;; TODO same here
+  'bool)
 
 (define-op1 'six.!x '!x
   type-rule-int-op1
@@ -88,14 +87,7 @@
     ...))
 
 (define-op2 'six.x%y 'x%y
-  (lambda (ast)
-    ;; if we know the second operand, we can have an upper bound on the size
-    ;; of the result
-    (if (literal? (subast1 ast))
-	;; the number of bits needed by the result is lg(y)
-	(bytes->type (ceiling (/ (log (literal-val (subast1 ast))) (log 2) 8)))
-	;; fall back to the general case
-	(type-rule-int-op2 ast))) ;; TODO is this optimization worth it, or does it break the samentics of C ?
+  (type-rule-int-op2 ast)
   (lambda (ast)
     ast)
   (lambda (ast)
@@ -125,20 +117,7 @@
     ...))
 
 (define-op2 'six.x/y 'x/y
-  (lambda (ast)
-    ;; if we know the second operand, we can have an upper bound on the size
-    ;; of the result
-    (if (literal? (subast1 ast))
-	;; for every byte over 1 in the length of y, we can remove a byte from
-	;; the result
-	;; ex : the smallest value which needs 2 bytes to encode is 256, and
-	;; dividing by 256 is equivalent to truncating the 8 lowest bits, and
-	;; so on
-	(let ((l1 (type->bytes (expr-type (subast1 ast))))
-	      (l2 (ceiling (/ (log y) (log 2) 8))))
-	  (bytes->type (- (max l1 l2) (- l2 1))))
-	;; fall back to the general case
-	(type-rule-int-op2 ast))) ;; TODO as for modulo, is this optimisation worth it ? if so, & could have a similar or, by being the size of the smaller operand
+  (type-rule-int-op2 ast)
   (lambda (ast)
     ast)
   (lambda (ast)
@@ -172,7 +151,8 @@
   (lambda (ast)
     ...))
 
-(define-op2 'six.x<<y 'x<<y ;; TODO for the general case, would give scary results (a single byte for y can still mean a shift by 255)
+;; TODO check with the C standard for the next 2
+(define-op2 'six.x<<y 'x<<y
   (lambda (ast)
     (if (not (literal? (subast2 ast)))
 	(error "only shifting by literals is supported"))

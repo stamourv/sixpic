@@ -9,7 +9,7 @@
 
 (define (predefine-fun id type param-defs adr)
   (let* ((value
-          (cond ((eq? type 'byte) ;; TODO have the others, or make this generic (this is not actually used anyway)
+          (cond ((eq? type 'byte) ;; TODO have the other types, or make this generic (this is not actually used anyway)
                  (new-value (list (make-byte-cell WREG '() '()))))
                 ((eq? type 'void)
                  (new-value '()))
@@ -18,7 +18,7 @@
          (params
           (map (lambda (x)
 		 ;; parameters don't need names here
-		 ;; TODO this does not support parameters wider than 1 byte, but this function is not used for any useful function anyway
+		 ;; TODO support other types
                  (predefine-var 'foo (car x) (list (cdr x))))
                param-defs))
          (ast
@@ -43,7 +43,7 @@
     (set! predefined-routines (cons id predefined-routines))
     (new-def-procedure '() id '() type (alloc-value type) params)))
 
-(define initial-cte ;; TODO clean this up
+(define initial-cte
   (list
    (predefine-var 'X 'byte '(5))
    (predefine-var 'Y 'byte '(6))
@@ -59,7 +59,6 @@
    (predefine-fun 'exec_client 'void '() #x1FC)
    
    ;; special variables
-   ;; TODO fit the memory divide here too
    (predefine-var 'SIXPIC_FSR0 'int16 (list FSR0L FSR0H))
    (predefine-var 'SIXPIC_FSR1 'int16 (list FSR1L FSR1H))
    (predefine-var 'SIXPIC_FSR2 'int16 (list FSR2L FSR2H))

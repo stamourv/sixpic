@@ -206,7 +206,7 @@
     (emit (list 'rcall label)))
 
   (define (return)
-    (if (and #f (and (not (null? rev-code)) ; TODO probably here for eventual inlining
+    (if (and #f (and (not (null? rev-code))
 		     (eq? (caar rev-code) 'rcall)))
         (let ((label (cadar rev-code)))
           (set! rev-code (cdr rev-code))
@@ -214,7 +214,7 @@
         (emit (list 'return))))
 
   (define (label lab)
-    (if (and #f (and (not (null? rev-code)) ; TODO would probably be useful to eliminate things like : bra $2, $2: 
+    (if (and #f (and (not (null? rev-code))
              (eq? (caar rev-code) 'bra)
              (eq? (cadar rev-code) lab)))
         (begin
@@ -340,7 +340,7 @@
 			      ;; be a literal if the operator is applied on a
 			      ;; literal and a variable
                               (let ((n (byte-lit-val src2)))
-                                (if (byte-lit? src1) ;; TODO will probably never be called with literals, since it's always inside a function
+                                (if (byte-lit? src1)
 				    (movlw   (byte-lit-val src1))
                                     (movereg (byte-cell-adr src1) WREG))
 				;; literal multiplication
@@ -350,7 +350,7 @@
 				(move-reg x WREG)
 				(mulwf y))))
 			 
-			 ((and ior xor) ;; TODO similar to add sub and co, except that I removed the literal part
+			 ((and ior xor)
 			  ;; no instructions for bitwise operations involving
 			  ;; literals exist on the PIC18
 			  (let ((x (if (byte-lit? src1)
@@ -364,7 +364,7 @@
 				   (if (byte-lit? src2)
 				       (move-lit y z)
 				       (move-reg y z))
-				   (movlw x)) ;; TODO not sure it will work
+				   (movlw x))
 				  ((and (not (= x y)) (= y z))
 				   (move-reg x WREG))
 				  (else
@@ -385,7 +385,6 @@
 			 
                          ((goto)
 			  (if (null? (bb-succs bb))
-			      ;; TODO happens more often than I'd like to admit
 			      (error "I think you might have given me an empty source file."))
                           (let* ((succs (bb-succs bb))
                                  (dest (car succs)))
@@ -420,7 +419,7 @@
                                          (n (byte-lit-val src2)))
                                      (if #f #;(and (or (= n 0) (= n 1) (= n #xff))
                                               (eq? (instr-id instr) 'x==y))
-                                         (special-compare-eq-lit n x) ;; TODO does not exist. the only way apart from cpfseq I see would be to load w, do a subtraction, then conditional branch, but would be larger and would take 1-2 cycles more
+                                         (special-compare-eq-lit n x)
                                          (begin
                                            (movlw n)
                                            (compare #f x)))))
@@ -527,7 +526,4 @@
 
 (define (code-gen filename cfg)
   (allocate-registers cfg)
-  (assembler-gen filename cfg)
-;  (pretty-print cfg)
-;  (pretty-print (reverse (bb-rev-instrs bb))) ;; TODO what ? there are no bbs here...
-  )
+  (assembler-gen filename cfg))

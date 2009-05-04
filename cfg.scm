@@ -205,7 +205,7 @@
 	       (to   (value-bytes to)))
       (cond ((null? to))  ; done, we truncate the rest
 	    ((null? from) ; promote the value by padding
-	     (move (new-byte-lit 0) (car to)) ;; TODO still some ad-hoc padding, but since it's mostly used internally, it's hard to get rid of
+	     (move (new-byte-lit 0) (car to))
 	     (loop from (cdr to)))
 	    (else
 	     (move (car from) (car to))
@@ -336,7 +336,7 @@
 		   (curr-case-bb (cdr curr-case)))
 	      (emit (new-instr 'x==y
 			       (car (value-bytes (expression var)))
-			       (new-byte-lit curr-case-id) #f)) ;; TODO what about work duplication ?
+			       (new-byte-lit curr-case-id) #f))
 	      (add-succ bb next-bb) ; if false, keep looking
 	      (add-succ bb curr-case-bb) ; if true, go to the case
 	      (loop (cdr case-list)
@@ -379,7 +379,9 @@
 		 (gen-goto bb-true)
 		 (gen-goto bb-false)))
 	    ((byte-lit? byte2)
-	     (add-succ bb bb-false) ; since we cons each new successor at the front, true has to be added last
+	     ;; since we cons each new successor at the front, true has to be
+	     ;; added last
+	     (add-succ bb bb-false)
 	     (add-succ bb bb-true)
 	     (emit (new-instr id byte1 byte2 #f)))
 	    ((byte-lit? byte1)
@@ -395,7 +397,7 @@
 	    (else
 	     (add-succ bb bb-false)
 	     (add-succ bb bb-true)
-	     (emit (new-instr id byte1 byte2 #f))))) ;; TODO doesn't change from if we had literals, at least not now
+	     (emit (new-instr id byte1 byte2 #f)))))
 
     (define (test-value id value1 value2 bb-true bb-false)
       	 (let loop ((bytes1  (value-bytes value1)) ; lsb first
@@ -405,7 +407,7 @@
 	   (if (not (and (null? bytes1) (null? bytes2)))
 	       ;; note: won't work with signed types, as the padding is done
 	       ;; with 0s only
-	       (loop (if (null? bytes1) bytes1 (cdr bytes1)) ;; TODO ugly
+	       (loop (if (null? bytes1) bytes1 (cdr bytes1))
 		     (if (null? bytes2) bytes2 (cdr bytes2))
 		     (cons (if (null? bytes1) (new-byte-lit 0) (car bytes1)) ;; TODO use extend ?
 			   padded1)
@@ -440,7 +442,7 @@
 			    (test-byte id byte1 byte2 bb-true bb-test-equal)
 			    ;; if not, check for equality, if both bytes are
 			    ;; equal, keep going
-			    (in bb-test-equal) ;; TODO is this the most efficient way ?
+			    (in bb-test-equal)
 			    (test-byte 'x==y byte1 byte2 bb-keep-going bb-false)
 			    ;; TODO do some analysis to check the value already in w, in this case, it won't change between both tests, so no need to charge it back, as is done now
 			    (in bb-keep-going)
@@ -478,7 +480,7 @@
 ;; 		       (error "unhandled case"))))
 ;; 	       ((x<y)
 ;; 		(cond ((and (literal? y) (= (literal-val y) 0))
-;; 		       (test-negative x bb-true bb-false)) ;; TODO does this exist ?
+;; 		       (test-negative x bb-true bb-false))
 ;; 		      (else
 ;; 		       (error "unhandled case"))))
 ;; 	       ((x>y)
@@ -500,8 +502,7 @@
 	(let ((type (expr-type ast))
 	      (value (expression ast)))
 	  ;; since nonzero is true, we must swap the destinations to use ==
-	  ;; TODO use int->value ? the padding is done automatically later on...
-	  (test-value 'x==y value (int->value 0 type) bb-false bb-true))) ;; TODO should probably call test-relation, instead, no shortcuts
+	  (test-value 'x==y value (int->value 0 type) bb-false bb-true)))
       
       (cond ((oper? ast)
 	     (let* ((op (oper-op ast))
@@ -594,7 +595,6 @@
 	    ;; the arguments must be the asts of the 2 arguments (x and y) and
 	    ;; the type of the returned value, since these are what are
 	    ;; expected by the call function
-	    ;; TODO we end up doing some work that call will also end up doing, wasteful, but I don't see another way
 
 	    ;; to avoid code duplication (i.e. habing a routine for 8 by 16
 	    ;; multplication and one for 16 by 8), the longest operand goes first
@@ -649,7 +649,6 @@
       (let ((y0 (car bytes2)))
 	;; note: I assume that if the first byte is a literal, the others will
 	;; be as well. I doubt any other case could happen here.
-	;; TODO actually, we construct such a case just after by adding literal 0s at the end. watch out for it, and adjust
 	(if (and (byte-lit? y0) (= (modulo (byte-lit-val y0) 8) 0))
 	    (let loop ((n (/ (byte-lit-val y0) 8)) ;; TODO only uses the first byte, but then again, shifting by 255 should be enough
 		       (x bytes1))
@@ -663,7 +662,7 @@
 	    ;; TODO for the general case, have a routine that does the loop, instead of having loops everywhere
 	    (error "shifting only implemented for literal multiples of 8")))))
 
-  ;; bitwise and, or, xor TODO not ? no, elsewhere since it's unary
+  ;; bitwise and, or, xor
   ;; TODO similar to add-sub and probably others, abstract multi-byte operations
   (define (bitwise id value1 value2 result)
     (let loop ((bytes1 (value-bytes value1))
@@ -712,8 +711,9 @@
       (if (not (and base-name
 		    (memq base-name fsr-variables)))
 	  (let ((base    (expression (subast1 ast)))
+		;; NB: actual addresses are 12 bits, not 16
 		(address (new-value (list (get-register FSR0L)
-					  (get-register FSR0H))))) ;; TODO actual addresses are 12 bits, not 16
+					  (get-register FSR0H)))))
 	    (if index?
 		;; we pad up to int16, since it is the size of the addresses
 		(let ((value1 (extend base 'int16))
@@ -809,7 +809,7 @@
 		       (case id
 			 ((x+y x-y)        (add-sub id value-x value-y result))
 			 ((x*y)            (mul x y type result))
-			 ((x/y)            (error "division not implemented yet")) ;; TODO optimise for powers of 2
+			 ((x/y)            (error "division not implemented yet")) ;; TODO optimize for powers of 2
 			 ((x%y)            (mod value-x value-y result))
 			 ((x&y |x\|y| x^y) (bitwise id value-x value-y result))
 			 ((x>>y x<<y)      (shift id value-x value-y result)))
@@ -821,7 +821,7 @@
 		   (cond
 		    ;; lhs is a variable
 		    ((ref? x)
-		     (let ((ext-value-y (extend value-y type))) ;; TODO useless for now
+		     (let ((ext-value-y (extend value-y type)))
 		       (let ((result (def-variable-value (ref-def-var x))))
 			 (move-value value-y result)
 			 result)))
@@ -873,12 +873,11 @@
 	       (z (value-bytes value)))
 	   ;; TODO implement literal multiplication in the simulator
 	   (emit (new-instr 'mul (car (get-bytes x)) (car (get-bytes y)) #f))
-	   ;; TODO talking about prodl/h here is abstraction leak, maybe have 2 destinations for the instruction
 	   (move (get-register PRODL) (car z)) ; lsb
 	   (move (get-register PRODH) (cadr z))))
 	
 	((mul16_8)
-	 (let* ((x  (get-bytes (car params))) ;; TODO make sure endianness is ok
+	 (let* ((x  (get-bytes (car params)))
 		(x0 (car x)) ; lsb
 		(x1 (cadr x))
 		(y  (get-bytes (cadr params)))
@@ -928,7 +927,6 @@
 	   (emit (new-instr 'addc z3 (new-byte-lit 0) z3))))
 	;; TODO have 16-32 and 32-32 ? needed for picobit ?
 	)
-      ;; TODO alloc-value if intermediary results are needed, wouldn't be as optimal as directly adding prodl and prodh to the right register, but makes it more generic, maybe register allocation could fix this suboptimality ? (actually, for the moment, we play with the PROD registers right here, so it's not that subobtimal)
       (return-with-no-new-bb proc)
       (set! current-def-proc #f)
       (resolve-all-gotos entry (list-named-bbs entry '()) '())
@@ -962,7 +960,8 @@
           (move-value value result)
           result))))
 
-  ;; remplaces empty bbs by bbs with a single goto, to have a valid CFG for optimizations
+  ;; remplaces empty bbs by bbs with a single goto, to have a valid CFG for
+  ;; optimizations
   (define (fill-empty-bbs)
     (for-each (lambda (x) (if (null? (bb-rev-instrs x))
 			       (begin (in x)

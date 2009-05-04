@@ -96,24 +96,25 @@
 	(loop (cdr bytes)
 	      (+ (* 256 n) (byte-lit-val (car bytes)))))))
 
-(define (extend value type) ;; TODO instead of carrying types around, use the length instead
+;; TODO instead of carrying types around, use the length instead
+(define (extend value type)
   ;; literals must be extended with literal 0s, while variables must be
   ;; extended with byte cells
   (let* ((bytes (value-bytes value))
 	 (lit?  (byte-lit? (car bytes))))
-    (let loop ((rev-bytes (reverse bytes)) ;; TODO put in cfg.scm ?
+    (let loop ((rev-bytes (reverse bytes))
 	       (n         (max 0 (- (type->bytes type) (length bytes)))))
       (if (= n 0)
 	  (new-value (reverse rev-bytes))
 	  (loop (cons (if lit? (new-byte-lit 0) (new-byte-cell))
 		      rev-bytes)
-		(- n 1)))))) ;; TODO would need to move 0 in the new byte ?
+		(- n 1))))))
 
 (define (alloc-value type)
   (let ((len (type->bytes type)))
     (let loop ((len len) (rev-bytes '()))
       (if (= len 0)
-          (new-value (reverse rev-bytes)) ;; TODO why reverse, everything is empty
+          (new-value (reverse rev-bytes))
           (loop (- len 1)
                 (cons (new-byte-cell)
                       rev-bytes))))))

@@ -22,7 +22,7 @@
       ;; when any of these are encountered, its associated thunk is
       ;; called
       (define special-variables
-	(list ;; TODO try to fit this with the predefined variables in cte.scm, then store its value somewhere in a global, I guess
+	(list ;; TODO fit with the predefined variables in cte.scm ?
 	 (cons 'SIXPIC_MEMORY_DIVIDE
 	       (lambda ()
 		 (set! memory-divide (cadr val)) ; must be a literal
@@ -87,7 +87,7 @@
 		(tail (cdr source)))
 	    (if (or (form? 'six.label head) ; we complete the block with a list of named blocks
 		    (form? 'six.case  head))
-		(named-block-list source ;; TODO pass it the first statement
+		(named-block-list source
 				  cte
 				  cont) ; will return a list of named blocks
 		(statement head
@@ -104,9 +104,8 @@
          (cont (new-block asts)
                cte))))
 
-  ;; returns a list of the named blocks (implicit blocks delimited by labels) present in the given tree
+  ;; handles named blocks (implicit blocks delimited by labels)
   ;; useful for switch and goto
-  ;; TODO returns that ?
   (define (named-block-list source cte cont)
     (define (b source cte cont name body-so-far)
       (if (null? source)
@@ -232,7 +231,7 @@
 		  (block (caddr source)
 			 cte
 			 (lambda (ast2 cte)
-			   (cont (new-switch (cons ast1 (ast-subasts ast2))) ; we only need the contents of the generated block, which would be a named block list
+			   (cont (new-switch (cons ast1 (ast-subasts ast2)))
 				 cte))))))
   
   (define (while source cte cont)
