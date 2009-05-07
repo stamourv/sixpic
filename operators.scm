@@ -87,7 +87,7 @@
     ...))
 
 (define-op2 'six.x%y 'x%y
-  (type-rule-int-op2 ast)
+  type-rule-int-op2
   (lambda (ast)
     ast)
   (lambda (ast)
@@ -117,7 +117,7 @@
     ...))
 
 (define-op2 'six.x/y 'x/y
-  (type-rule-int-op2 ast)
+  type-rule-int-op2
   (lambda (ast)
     ast)
   (lambda (ast)
