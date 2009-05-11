@@ -68,15 +68,15 @@ int8 rom_get (int16 a){
 /* int8 rom_get_field3 (int16 o); */
 int8 ram_get_gc_tags (int16 o) {
   int16 t2 = o - 512;
-  return (*(((t2 << 2) + (0))+#x200) & #x60);
+  return (*(((t2 << 2))+#x200) & #x60);
 }
 int8 ram_get_gc_tag0 (int16 o) {
   int16 t2 = o - 512;
-  return (*(((t2 << 2) + (0))+#x200) & #x20);
+  return (*(((t2 << 2))+#x200) & #x20);
 }
 int8 ram_get_gc_tag1 (int16 o) {
   int16 t2 = o - 512;
-  return (*(((t2 << 2) + (0))+#x200) & #x40);
+  return (*(((t2 << 2))+#x200) & #x40);
 }
 void ram_set_gc_tags (int16 o, int8 tags) {
   int16 t2 = o - 512;

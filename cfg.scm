@@ -866,7 +866,8 @@
   (define (include-predefined-routine proc)
     (define (get-bytes var)
       (value-bytes (def-variable-value var)))
-    (let ((id (def-id proc))
+    (let ((old-proc current-def-proc) ; if we were already defining a procedure, save it
+	  (id (def-id proc))
 	  (params (def-procedure-params proc))
 	  (value (def-procedure-value proc))
 	  (old-bb bb)
@@ -969,7 +970,7 @@
 	   (gen-goto start-bb)
 	   (in after-bb))))
       (return-with-no-new-bb proc)
-      (set! current-def-proc #f)
+      (set! current-def-proc old-proc)
       (resolve-all-gotos entry (list-named-bbs entry '()) '())
       (in old-bb)))
   
