@@ -67,12 +67,12 @@
    (predefine-routine 'mul16_8  'int24 '(int16 int8))
    (predefine-routine 'mul16_16 'int32 '(int16 int16))
 
-   (predefine-routine 'shl8  'int8 '(int8  int8))
-   (predefine-routine 'shl16 'int8 '(int16 int8))
-   (predefine-routine 'shl32 'int8 '(int32 int8))
-   (predefine-routine 'shr8  'int8 '(int8  int8))
-   (predefine-routine 'shr16 'int8 '(int16 int8))
-   (predefine-routine 'shr32 'int8 '(int32 int8))   
+   (predefine-routine 'shl8  'int8  '(int8  int8))
+   (predefine-routine 'shl16 'int16 '(int16 int8))
+   (predefine-routine 'shl32 'int32 '(int32 int8))
+   (predefine-routine 'shr8  'int8  '(int8  int8))
+   (predefine-routine 'shr16 'int16 '(int16 int8))
+   (predefine-routine 'shr32 'int32 '(int32 int8))   
    ))
 
 (define (cte-extend cte bindings)

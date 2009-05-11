@@ -66,7 +66,7 @@
 	(remove-dead-instructions cfg)
 	'(pp "AFTER")
 	'(print-cfg-bbs cfg)
-        '(pretty-print cfg)
+	'(pretty-print cfg)
         (let ((code (code-gen filename cfg)))
 	  (asm-assemble)
 	  '(display "------------------ GENERATED CODE\n")

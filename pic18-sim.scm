@@ -557,10 +557,8 @@
   (lambda (opcode)
     (byte-oriented opcode "rlcf" 'c-z-n
      (lambda (f)
-       (let ((r (+ (arithmetic-shift f 1) (carry))))
-	 ;; roll through the carry
-	 (if (> f #x7f) (set-carry-flag 1))
-	 r)))))
+       ;; the carry flasg will be set automatically
+       (+ (arithmetic-shift f 1) (carry))))))
 
 (decode-opcode #b010001 10
   (lambda (opcode)
@@ -573,9 +571,8 @@
     (byte-oriented opcode "rrcf" 'c-z-n
      (lambda (f)
        (let ((r (+ (arithmetic-shift f -1) (arithmetic-shift (carry) 7))))
-	 ;; roll through carry
-	 (if (= (bitwise-and f 1) 1) (set-carry-flag 1))
-	 r)))))
+	 ;; roll through carry (if the result is over #xff, carry will be set)
+	 (if (= (bitwise-and f 1) 1) (+ r #x100) r))))))
 
 (decode-opcode #b010000 10
   (lambda (opcode)

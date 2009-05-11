@@ -672,6 +672,7 @@
 
   ;; bitwise and, or, xor
   ;; TODO similar to add-sub and probably others, abstract multi-byte ops
+  ;; TODO use bit set, clear and toggle for some shortcuts
   (define (bitwise id value1 value2 result)
     (let loop ((bytes1 (value-bytes value1))
                (bytes2 (value-bytes value2))
@@ -935,44 +936,38 @@
 	   (emit (new-instr 'addc z3 (new-byte-lit 0) z3))))
 	;; TODO have 16-32 and 32-32 ? needed for picobit ?
 
-	((shl8 shr8)
-	 ;; TODO loop for each, and clear the carry at each iteration
-	 (let ((x (car (get-bytes (car params))))
-	       (y (car (get-bytes (cadr params))))
-	       (z (car (value-bytes value)))
-	       (start-bb (new-bb))
-	       (loop-bb  (new-bb))
-	       (after-bb (new-bb)))
-	   (move x z)
+	((shl8 shr8 shl16 shr16 shl32 shr32)
+	 (let* ((id (symbol->string id))
+		(left-shift? (eq? (string-ref id 2) #\l))
+		(x (def-variable-value (car params)))
+		(y (def-variable-value (cadr params)))
+		(y0 (car (value-bytes y))) ; shift by 255 is enough
+		(bytes-z (value-bytes value))
+		(start-bb (new-bb))
+		(loop-bb  (new-bb))
+		(after-bb (new-bb)))
+	   (move-value x value)
 	   (gen-goto start-bb) ; fall through to the loop
-	   (in start-bb) ;; TODO have some hard coded cases as shortcuts for literal shifts
+	   (in start-bb)
 	   ;; if we'd shift of 0, we're done
 	   (add-succ bb loop-bb) ; false
 	   (add-succ bb after-bb) ; true
-	   (emit (new-instr 'x==y y (new-byte-lit 0) #f))
-	   (in loop-bb) ;; TODO change the body of the loop for longer shifts FOO
-	   (emit (new-instr (case id ((shl8) 'shl) ((shr8) 'shr)) z #f z))
+	   (emit (new-instr 'x==y y0 (new-byte-lit 0) #f))
+	   (in loop-bb)
+	   ;; shift for each byte, since it's a rotation using the carry,
+	   ;; what goes out from the low bytes gets into the high bytes
+	   (for-each (lambda (b)
+		       (emit (new-instr (if left-shift? 'shl 'shr)
+					b #f b)))
+		     (if left-shift? bytes-z (reverse bytes-z)))
 	   ;; clear the carry, to avoid reinserting it in the register
-	   (emit (new-instr 'set ;; TODO set available at this level ? if so, use it also as a shortcut for some bitwise operations
+	   (emit (new-instr 'set
 			    (get-register STATUS)
 			    (new-byte-lit 0)
 			    #f))
-	   (emit (new-instr 'sub y (new-byte-lit 1) y))
+	   (emit (new-instr 'sub y0 (new-byte-lit 1) y0))
 	   (gen-goto start-bb)
-	   (in after-bb)))
-
-	((shl16)
-	 #f) ;; TODO
-
-	((shl32)
-	 #f) ;; TODO
-
-	((shr16)
-	 #f) ;; TODO
-
-	((shr32)
-	 #f) ;; TODO
-	)
+	   (in after-bb))))
       (return-with-no-new-bb proc)
       (set! current-def-proc #f)
       (resolve-all-gotos entry (list-named-bbs entry '()) '())
