@@ -605,21 +605,15 @@
 		  (set! x tmp1)
 		  (set! ly lx)
 		  (set! lx tmp2)))
-	    (let* ((op (string->symbol ; mul8_8, mul8_16, etc
-			;; for now, only unsigned multiplications are supported
-			(string-append "mul"
-				       (number->string (* lx 8)) "_"
-				       (number->string (* ly 8)))))
-		   ;; find the definition of the predefined routine in the
-		   ;; initial cte
-		   (def-proc (car (memp (lambda (x) (eq? (def-id x) op))
-					initial-cte))))
-	      ;; put the result of the call where the rest of the expression
-	      ;; expects it
-	      (move-value (call (new-call (list x y)
-					  type
-					  def-proc))
-			  result))))))
+	    (routine-call
+	     (string->symbol ; mul8_8, mul8_16, etc
+	      ;; for now, only unsigned multiplications are supported
+	      (string-append "mul"
+			     (number->string (* lx 8)) "_"
+			     (number->string (* ly 8))))
+	     (list x y)
+	     type
+	     result)))))
 
   (define (mod x y result)
     (let ((bytes1 (value-bytes x)) ;; TODO common pattern, abstract
@@ -667,20 +661,14 @@
 				 (list-ref x (+ i n)))
 			     (list-ref bytes3 i))
 		       (loop (+ i 1) x))))))
-	    (let* ((lx (* 8 (length bytes1)))
-		   (op (string->symbol
-			(string-append "sh"
-				       (case id
-					 ((x<<y) "l")
-					 ((x>>y) "r"))
-				       (number->string lx))))
-		   (def-proc (car (memp (lambda (x) (eq? (def-id x) op))
-					initial-cte))))
-	      ;; TODO abstract the routine calling, since this is similar to the multiplication part
-	      (move-value (call (new-call (list x y)
-					  type
-					  def-proc))
-			  result))))))
+	    (routine-call
+	     (string->symbol
+	      (string-append "sh"
+			     (case id ((x<<y) "l") ((x>>y) "r"))
+			     (number->string (* 8 (length bytes1)))))
+	     (list x y)
+	     type
+	     result)))))
 
   ;; bitwise and, or, xor
   ;; TODO similar to add-sub and probably others, abstract multi-byte ops
@@ -1017,6 +1005,15 @@
         (let ((result (alloc-value (def-procedure-type def-proc))))
           (move-value value result)
           result))))
+
+  ;; call to a predefined routine, a simple wrapper to an ordinary call
+  ;; name is a symbol, args is a list of the arguments
+  (define (routine-call name args type result)
+    (cond ((memp (lambda (x) (eq? (def-id x) name))
+		 initial-cte)
+	   => (lambda (x) (move-value (call (new-call args type (car x)))
+				      result)))
+	  (else (error "unknown routine: " name))))
 
   ;; remplaces empty bbs by bbs with a single goto, to have a valid CFG for
   ;; optimizations

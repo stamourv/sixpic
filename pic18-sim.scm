@@ -556,7 +556,7 @@
 (decode-opcode #b001101 10
   (lambda (opcode)
     (byte-oriented opcode "rlcf" 'c-z-n
-     (lambda (f) ;; TODO didn't set the carry before
+     (lambda (f)
        (let ((r (+ (arithmetic-shift f 1) (carry))))
 	 ;; roll through the carry
 	 (if (> f #x7f) (set-carry-flag 1))
