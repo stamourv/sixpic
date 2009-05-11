@@ -63,10 +63,16 @@
    (predefine-var 'SIXPIC_FSR1 'int16 (list FSR1L FSR1H))
    (predefine-var 'SIXPIC_FSR2 'int16 (list FSR2L FSR2H))
 	
-   ;; for multiplication
-   (predefine-routine 'mul8_8   'int16 '(byte  byte))
-   (predefine-routine 'mul16_8  'int24 '(int16 byte))
+   (predefine-routine 'mul8_8   'int16 '(int8  int8))
+   (predefine-routine 'mul16_8  'int24 '(int16 int8))
    (predefine-routine 'mul16_16 'int32 '(int16 int16))
+
+   (predefine-routine 'shl8  'int8 '(int8  int8))
+   (predefine-routine 'shl16 'int8 '(int16 int8))
+   (predefine-routine 'shl32 'int8 '(int32 int8))
+   (predefine-routine 'shr8  'int8 '(int8  int8))
+   (predefine-routine 'shr16 'int8 '(int16 int8))
+   (predefine-routine 'shr32 'int8 '(int32 int8))   
    ))
 
 (define (cte-extend cte bindings)

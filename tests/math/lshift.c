@@ -1,4 +1,7 @@
 // shift by literal multiples of 8
-byte x = 15;
+int16 x = 15;
 int16 y = x << 8;
-y + 2;
+int z = y + 2;
+z = z << 16;
+z = z + 259;
+z;

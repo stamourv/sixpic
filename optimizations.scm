@@ -163,6 +163,8 @@
     ;; and keep everything after
     (let loop ((instrs (reverse (bb-rev-instrs bb)))
 	       (new-instrs '()))
+      (if (null? instrs)
+	  (error "no jump in the bb:" bb))
       (let* ((head (car instrs))
 	     (op   (instr-id head)))
 	(if (or (eq? op 'return)

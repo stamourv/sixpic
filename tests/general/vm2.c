@@ -6,8 +6,8 @@
 byte SIXPIC_MEMORY_DIVIDE = 24;
 
 // program goes from 8 to 11
-byte pc = 8;
-byte mem = 36;
+pc = 8;
+mem = 36;
 
 byte loop = 1;
 

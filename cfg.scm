@@ -640,30 +640,50 @@
 	    ;; TODO for the general case, try to optimise the case where division and modulo are used together, since they are used together
 	    (error "modulo is only supported for powers of 2")))))
 
-  (define (shift id x y result)
-    (let ((bytes1 (value-bytes x))
-	  (bytes2 (value-bytes y))
-	  (bytes3 (value-bytes result))) ;; TODO not used for now, but will be once we cover all the cases
+  (define (shift id x y type result)
+    (let ((bytes1 (value-bytes (extend (expression x) type)))
+	  (bytes2 (value-bytes (extend (expression y) type)))
+	  (bytes3 (value-bytes result)))
       ;; if the second argument is a literal and a multiple of 8, we can simply
-      ;; chop bytes off or add padding to the first argument
+      ;; move the bytes around
       (let ((y0 (car bytes2)))
-	;; note: I assume that if the first byte is a literal, the others will
-	;; be as well. I doubt any other case could happen here.
 	(if (and (byte-lit? y0) (= (modulo (byte-lit-val y0) 8) 0))
-	    (let loop ((n (/ (byte-lit-val y0) 8)) ;; TODO only uses the first byte, but then again, shifting by 255 should be enough
-		       (x bytes1))
-	      (if (= n 0)
-		  (move-value (new-value x) result)
-		  (loop (- n 1)
-			(case id
-			  ((x<<y) (cons (new-byte-lit 0) x))
-			  ((x>>y) (cdr x))))))
-	    ;; TODO handle the other cases, at least the other literal cases
-	    ;; TODO for the general case, have a routine that does the loop, instead of having loops everywhere
-	    (error "shifting only implemented for literal multiples of 8")))))
+	    ;; uses only the first byte, but shifting by 255 should be enough
+	    (let ((n (/ (byte-lit-val y0) 8))
+		  (l (length bytes1))) ; same length for x and result
+	      (let loop ((i 0)
+			 (x bytes1))
+		(if (< i l)
+		    (case id
+		      ((x<<y)
+		       (move (if (< i n)
+				 (new-byte-lit 0) ; padding
+				 (car x))
+			     (list-ref bytes3 i))
+		       (loop (+ i 1) (if (< i n) x (cdr x))))
+		      ((x>>y)
+		       (move (if (<= l (+ i n))
+				 (new-byte-lit 0)
+				 (list-ref x (+ i n)))
+			     (list-ref bytes3 i))
+		       (loop (+ i 1) x))))))
+	    (let* ((lx (* 8 (length bytes1)))
+		   (op (string->symbol
+			(string-append "sh"
+				       (case id
+					 ((x<<y) "l")
+					 ((x>>y) "r"))
+				       (number->string lx))))
+		   (def-proc (car (memp (lambda (x) (eq? (def-id x) op))
+					initial-cte))))
+	      ;; TODO abstract the routine calling, since this is similar to the multiplication part
+	      (move-value (call (new-call (list x y)
+					  type
+					  def-proc))
+			  result))))))
 
   ;; bitwise and, or, xor
-  ;; TODO similar to add-sub and probably others, abstract multi-byte operations
+  ;; TODO similar to add-sub and probably others, abstract multi-byte ops
   (define (bitwise id value1 value2 result)
     (let loop ((bytes1 (value-bytes value1))
                (bytes2 (value-bytes value2))
@@ -812,7 +832,7 @@
 			 ((x/y)            (error "division not implemented yet")) ;; TODO optimize for powers of 2
 			 ((x%y)            (mod value-x value-y result))
 			 ((x&y |x\|y| x^y) (bitwise id value-x value-y result))
-			 ((x>>y x<<y)      (shift id value-x value-y result)))
+			 ((x>>y x<<y)      (shift id x y type result)))
 		       result))))
                 ((x=y)
                  (let* ((x       (subast1 ast))
@@ -926,6 +946,44 @@
 	   (emit (new-instr 'addc (get-register PRODH) z2 z2))
 	   (emit (new-instr 'addc z3 (new-byte-lit 0) z3))))
 	;; TODO have 16-32 and 32-32 ? needed for picobit ?
+
+	((shl8 shr8)
+	 ;; TODO loop for each, and clear the carry at each iteration
+	 (let ((x (car (get-bytes (car params))))
+	       (y (car (get-bytes (cadr params))))
+	       (z (car (value-bytes value)))
+	       (start-bb (new-bb))
+	       (loop-bb  (new-bb))
+	       (after-bb (new-bb)))
+	   (move x z)
+	   (gen-goto start-bb) ; fall through to the loop
+	   (in start-bb) ;; TODO have some hard coded cases as shortcuts for literal shifts
+	   ;; if we'd shift of 0, we're done
+	   (add-succ bb loop-bb) ; false
+	   (add-succ bb after-bb) ; true
+	   (emit (new-instr 'x==y y (new-byte-lit 0) #f))
+	   (in loop-bb) ;; TODO change the body of the loop for longer shifts FOO
+	   (emit (new-instr (case id ((shl8) 'shl) ((shr8) 'shr)) z #f z))
+	   ;; clear the carry, to avoid reinserting it in the register
+	   (emit (new-instr 'set ;; TODO set available at this level ? if so, use it also as a shortcut for some bitwise operations
+			    (get-register STATUS)
+			    (new-byte-lit 0)
+			    #f))
+	   (emit (new-instr 'sub y (new-byte-lit 1) y))
+	   (gen-goto start-bb)
+	   (in after-bb)))
+
+	((shl16)
+	 #f) ;; TODO
+
+	((shl32)
+	 #f) ;; TODO
+
+	((shr16)
+	 #f) ;; TODO
+
+	((shr32)
+	 #f) ;; TODO
 	)
       (return-with-no-new-bb proc)
       (set! current-def-proc #f)

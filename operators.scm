@@ -153,26 +153,14 @@
 
 ;; TODO check with the C standard for the next 2
 (define-op2 'six.x<<y 'x<<y
-  (lambda (ast)
-    (if (not (literal? (subast2 ast)))
-	(error "only shifting by literals is supported"))
-    (let ((l1 (type->bytes (expr-type (subast1 ast))))
-	  (v2 (literal-val (subast2 ast))))
-      ;; we might have to add some bytes to the result
-      (bytes->type (+ l1 (ceiling (/ v2 8))))))
+  type-rule-int-op2
   (lambda (ast)
     ast)
   (lambda (ast)
     ...))
 
 (define-op2 'six.x>>y 'x>>y
-  (lambda (ast)
-    (if (not (literal? (subast2 ast)))
-	(error "only shifting by literals is supported"))
-    (let ((l1 (type->bytes (expr-type (subast1 ast))))
-	  (v2 (literal-val (subast2 ast))))
-      ;; we might be able to shave some bytes off
-      (bytes->type (- l1 (floor (/ v2 8))))))
+  type-rule-int-op2
   (lambda (ast)
     ast)
   (lambda (ast)
