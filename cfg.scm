@@ -290,7 +290,7 @@
       (statement (subast4 ast))
       (gen-goto bb-cont)
       (in bb-cont)
-      (expression (subast3 ast))
+      (statement (subast3 ast))
       (gen-goto bb-loop)
       (in bb-exit)
       (pop-continue)

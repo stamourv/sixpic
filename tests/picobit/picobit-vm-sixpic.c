@@ -167,15 +167,15 @@ int16 rom_get_entry (int16 o){
 int16 get_global (int8 i) {
 
   if (i & 1)
-    return ram_get_cdr (512 + (i / 2));
+    return ram_get_cdr (512 + (i >> 1));
   else
-    return ram_get_car (512 + (i / 2));
+    return ram_get_car (512 + (i >> 1));
 }
 void set_global (int8 i, int16 o) {
   if (i & 1)
-    ram_set_cdr (512 + (i / 2), o);
+    ram_set_cdr (512 + (i >> 1), o);
   else
-    ram_set_car (512 + (i / 2), o);
+    ram_set_car (512 + (i >> 1), o);
 }
 
 int16 free_list;
@@ -309,7 +309,7 @@ void sweep () {
 
   free_list = 0;
 
-  while (visit >= (512 + ((glovars + 1) / 2))) {
+  while (visit >= (512 + ((glovars + 1) >> 1))) {
 
     if ((((ram_get_field0 (visit) & #x80) == #x80)
   && (ram_get_gc_tags (visit) == (0<<5)))
@@ -320,7 +320,7 @@ void sweep () {
  int16 o = ram_get_cdr (visit);
  int16 i = ram_get_car (visit);
  ram_set_car (o, free_list_vec);
- ram_set_cdr (o, (i + 3) / 4);
+ ram_set_cdr (o, (i + 3) >> 2);
  free_list_vec = o;
 
       }
@@ -438,13 +438,13 @@ int16 alloc_vec_cell (int16 n) {
 
 
   else {
-    int16 new_free = o + (n + 3)/4;
+    int16 new_free = o + (n + 3) >> 2;
     if (prec)
       ram_set_car (prec, new_free);
     else
       free_list_vec = new_free;
     ram_set_car (new_free, ram_get_car (o));
-    ram_set_cdr (new_free, ram_get_cdr (o) - (n + 3)/4);
+    ram_set_cdr (new_free, ram_get_cdr (o) - (n + 3) >> 2);
   }
 
   return o;
@@ -1211,7 +1211,7 @@ void prim_make_u8vector () {
          a1 & #xff,         #x60 | (arg3 >> 8),
          arg3 & #xff);
 
-  a1 = (a1 + 3) / 4;
+  a1 = (a1 + 3) >> 2;
   while (a1--) {
     ram_set_field0 (arg3, a2);
     ram_set_field1 (arg3, a2);
@@ -1242,7 +1242,7 @@ void prim_u8vector_ref () {
     halt_with_error();
 
   if (((arg1) >= 4096)) {
-    arg1 += (a2 / 4);
+    arg1 += (a2 >> 2);
     a2 %= 4;
 
     arg1 = encode_int (ram_get_fieldn (arg1, a2));
@@ -1277,7 +1277,7 @@ void prim_u8vector_set () {
   else
     halt_with_error();
 
-  arg1 += (a2 / 4);
+  arg1 += (a2 >> 2);
   a2 %= 4;
 
   ram_set_fieldn (arg1, a2, a3);
@@ -1320,10 +1320,10 @@ void prim_u8vector_copy () {
 
 
     arg1 = ram_get_cdr (arg1);
-    arg1 += (a1 / 4);
+    arg1 += (a1 >> 2);
     a1 %= 4;
     arg3 = ram_get_cdr (arg3);
-    arg3 += (a2 / 4);
+    arg3 += (a2 >> 2);
     a2 %= 4;
 
 
@@ -1331,10 +1331,10 @@ void prim_u8vector_copy () {
       ram_set_fieldn (arg3, a2, ram_get_fieldn (arg1, a1));
 
       a1++;
-      arg1 += (a1 / 4);
+      arg1 += (a1 >> 2);
       a1 %= 4;
       a2++;
-      arg3 += (a2 / 4);
+      arg3 += (a2 >> 2);
       a2 %= 4;
     }
   }
@@ -1351,7 +1351,7 @@ void prim_u8vector_copy () {
       arg1 = rom_get_cdr (arg1);
 
     arg3 = ram_get_cdr (arg3);
-    arg3 += (a2 / 4);
+    arg3 += (a2 >> 2);
     a2 %= 4;
 
     while (a3--) {
@@ -1359,7 +1359,7 @@ void prim_u8vector_copy () {
 
       arg1 = rom_get_cdr (arg1);
       a2++;
-      arg3 += (a2 / 4);
+      arg3 += (a2 >> 2);
       a2 %= 4;
     }
   }
@@ -1742,7 +1742,7 @@ void init_ram_heap () {
 
   free_list = 0;
 
-  while (o > (512 + (glovars + 1) / 2)) {
+  while (o > (512 + (glovars + 1) >> 1)) {
 
 
     ram_set_gc_tags (o, (0<<5));
@@ -1756,7 +1756,7 @@ void init_ram_heap () {
 
 
 
-  ram_set_cdr (free_list_vec, ((8191 - 4096 + 1)*4) / 4);
+  ram_set_cdr (free_list_vec, ((8191 - 4096 + 1)*4) >> 2);
 
   for (i=0; i<glovars; i++)
     set_global (i, 0);
