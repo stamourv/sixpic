@@ -28,6 +28,8 @@
     (obj    . #f)))
 ;; TODO typedef should add to this list
 
+'(current-exception-handler (lambda (exc) (##repl))) ; when not running in the repl
+
 (define (read-source filename)
   (shell-command (string-append "cpp -P " filename " > " filename ".tmp"))
 ;;   (##read-all-as-a-begin-expr-from-path ;; TODO use vectorized notation to have info on errors (where in the source)

@@ -750,6 +750,33 @@
            (op (oper-op ast))
            (id (op-id op)))
       (let ((op (oper-op ast)))
+
+	(define (arith-op id x y value-x value-y) ;; TODO find a way not to pass x and y as well
+	  ;; since code generation does not accept literals as first
+	  ;; arguments unless both arguments are, if this is the
+	  ;; case, we either have to swap the arguments (if
+	  ;; possible) or allocate the argument somewhere
+	  (if (and (literal? x) (not (literal? y)))
+	      (if (memq id '(x+y x*y x&y |x\|y| x^y))
+		  ;; the operator is commutative, we can swap the args
+		  (let ((tmp value-x))
+		    (set! value-x value-y)
+		    (set! value-y tmp))
+		  ;; the operator is not commutative, we have to
+		  ;; allocate the first argument somewhere
+		  (let ((dest (alloc-value (expr-type x))))
+		    (move-value value-x dest)
+		    (set! value-x dest))))
+	  (let ((result (alloc-value type)))
+	    (case id
+	      ((x+y x-y)        (add-sub id value-x value-y result))
+	      ((x*y)            (mul x y type result))
+	      ((x/y)            (error "division not implemented yet")) ;; TODO optimize for powers of 2
+	      ((x%y)            (mod value-x value-y result))
+	      ((x&y |x\|y| x^y) (bitwise id value-x value-y result))
+	      ((x>>y x<<y)      (shift id x y type result)))
+	    result))
+	
         (cond
 	 ((op1? op)
 	  (case id
@@ -800,30 +827,7 @@
 		    (y (subast2 ast)))
 	       (let* ((value-x (extend (expression x) type))
 		      (value-y (extend (expression y) type)))
-		 ;; since code generation does not accept literals as first
-		 ;; arguments unless both arguments are, if this is the
-		 ;; case, we either have to swap the arguments (if
-		 ;; possible) or allocate the argument somewhere
-		 (if (and (literal? x) (not (literal? y)))
-		     (if (memq id '(x+y x*y x&y |x\|y| x^y))
-			 ;; the operator is commutative, we can swap the args
-			 (let ((tmp value-x))
-			   (set! value-x value-y)
-			   (set! value-y tmp))
-			 ;; the operator is not commutative, we have to
-			 ;; allocate the first argument somewhere
-			 (let ((dest (alloc-value (expr-type x))))
-			   (move-value value-x dest)
-			   (set! value-x dest))))
-		 (let ((result (alloc-value type)))
-		   (case id
-		     ((x+y x-y)        (add-sub id value-x value-y result))
-		     ((x*y)            (mul x y type result))
-		     ((x/y)            (error "division not implemented yet")) ;; TODO optimize for powers of 2
-		     ((x%y)            (mod value-x value-y result))
-		     ((x&y |x\|y| x^y) (bitwise id value-x value-y result))
-		     ((x>>y x<<y)      (shift id x y type result)))
-		   result))))
+		 (arith-op id x y value-x value-y))))
 	    ((x=y)
 	     (let* ((x       (subast1 ast))
 		    (y       (subast2 ast))
@@ -860,6 +864,27 @@
 	     ;; note: throws an error if given SIXPIC_FSR{1,2}, see above
 	     (calculate-address ast)
 	     (new-value (list (get-register INDF0))))
+	    ((x+=y x-=y x*=y x/=y x%=y x&=y |x\|=y| x^=y x>>=y x<<=y)
+	     (let* ((x (subast1 ast))
+		    (y (subast2 ast))
+		    (value-x (extend (expression x) type))
+		    (value-y (extend (expression y) type)))
+	       (move-value (arith-op  (case id
+				       ((x+=y)    'x+y)
+				       ((x-=y)    'x-y)
+				       ((x*=y)    'x*y)
+				       ((x/=y)    'x/y)
+				       ((x%=y)    'x%y)
+				       ((x&=y)    'x&y)
+				       ((|x\|=y|) '|x\|y|)
+				       ((x^=y)    'x^=y)
+				       ((x>>=y)   'x>>y)
+				       ((x<<=y)   'x<<y))
+				     x y value-x value-y)
+			   value-x)
+	       value-x)) ;; TODO is it efficient ? I suppose this move will be eliminated and the result put directly in x
+	    ((x==y)
+	     (error "what?")) ;; TODO FOO
 	    (else
 	     (error "binary operation error" ast))))
 

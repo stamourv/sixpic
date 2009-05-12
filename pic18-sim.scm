@@ -666,9 +666,7 @@
 
 (decode-opcode #b11100110 8
   (lambda (opcode)
-    (short-relative-branch opcode "bn"
-     (lambda ()
-       (not (= 0 (negative)))))))
+    (short-relative-branch opcode "bn" negative-flag?)))
 
 (decode-opcode #b11100011 8
   (lambda (opcode)
@@ -678,27 +676,23 @@
 
 (decode-opcode #b11100111 8
   (lambda (opcode)
-    (short-relative-branch opcode "bnn"
-     (lambda ()
-       (= 0 (negative))))))
+    (short-relative-branch opcode "bnn" negative-flag?)))
 
 (decode-opcode #b11100101 8
   (lambda (opcode)
     (short-relative-branch opcode "bnov"
      (lambda ()
-       (= 0 (overflow))))))
+       (not (overflow-flag?))))))
 
 (decode-opcode #b11100001 8
   (lambda (opcode)
     (short-relative-branch opcode "bnz"
      (lambda ()
-       (= 0 (zero))))))
+       (not (zero-flag?))))))
 
 (decode-opcode #b11100100 8
   (lambda (opcode)
-    (short-relative-branch opcode "bov"
-     (lambda ()
-       (not (= 0 (overflow)))))))
+    (short-relative-branch opcode "bov" overflow-flag?)))
 
 (decode-opcode #b11010 11
   (lambda (opcode)
@@ -706,9 +700,7 @@
 
 (decode-opcode #b11100000 8
   (lambda (opcode)
-    (short-relative-branch opcode "bz"
-     (lambda ()
-       (not (= 0 (zero)))))))
+    (short-relative-branch opcode "bz" zero-flag?)))
 
 (decode-opcode #b1110110 9
   (lambda (opcode)

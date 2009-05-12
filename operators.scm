@@ -35,6 +35,7 @@
   (let ((t1 (expr-type (subast1 ast))))
     ;; the type of the rhs is irrelevant, since it will be promoted
     ;; or truncated at the cfg level
+    ;; TODO not sure it's true anymore
     t1))
 
 (define (type-rule-int-comp-op2 ast)

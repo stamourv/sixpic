@@ -667,8 +667,8 @@ int16 shl (int16 x) {
     d = integer_lo (x);
     x = integer_hi (x);
     temp = negc;
-    negc = negative_carry (d & (1<<15)); // TODO oly shifting by literals, so had to change 16-1 to 15
-    result = make_integer ((d << 1) | ((temp) == (((0 + (3 - -1))-1))), result);
+    negc = negative_carry (d & (1<<15));
+    result = make_integer ((d << 1) | ((temp) == (((0 + (3 - -1))-1))), result); // TODO binary operation with == doesn't work yet FOO
   }
 
   return result;
