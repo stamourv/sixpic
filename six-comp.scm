@@ -74,5 +74,5 @@
 	  (asm-write-hex-file (string-append filename ".hex"))
 	  (asm-end!)
 	  '(display "------------------ EXECUTION USING SIMULATOR\n")
-	  '(execute-hex-file (string-append filename ".hex")) ;; TODO disabled temporarily for picobit
+	  (execute-hex-file (string-append filename ".hex"))
 	  #t)))))
