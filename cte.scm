@@ -63,9 +63,10 @@
    (predefine-var 'SIXPIC_FSR1 'int16 (list FSR1L FSR1H))
    (predefine-var 'SIXPIC_FSR2 'int16 (list FSR2L FSR2H))
 	
-   (predefine-routine 'mul8_8   'int16 '(int8  int8))
-   (predefine-routine 'mul16_8  'int24 '(int16 int8))
-   (predefine-routine 'mul16_16 'int32 '(int16 int16))
+   (predefine-routine 'mul8_8   'int8  '(int8  int8))
+   (predefine-routine 'mul16_8  'int16 '(int16 int8)) ;; TODO since multiplication arguments are not padded, these asymetric operations are used, they are more efficient, but padding would mean fewer necessary routines
+   (predefine-routine 'mul16_16 'int16 '(int16 int16))
+   (predefine-routine 'mul32_16 'int32 '(int32 int16))
 
    (predefine-routine 'shl8  'int8  '(int8  int8))
    (predefine-routine 'shl16 'int16 '(int16 int8))

@@ -940,8 +940,7 @@
 	       (z (value-bytes value)))
 	   ;; TODO implement literal multiplication in the simulator
 	   (emit (new-instr 'mul (car (get-bytes x)) (car (get-bytes y)) #f))
-	   (move (get-register PRODL) (car z)) ; lsb
-	   (move (get-register PRODH) (cadr z)))) ;; TODO since 8-8 gives a result 8 bits wide, won't this cause an error ?
+	   (move (get-register PRODL) (car z)))) ; lsb
 	
 	((mul16_8)
 	 (let* ((x  (get-bytes (car params)))
@@ -951,16 +950,13 @@
 		(y0 (car y))
 		(z  (value-bytes value))
 		(z0 (car z)) ; lsb
-		(z1 (cadr z))
-		(z2 (caddr z)))
+		(z1 (cadr z)))
 	   (emit (new-instr 'mul y0 x1 #f))
-	   (move (get-register PRODH) z2)
 	   (move (get-register PRODL) z1)
 
 	   (emit (new-instr 'mul y0 x0 #f))
 	   (move (get-register PRODL) z0)
-	   (emit (new-instr 'add  (get-register PRODH) z1 z1))
-	   (emit (new-instr 'addc z2 (new-byte-lit 0) z2))))
+	   (emit (new-instr 'add  (get-register PRODH) z1 z1))))
 
 	((mul16_16)
 	 (let* ((x  (get-bytes (car params)))
@@ -971,13 +967,7 @@
 		(y1 (cadr y))
 		(z  (value-bytes value))
 		(z0 (car z))
-		(z1 (cadr z))
-		(z2 (caddr z))
-		(z3 (cadddr z)))
-
-	   (emit (new-instr 'mul x1 y1 #f))
-	   (move (get-register PRODH) z3)
-	   (move (get-register PRODL) z2)
+		(z1 (cadr z)))
 
 	   (emit (new-instr 'mul x0 y0 #f))
 	   (move (get-register PRODH) z1)
@@ -985,14 +975,52 @@
 
 	   (emit (new-instr 'mul x0 y1 #f))
 	   (emit (new-instr 'add  (get-register PRODL) z1 z1))
-	   (emit (new-instr 'addc (get-register PRODH) z2 z2))
-	   (emit (new-instr 'addc z3 (new-byte-lit 0) z3))
+
+	   (emit (new-instr 'mul x1 y0 #f))
+	   (emit (new-instr 'add  (get-register PRODL) z1 z1))))
+
+	((mul32_16)
+	 (let* ((x  (get-bytes (car params)))
+		(x0 (car x))
+		(x1 (cadr x))
+		(x2 (caddr x))
+		(x3 (cadddr x))
+		(y  (get-bytes (cadr params)))
+		(y0 (car y))
+		(y1 (cadr y))
+		(z  (value-bytes value))
+		(z0 (car z))
+		(z1 (cadr z))
+		(z2 (caddr z))
+		(z3 (cadddr z)))
+
+	   (emit (new-instr 'mul x0 y0 #f))
+	   (move (get-register PRODH) z1)
+	   (move (get-register PRODL) z0)
+
+	   (emit (new-instr 'mul x1 y1 #f))
+	   (move (get-register PRODH) z3)
+	   (move (get-register PRODL) z2)
 
 	   (emit (new-instr 'mul x1 y0 #f))
 	   (emit (new-instr 'add  (get-register PRODL) z1 z1))
 	   (emit (new-instr 'addc (get-register PRODH) z2 z2))
-	   (emit (new-instr 'addc z3 (new-byte-lit 0) z3))))
-	;; TODO have 16-32 and 32-32 ? needed for picobit ?
+	   (emit (new-instr 'addc z3     (new-byte-lit 0) z3))
+
+	   (emit (new-instr 'mul x0 y1 #f))
+	   (emit (new-instr 'add  (get-register PRODL) z1 z1))
+	   (emit (new-instr 'addc (get-register PRODH) z2 z2))
+	   (emit (new-instr 'addc z3     (new-byte-lit 0) z3))
+
+	   (emit (new-instr 'mul x2 y0 #f))
+	   (emit (new-instr 'add  (get-register PRODL) z2 z2))
+	   (emit (new-instr 'addc (get-register PRODH) z3 z3))
+
+	   (emit (new-instr 'mul x2 y1 #f))
+	   (emit (new-instr 'add  (get-register PRODL) z3 z3))
+
+	   (emit (new-instr 'mul x3 y0 #f))
+	   (emit (new-instr 'add  (get-register PRODL) z3 z3))))
 
 	((shl8 shr8 shl16 shr16 shl32 shr32)
 	 (let* ((id (symbol->string id))

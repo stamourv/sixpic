@@ -1,3 +1,5 @@
 *.hex
 *.tmp
+*~
+garbage
 TAGS

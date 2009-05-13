@@ -1,5 +1,7 @@
 #!/usr/bin/env gsi
 
+(declare (standard-bindings) (block))
+
 (include "pic18-sim.scm")
 (include "utilities.scm")
 (include "ast.scm")

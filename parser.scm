@@ -369,13 +369,12 @@
 
   (define (literal source cte cont)
     (let ((n (cadr source)))
-      ;; TODO might need to be expanded
       (cont (new-literal (cond ((and (>= n 0) (< n 256))
-				'byte)
+				'int8)
 			       ((and (>= n 0) (< n 65536))
 				'int16)
 			       (else
-				'int))
+				'int32))
 			 n)
           cte)))
 
