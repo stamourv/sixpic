@@ -533,16 +533,11 @@
 
   (define (expression ast)
     (let ((result
-           (cond ((literal? ast)
-                  (literal ast))
-                 ((ref? ast)
-                  (ref ast))
-                 ((oper? ast)
-                  (oper ast))
-                 ((call? ast)
-                  (call ast))
-                 (else
-                  (error "unexpected ast" ast)))))
+           (cond ((literal? ast) (literal ast))
+                 ((ref? ast)     (ref ast))
+                 ((oper? ast)    (oper ast))
+                 ((call? ast)    (call ast))
+                 (else           (error "unexpected ast" ast)))))
       (do-delayed-post-incdec)
       result))
 
@@ -818,7 +813,7 @@
 		   (begin (calculate-address ast)
 			  (new-value (list (get-register INDF0)))))))
 	    (else
-	     (error "unary operation error" ast))))
+	     (error "unary operation error" id))))
 
 	 ((op2? op)
 	  (case id
@@ -883,7 +878,7 @@
 				     x y value-x value-y)
 			   value-x)
 	       value-x))
-	    ((x==y x!=y x>y x>=y x<y x<=y)
+	    ((x==y x!=y x>y x>=y x<y x<=y x&&y |x\|\|y|) ;; TODO !x, have it also, maybe do this check before the op1-2-3 test to catch them all ?
 	     (let ((bb-start bb)
 		   (bb-true  (new-bb))
 		   (bb-false (new-bb))
@@ -900,7 +895,7 @@
 	       (in bb-join)
 	       result))
 	    (else
-	     (error "binary operation error" ast))))
+	     (error "binary operation error" id))))
 
 	 ((op3? op)
 	  (let ((bb-start bb)
