@@ -869,7 +869,7 @@
 		    (y (subast2 ast))
 		    (value-x (extend (expression x) type))
 		    (value-y (extend (expression y) type)))
-	       (move-value (arith-op  (case id
+	       (move-value (arith-op (case id
 				       ((x+=y)    'x+y)
 				       ((x-=y)    'x-y)
 				       ((x*=y)    'x*y)
@@ -882,9 +882,23 @@
 				       ((x<<=y)   'x<<y))
 				     x y value-x value-y)
 			   value-x)
-	       value-x)) ;; TODO is it efficient ? I suppose this move will be eliminated and the result put directly in x
-	    ((x==y)
-	     (error "what?")) ;; TODO FOO
+	       value-x))
+	    ((x==y x!=y x>y x>=y x<y x<=y)
+	     (let ((bb-start bb)
+		   (bb-true  (new-bb))
+		   (bb-false (new-bb))
+		   (bb-join  (new-bb))
+		   (result   (alloc-value type)))
+	       (in bb-true)
+	       (move-value (int->value 1 type) result)
+	       (gen-goto bb-join)
+	       (in bb-false)
+	       (move-value (int->value 0 type) result)
+	       (gen-goto bb-join)
+	       (in bb-start)
+	       (test-expression ast bb-true bb-false)
+	       (in bb-join)
+	       result))
 	    (else
 	     (error "binary operation error" ast))))
 
@@ -927,7 +941,7 @@
 	   ;; TODO implement literal multiplication in the simulator
 	   (emit (new-instr 'mul (car (get-bytes x)) (car (get-bytes y)) #f))
 	   (move (get-register PRODL) (car z)) ; lsb
-	   (move (get-register PRODH) (cadr z))))
+	   (move (get-register PRODH) (cadr z)))) ;; TODO since 8-8 gives a result 8 bits wide, won't this cause an error ?
 	
 	((mul16_8)
 	 (let* ((x  (get-bytes (car params)))

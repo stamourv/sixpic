@@ -38,11 +38,12 @@
     ;; TODO not sure it's true anymore
     t1))
 
+;; the standard says it should be int
 (define (type-rule-int-comp-op2 ast)
-  'bool)
+  'int)
 
 (define (type-rule-bool-op2 ast)
-  'bool)
+  'int)
 
 (define-op1 'six.!x '!x
   type-rule-int-op1

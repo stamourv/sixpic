@@ -59,12 +59,12 @@
 (define types-bytes
   '((void  . 0)
     (bool  . 1)
+    (int   . 1)
     (byte  . 1)
     (int8  . 1)
     (int16 . 2)
     (int24 . 3)
-    (int32 . 4)
-    (int   . 4))) ;; TODO should the default int be 32 bits ?
+    (int32 . 4)))
 
 (define (type->bytes type)
   (cond ((assq type types-bytes)
