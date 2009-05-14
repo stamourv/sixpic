@@ -278,6 +278,7 @@
            (bb-exit (new-bb)))
       (push-continue bb-cont)
       (push-break bb-exit)
+      (gen-goto bb-body)
       (in bb-body)
       (statement (subast1 ast))
       (gen-goto bb-cont)
@@ -372,7 +373,6 @@
     (emit (new-instr 'goto #f #f (subast1 ast))))
   
   (define (gen-goto dest)
-    ;; (pp (list GOTO: (bb-label-num bb))) ;; TODO foo not through here 350
     (add-succ bb dest)
     (emit (new-instr 'goto #f #f #f)))
 
@@ -1106,16 +1106,15 @@
 
   ;; remplaces empty bbs by bbs with a single goto, to have a valid CFG for
   ;; optimizations
-  (define (fill-empty-bbs) ;; TODO is this legitimate ? I have seen a case where a bb with no succs gets a goto, so optimisations fail
+  (define (fill-empty-bbs) ;; TODO is this legitimate ? its not active for the moment, see if it ever is
     (for-each (lambda (x) (if (null? (bb-rev-instrs x))
 			       (begin (in x)
-				      (pp (list GOTO: (bb-label-num bb)))
 				      (emit (new-instr 'goto #f #f #f)))))
 	      (cfg-bbs cfg)))
   
   (in (new-bb))
   (program ast)
-  (fill-empty-bbs)
+;;   (fill-empty-bbs)
   cfg)
 
 (define (print-cfg-bbs cfg)
