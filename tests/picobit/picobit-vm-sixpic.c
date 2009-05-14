@@ -2365,3 +2365,5 @@ void interpreter () {
 
   };
 }
+
+arg1; // TODO have something better here

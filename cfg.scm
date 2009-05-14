@@ -134,44 +134,55 @@
               (move-value value (def-variable-value ast)))))))
 
   ;; resolve the C gotos by setting the appropriate successor to their bb
-  (define (resolve-all-gotos start table visited)
-    (if (not (memq start visited))
-	(begin (for-each (lambda (x)
-			   (if (and (eq? (instr-id x) 'goto)
-				    (instr-dst x)) ; unresolved label
-			       (let ((target (assoc (instr-dst x) table)))
-				 (if target
-				     (begin (add-succ start (cdr target))
-					    (instr-dst-set! x #f))
-				     (error "invalid goto target" (instr-dst x))))))
-			 (bb-rev-instrs start))
-	       (for-each (lambda (x)
-			   (resolve-all-gotos x table (cons start visited)))
-			 (bb-succs start)))))
+  (define (resolve-all-gotos start table)
+    ;; since we are working with potentially cyclic structures, we must use eq?
+    (let ((visited (make-table hash: eq?-hash test: eq?)))
+      (let loop ((start start))
+	(if (not (table-ref visited start #f))
+	    (begin (for-each
+		    (lambda (x)
+		      (if (and (eq? (instr-id x) 'goto)
+			       (instr-dst x)) ; unresolved label
+			  (let ((target (assoc (instr-dst x) table)))
+			    (if target
+				(begin (add-succ start (cdr target))
+				       (instr-dst-set! x #f))
+				(error "invalid goto target" (instr-dst x))))))
+		    (bb-rev-instrs start))
+		   (for-each (lambda (x)
+			       (table-set! visited start #t)
+			       (loop x))
+			     (bb-succs start)))))))
   
   (define (def-procedure ast)
     (let ((old-bb bb)
           (entry (new-bb)))
       (def-procedure-entry-set! ast entry)
       (set! current-def-proc ast)
+      (pp (list cfg: (def-id ast)))
       (in entry)
       (for-each statement (ast-subasts ast))
       (return-with-no-new-bb ast)
       (set! current-def-proc #f)
-      (resolve-all-gotos entry (list-named-bbs entry '()) '())
+      (resolve-all-gotos entry (list-named-bbs entry))
       (in old-bb)))
 
   ;; returns a list of all named bbs in the successor-tree of a given bb
-  (define (list-named-bbs start visited)
-    (if (not (memq start visited))
-	(let ((succs
-	       (apply append
-		      (map (lambda (bb) (list-named-bbs bb (cons start visited)))
-			   (bb-succs start)))))
-	  (if (bb-label-name start)
-	      (cons (cons (bb-label-name start) start) succs)
-	      succs))
-	'()))
+  (define (list-named-bbs start)
+    (let ((visited (make-table hash: eq?-hash test: eq?)))
+      (let loop ((start start) ;; TODO not really a loop, it's tree recursion
+		 (named '()))
+	(if (table-ref visited start #f)
+	    named
+	    (let ((succs
+		   (apply append
+			  (map (lambda (bb)
+				 (table-set! visited start #t)
+				 (loop bb named))
+			       (bb-succs start)))))
+	      (if (bb-label-name start)
+		  (cons (cons (bb-label-name start) start) succs)
+		  succs))))))
 
   (define (statement ast)
     (cond ((def-variable? ast) (def-variable ast))
@@ -269,6 +280,7 @@
       (push-break bb-exit)
       (in bb-body)
       (statement (subast1 ast))
+      (gen-goto bb-cont)
       (in bb-cont)
       (test-expression (subast2 ast) bb-body bb-exit)
       (in bb-exit)
@@ -319,9 +331,9 @@
       (if (null? (bb-succs prev-bb)) ; if the last case didn't end in a break, fall through to the exit
 	  (gen-goto exit-bb))
       (bb-succs-set! decision-bb (reverse (bb-succs decision-bb))) ; preserving the order is important in the absence of break
-      (set! case-list (list-named-bbs decision-bb '()))
+      (set! case-list (list-named-bbs decision-bb))
       (set! default (keep (lambda (x) (eq? (car x) 'default))
-			  (list-named-bbs decision-bb '())))
+			  (list-named-bbs decision-bb)))
       (set! case-list (keep (lambda (x) (and (list? (car x))
 					     (eq? (caar x) 'case)))
 			    case-list))
@@ -360,6 +372,7 @@
     (emit (new-instr 'goto #f #f (subast1 ast))))
   
   (define (gen-goto dest)
+    ;; (pp (list GOTO: (bb-label-num bb))) ;; TODO foo not through here 350
     (add-succ bb dest)
     (emit (new-instr 'goto #f #f #f)))
 
@@ -1051,7 +1064,7 @@
 	   (in after-bb))))
       (return-with-no-new-bb proc)
       (set! current-def-proc old-proc)
-      (resolve-all-gotos entry (list-named-bbs entry '()) '())
+      (resolve-all-gotos entry (list-named-bbs entry))
       (in old-bb)))
   
   (define (call ast)
@@ -1093,9 +1106,10 @@
 
   ;; remplaces empty bbs by bbs with a single goto, to have a valid CFG for
   ;; optimizations
-  (define (fill-empty-bbs)
+  (define (fill-empty-bbs) ;; TODO is this legitimate ? I have seen a case where a bb with no succs gets a goto, so optimisations fail
     (for-each (lambda (x) (if (null? (bb-rev-instrs x))
 			       (begin (in x)
+				      (pp (list GOTO: (bb-label-num bb)))
 				      (emit (new-instr 'goto #f #f #f)))))
 	      (cfg-bbs cfg)))
   

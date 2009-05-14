@@ -80,3 +80,16 @@
 	  '(display "------------------ EXECUTION USING SIMULATOR\n")
 	  (execute-hex-file (string-append filename ".hex"))
 	  #t)))))
+
+(define (profile) ; profile using picobit
+  (load "../statprof/statprof.scm")
+  (with-exception-catcher
+   ;; to have the profiling results even it the compilation fails
+   (lambda (x)
+     (profile-stop!)
+     (write-profile-report "profiling-picobit"))
+   (lambda ()
+     (profile-start!)
+     (main "tests/picobit/picobit-vm-sixpic.c")
+     (profile-stop!)
+     (write-profile-report "profiling-picobit"))))
