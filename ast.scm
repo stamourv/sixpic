@@ -44,12 +44,12 @@
 
 (define-type byte-cell
   adr
-  (interferes-with unprintable:)
+  (interferes-with unprintable:) ; these 2 are stored as sets
   (coalesceable-with unprintable:))
 (define (new-byte-cell)
-  (make-byte-cell #f '() '()))
+  (make-byte-cell #f (new-empty-set) (new-empty-set)))
 (define (get-register n)
-  (make-byte-cell n '() '()))
+  (make-byte-cell n  (new-empty-set) (new-empty-set)))
 
 (define-type byte-lit
   val)
@@ -134,11 +134,11 @@
   value
   params
   entry
-  live-after-calls)
+  live-after-calls) ; stored as a set
 (define (new-def-procedure subasts id refs type value params)
   (multi-link-parent!
    subasts
-   (make-def-procedure #f subasts id refs type value params #f '())))
+   (make-def-procedure #f subasts id refs type value params #f (new-empty-set))))
 
 
 (define-type-of-ast expr

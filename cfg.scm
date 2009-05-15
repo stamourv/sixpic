@@ -18,11 +18,11 @@
   unprintable:
   preds
   succs
-  live-before)
+  live-before) ; stored as a set
 
 (define-type instr
   extender: define-type-of-instr
-  (live-before unprintable:)
+  (live-before unprintable:) ; these 2 are stored as sets
   (live-after unprintable:)
   (hash unprintable:)
   id
@@ -39,7 +39,7 @@
   def-proc)
 
 (define (new-instr id src1 src2 dst)
-  (make-instr '() '() #f id src1 src2 dst))
+  (make-instr (new-empty-set) (new-empty-set) #f id src1 src2 dst))
 
 ;; list of all conditional branching generic instructions
 (define conditional-instrs ;; TODO add as we add specialized instructions
@@ -53,7 +53,7 @@
 
 (define (add-bb cfg)
   (let* ((label-num (cfg-next-label-num cfg))
-         (bb (make-bb label-num #f #f '() '() '() '())))
+         (bb (make-bb label-num #f #f '() '() '() (new-empty-set))))
     (bb-label-set!
      bb
      (asm-make-label

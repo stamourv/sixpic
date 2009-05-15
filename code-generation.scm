@@ -5,26 +5,26 @@
 
 (define (interference-graph cfg)
 
-  (define all-live '())
+  (define all-live (new-empty-set))
 
   (define (interfere x y)
-    (if (not (memq x (byte-cell-interferes-with y)))
+    (if (not (set-member? (byte-cell-interferes-with y) x))
         (begin
           (byte-cell-interferes-with-set!
            x
-           (cons y (byte-cell-interferes-with x)))
+           (union (new-set y) (byte-cell-interferes-with x)))
           (byte-cell-interferes-with-set!
            y
-           (cons x (byte-cell-interferes-with y))))))
+           (union (new-set x) (byte-cell-interferes-with y))))))
 
   (define (interfere-pairwise live)
     (set! all-live (union all-live live))
-    (for-each (lambda (x)
-                (for-each (lambda (y)
-                            (if (not (eq? x y))
-                                (interfere x y)))
-                          live))
-              live))
+    (table-for-each (lambda (x val1)
+		      (table-for-each (lambda (y val2)
+					(if (and val1 val2 (not (eq? x y)))
+					    (interfere x y)))
+				      live))
+		    live))
 
   (define (instr-interference-graph instr)
     (let ((dst (instr-dst instr)))
@@ -36,21 +36,21 @@
                   (byte-cell-coalesceable-with-set!
                    dst
                    (union (byte-cell-coalesceable-with dst)
-                          (list src1)))
+                          (new-set src1)))
                   (byte-cell-coalesceable-with-set!
                    src1
                    (union (byte-cell-coalesceable-with src1)
-                          (list dst)))))
+                          (new-set dst)))))
             (if (byte-cell? src2)
                 (begin
                   (byte-cell-coalesceable-with-set!
                    dst
                    (union (byte-cell-coalesceable-with dst)
-                          (list src2)))
+                          (new-set src2)))
                   (byte-cell-coalesceable-with-set!
                    src2
                    (union (byte-cell-coalesceable-with src2)
-                          (list dst))))))))
+                          (new-set dst))))))))
     (let ((live-before (instr-live-before instr)))
       (interfere-pairwise live-before)))
 
@@ -68,9 +68,9 @@
 
     (define (color byte-cell)
       (let ((coalesce-candidates ; TODO right now, no coalescing is done
-             (keep byte-cell-adr
-                   (diff (byte-cell-coalesceable-with byte-cell)
-                         (byte-cell-interferes-with byte-cell)))))
+             (set-filter byte-cell-adr
+			 (diff (byte-cell-coalesceable-with byte-cell)
+			       (byte-cell-interferes-with byte-cell)))))
         '
         (pp (list byte-cell: byte-cell;;;;;;;;;;;;;;;
                   coalesce-candidates
@@ -79,14 +79,14 @@
 		  ))
 
         (if #f #;(not (null? coalesce-candidates))
-            (let ((adr (byte-cell-adr (car coalesce-candidates))))
+            (let ((adr (byte-cell-adr (car (set->list coalesce-candidates))))) ;; TODO have as a set all along
               (byte-cell-adr-set! byte-cell adr))
             (let ((neighbours (byte-cell-interferes-with byte-cell)))
               (let loop1 ((adr 0))
 		(if (and memory-divide ; the user wants his own zone
 			 (>= adr memory-divide)) ; and we'd use it
 		    (error "register allocation would cross the memory divide") ;; TODO fallback ?
-		    (let loop2 ((lst neighbours))
+		    (let loop2 ((lst (set->list neighbours))) ;; TODO FOO cop out...
 		      (if (null? lst)
 			  (byte-cell-adr-set! byte-cell adr)
 			  (let ((x (car lst)))
@@ -95,27 +95,29 @@
 				(loop2 (cdr lst))))))))))))
 
     (define (delete byte-cell1 neighbours)
-      (for-each (lambda (byte-cell2)
-                  (let ((lst (byte-cell-interferes-with byte-cell2)))
-                    (byte-cell-interferes-with-set!
-                     byte-cell2
-                     (remove byte-cell1 lst))))
-                neighbours))
+      (table-for-each (lambda (byte-cell2 val)
+			(if val
+			    (let ((lst (byte-cell-interferes-with byte-cell2)))
+			      (byte-cell-interferes-with-set!
+			       byte-cell2
+			       (diff lst (new-set byte-cell1))))))
+		      neighbours))
 
     (define (undelete byte-cell1 neighbours)
-      (for-each (lambda (byte-cell2)
-                  (let ((lst (byte-cell-interferes-with byte-cell2)))
-                    (byte-cell-interferes-with-set!
-                     byte-cell2
-                     (cons byte-cell1 lst))))
-                neighbours))
+      (table-for-each (lambda (byte-cell2 val)
+			(if val
+			    (let ((lst (byte-cell-interferes-with byte-cell2)))
+			      (byte-cell-interferes-with-set!
+			       byte-cell2
+			       (union (new-set byte-cell1) lst)))))
+		      neighbours))
 
     (define (find-min-neighbours graph)
       (let loop ((lst graph) (m #f) (byte-cell #f))
         (if (null? lst)
             byte-cell
             (let* ((x (car lst))
-                   (n (length (byte-cell-interferes-with x))))
+                   (n (table-length (byte-cell-interferes-with x))))
               (if (or (not m) (< n m))
                   (loop (cdr lst) n x)
                   (loop (cdr lst) m byte-cell))))))
@@ -131,7 +133,7 @@
             (if (not (byte-cell-adr byte-cell))
                 (color byte-cell)))))
 
-    (alloc-reg all-live)))
+    (alloc-reg (set->list all-live)))) ;; TODO FOO BAD cop out, convert find-min-neighbors et alloc-reg to used tables
 
 
 (define (linearize-and-cleanup cfg)
@@ -569,5 +571,7 @@
     (for-each gen code)))
 
 (define (code-gen filename cfg)
+  (pp register-allocation:)
   (allocate-registers cfg)
+  (pp code-generation:)
   (assembler-gen filename cfg))
