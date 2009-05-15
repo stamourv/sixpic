@@ -135,24 +135,21 @@
 
   ;; resolve the C gotos by setting the appropriate successor to their bb
   (define (resolve-all-gotos start table)
-    ;; since we are working with potentially cyclic structures, we must use eq?
-    (let ((visited (make-table hash: eq?-hash test: eq?)))
-      (let loop ((start start))
-	(if (not (table-ref visited start #f))
-	    (begin (for-each
-		    (lambda (x)
-		      (if (and (eq? (instr-id x) 'goto)
-			       (instr-dst x)) ; unresolved label
-			  (let ((target (assoc (instr-dst x) table)))
-			    (if target
-				(begin (add-succ start (cdr target))
-				       (instr-dst-set! x #f))
-				(error "invalid goto target" (instr-dst x))))))
-		    (bb-rev-instrs start))
-		   (for-each (lambda (x)
-			       (table-set! visited start #t)
-			       (loop x))
-			     (bb-succs start)))))))
+    (let loop ((start start)
+	       (visited (new-empty-set)))
+      (if (not (set-member? visited start)) ; not visited
+	  (begin (for-each
+		  (lambda (x)
+		    (if (and (eq? (instr-id x) 'goto)
+			     (instr-dst x)) ; unresolved label
+			(let ((target (assoc (instr-dst x) table))) ;; TODO use a set, but not urgent, not a bottleneck
+			  (if target
+			      (begin (add-succ start (cdr target))
+				     (instr-dst-set! x #f))
+			      (error "invalid goto target" (instr-dst x))))))
+		  (bb-rev-instrs start))
+		 (for-each (lambda (x) (loop x (set-add visited start)))
+			   (bb-succs start))))))
   
   (define (def-procedure ast)
     (let ((old-bb bb)
@@ -169,7 +166,7 @@
 
   ;; returns a list of all named bbs in the successor-tree of a given bb
   (define (list-named-bbs start)
-    (let ((visited (make-table hash: eq?-hash test: eq?)))
+    (let ((visited (make-table hash: eq?-hash test: eq?))) ;; TODO use our set implementation, but this would need an imperative (not functional) interface
       (let loop ((start start) ;; TODO not really a loop, it's tree recursion
 		 (named '()))
 	(if (table-ref visited start #f)

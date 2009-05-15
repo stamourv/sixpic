@@ -6,11 +6,8 @@
     (let ((live-before
            (cond ((call-instr? instr)
                   (let ((def-proc (call-instr-def-proc instr)))
-                    (let* ((old
-                            (def-procedure-live-after-calls def-proc))
-                           (new
-                            (union old
-                                   live-after)))
+                    (let* ((old (def-procedure-live-after-calls def-proc))
+                           (new (union old live-after)))
                       (if (not (set-equal? old new))
                           (begin
                             (set! changed? #t)
@@ -43,7 +40,7 @@
                          (dst (instr-dst instr))
                          (use (if (byte-cell? src1)
                                   (if (byte-cell? src2)
-                                      (union (new-set src1) (new-set src2))
+                                      (set-add (new-set src1) src2)
                                       (new-set src1))
                                   (if (byte-cell? src2)
                                       (new-set src2)
