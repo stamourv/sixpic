@@ -35,6 +35,8 @@
   (let ((s2 (table-copy s1)))
     (table-set! s2 x #t)
     s2))
+(define (set-add! s x) (table-set! s x #t)) ; faster, but side-effecting
+(define (set-remove! s x) (table-set! s x))
 (define (union s1 s2) (table-merge s1 s2))
 (define (union-multi sets) (foldl union (new-empty-set) sets))
 (define (list->set l) (list->table (map (lambda (x) (cons x #t)) l)))

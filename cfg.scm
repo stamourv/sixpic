@@ -135,25 +135,23 @@
 
   ;; resolve the C gotos by setting the appropriate successor to their bb
   (define (resolve-all-gotos start table)
-    (let ((visited (new-empty-set)))
-      ;; this does not use our functional set interface. side-effecting is
-      ;; much more efficient in this case
-      (let loop ((start start))
-	(if (not (table-ref visited start #f)) ; not visited
-	    (begin (for-each
-		    (lambda (x)
-		      (if (and (eq? (instr-id x) 'goto)
-			       (instr-dst x)) ; unresolved label
-			  (let ((target (assoc (instr-dst x) table))) ;; TODO use a set, but not urgent, not a bottleneck
-			    (if target
-				(begin (add-succ start (cdr target))
-				       (instr-dst-set! x #f))
-				(error "invalid goto target" (instr-dst x))))))
-		    (bb-rev-instrs start))
-		   (for-each (lambda (x)
-			       (table-set! visited start #t)
-			       (loop x))
-			     (bb-succs start)))))))
+    (let loop ((start start)
+	       (visited (new-empty-set)))
+      (if (not (set-member? visited start)) ; not visited
+	  (begin (for-each
+		  (lambda (x)
+		    (if (and (eq? (instr-id x) 'goto)
+			     (instr-dst x)) ; unresolved label
+			(let ((target (assoc (instr-dst x) table))) ;; TODO use a set, but not urgent, not a bottleneck
+			  (if target
+			      (begin (add-succ start (cdr target))
+				     (instr-dst-set! x #f))
+			      (error "invalid goto target" (instr-dst x))))))
+		  (bb-rev-instrs start))
+		 (for-each (lambda (x)
+			     (set-add! visited start)
+			     (loop x visited))
+			   (bb-succs start))))))
   
   (define (def-procedure ast)
     (let ((old-bb bb)
@@ -170,15 +168,15 @@
 
   ;; returns a list of all named bbs in the successor-tree of a given bb
   (define (list-named-bbs start)
-    (let ((visited (make-table hash: eq?-hash test: eq?)))
+    (let ((visited (new-empty-set)))
       (let loop ((start start) ;; TODO not really a loop, it's tree recursion
 		 (named '()))
-	(if (table-ref visited start #f)
+	(if (set-member? visited start)
 	    named
 	    (let ((succs
 		   (apply append
 			  (map (lambda (bb)
-				 (table-set! visited start #t)
+				 (set-add! visited start)
 				 (loop bb named))
 			       (bb-succs start)))))
 	      (if (bb-label-name start)

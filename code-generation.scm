@@ -10,12 +10,8 @@
   (define (interfere x y)
     (if (not (set-member? (byte-cell-interferes-with y) x))
         (begin
-          (byte-cell-interferes-with-set!
-           x
-           (set-add (byte-cell-interferes-with x) y))
-          (byte-cell-interferes-with-set!
-           y
-           (set-add (byte-cell-interferes-with y) x)))))
+	  (set-add! (byte-cell-interferes-with x) y)
+          (set-add! (byte-cell-interferes-with y) x))))
 
   (define (interfere-pairwise live)
     (set! all-live (union all-live live))
@@ -32,20 +28,12 @@
                 (src2 (instr-src2 instr)))
             (if (byte-cell? src1)
                 (begin
-                  (byte-cell-coalesceable-with-set!
-                   dst
-                   (set-add (byte-cell-coalesceable-with dst) src1))
-                  (byte-cell-coalesceable-with-set!
-                   src1
-                   (set-add (byte-cell-coalesceable-with src1) dst))))
+		  (set-add! (byte-cell-coalesceable-with dst) src1)
+		  (set-add! (byte-cell-coalesceable-with src1) dst)))
             (if (byte-cell? src2)
                 (begin
-                  (byte-cell-coalesceable-with-set!
-                   dst
-                   (set-add (byte-cell-coalesceable-with dst) src2))
-                  (byte-cell-coalesceable-with-set!
-                   src2
-                   (set-add (byte-cell-coalesceable-with src2) dst)))))))
+		  (set-add! (byte-cell-coalesceable-with dst) src2)
+		  (set-add! (byte-cell-coalesceable-with src2) dst))))))
     (let ((live-before (instr-live-before instr)))
       (interfere-pairwise live-before)))
 
@@ -91,18 +79,14 @@
 
     (define (delete byte-cell1 neighbours)
       (table-for-each (lambda (byte-cell2 dummy)
-			(let ((lst (byte-cell-interferes-with byte-cell2)))
-			  (byte-cell-interferes-with-set!
-			   byte-cell2
-			   (diff lst (new-set byte-cell1)))))
+			(set-remove! (byte-cell-interferes-with byte-cell2)
+				     byte-cell1))
 		      neighbours))
 
     (define (undelete byte-cell1 neighbours)
       (table-for-each (lambda (byte-cell2 val)
-			(let ((lst (byte-cell-interferes-with byte-cell2)))
-			  (byte-cell-interferes-with-set!
-			   byte-cell2
-			   (set-add lst byte-cell1))))
+			(set-add! (byte-cell-interferes-with byte-cell2)
+				  byte-cell1))
 		      neighbours))
 
     (define (find-min-neighbours graph)
