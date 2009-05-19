@@ -15,6 +15,7 @@
     (table-set! s x #t)
     s))
 (define (set-member? s x) (table-ref s x #f))
+(define (set-length s) (table-length s))
 (define (set-equal? s1 s2) (equal? s1 s2))
 (define (diff s1 s2)
   (let ((s (table-copy s1)))

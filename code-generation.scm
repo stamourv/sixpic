@@ -431,8 +431,3 @@
   (let ((code (linearize-and-cleanup cfg)))
                                         ;    (pretty-print code)
     (for-each gen code)))
-
-(define (code-gen filename cfg)
-  (allocate-registers cfg)
-  (pp code-generation:)
-  (time (assembler-gen filename cfg)))

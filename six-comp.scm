@@ -78,18 +78,19 @@
         (remove-branch-cascades-and-dead-code cfg)
 	(remove-converging-branches cfg)
 	(remove-dead-instructions cfg)
-	'(pp "AFTER")
-	'(print-cfg-bbs cfg)
-	'(pretty-print cfg)
-        (let ((code (code-gen filename cfg)))
-	  (asm-assemble)
-	  '(display "------------------ GENERATED CODE\n")
-	  (asm-display-listing (current-output-port))
-	  (asm-write-hex-file (string-append filename ".hex"))
-	  (asm-end!)
-	  '(display "------------------ EXECUTION USING SIMULATOR\n")
-	  (execute-hex-file (string-append filename ".hex"))
-	  #t)))))
+	(profile-start!) ;; TODO DEBUG
+	(allocate-registers cfg)
+	(profile-stop!) ;; TODO DEBUG
+	(write-profile-report "profiling-registers") ;; TODO DEBUG
+	(assembler-gen filename cfg)
+	(asm-assemble)
+	'(display "------------------ GENERATED CODE\n")
+	(asm-display-listing (current-output-port))
+	(asm-write-hex-file (string-append filename ".hex"))
+	(asm-end!)
+	'(display "------------------ EXECUTION USING SIMULATOR\n")
+	(execute-hex-file (string-append filename ".hex"))
+	#t))))
 
 (define (picobit) (main "tests/picobit/picobit-vm-sixpic.c"))
 
