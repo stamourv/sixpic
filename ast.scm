@@ -229,7 +229,7 @@
   (make-goto #f (list label)))
 
 (define-type-of-ast program)
-(define (new-program subasts) ;; TODO add suport for main
+(define (new-program subasts) ;; TODO add support for main
   (multi-link-parent!
    subasts
    (make-program #f subasts)))

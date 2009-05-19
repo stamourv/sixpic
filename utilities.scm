@@ -37,8 +37,13 @@
     s2))
 (define (set-add! s x) (table-set! s x #t)) ; faster, but side-effecting
 (define (set-remove! s x) (table-set! s x))
-(define (union s1 s2) (table-merge s1 s2))
+(define (union s1 s2)
+  (if (> (table-length s1) (table-length s2))
+      (table-merge s1 s2)
+      (table-merge s2 s1)))
+(define (union! s1 s2) (table-merge! s1 s2)) ; side-effects s1
 (define (union-multi sets) (foldl union (new-empty-set) sets))
+(define (set-empty? s) (= (table-length s) 0))
 (define (list->set l) (list->table (map (lambda (x) (cons x #t)) l)))
 (define (set->list s) (map car (table->list s)))
 (define (set-filter p s1)
@@ -48,6 +53,7 @@
 			  (table-set! s2 key #t)))
 		    s1)
     s2))
+(define (set-for-each f s) (table-for-each (lambda (x dummy) (f x)) s))
 
 (define (foldl f base lst)
   (if (null? lst)

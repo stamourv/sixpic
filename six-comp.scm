@@ -1,17 +1,27 @@
 #!/usr/bin/env gsi
 
-(declare (standard-bindings) (block))
+(declare (standard-bindings)) ;; add (block) to increase compilation time, but reduce execution time
 
-(include "pic18-sim.scm")
-(include "utilities.scm")
-(include "ast.scm")
-(include "operators.scm")
-(include "cte.scm")
-(include "parser.scm")
-(include "cfg.scm")
-(include "optimizations.scm")
-(include "code-generation.scm")
+;; (include "pic18-sim.scm") ;; use includes to increase compilation time, but reduce execution time
+;; (include "utilities.scm")
+;; (include "ast.scm")
+;; (include "operators.scm")
+;; (include "cte.scm")
+;; (include "parser.scm")
+;; (include "cfg.scm")
+;; (include "optimizations.scm")
+;; (include "code-generation.scm")
 
+(load "pic18-sim")
+(load "utilities")
+(load "ast")
+(load "operators")
+(load "cte")
+(load "parser")
+(load "cfg")
+(load "optimizations")
+(load "code-generation")
+(load "register-allocation")
 
 ;------------------------------------------------------------------------------
 
@@ -81,15 +91,18 @@
 	  (execute-hex-file (string-append filename ".hex"))
 	  #t)))))
 
+(define (picobit) (main "tests/picobit/picobit-vm-sixpic.c"))
+
 (include "../statprof/statprof.scm")
 (define (profile) ; profile using picobit
-  (time (with-exception-catcher
-	 ;; to have the profiling results even it the compilation fails
-	 (lambda (x)
-	   (profile-stop!)
-	   (write-profile-report "profiling-picobit"))
-	 (lambda ()
-	   (profile-start!)
-	   (main "tests/picobit/picobit-vm-sixpic.c")
-	   (profile-stop!)
-	   (write-profile-report "profiling-picobit")))))
+  (time (begin (with-exception-catcher
+		;; to have the profiling results even it the compilation fails
+		(lambda (x)
+		  (profile-stop!)
+		  (write-profile-report "profiling-picobit"))
+		(lambda ()
+		  (profile-start!)
+		  (main "tests/picobit/picobit-vm-sixpic.c")
+		  (profile-stop!)
+		  (write-profile-report "profiling-picobit")))
+	       (pp TOTAL:))))

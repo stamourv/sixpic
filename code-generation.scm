@@ -1,118 +1,3 @@
-;; address after which memory is allocated by the user, therefore not used for
-;; register allocation
-;; in programs, located in the SIXPIC_MEMORY_DIVIDE variable
-(define memory-divide #f)
-
-(define (interference-graph cfg)
-
-  (define all-live (new-empty-set))
-
-  (define (interfere x y)
-    (if (not (set-member? (byte-cell-interferes-with y) x))
-        (begin
-	  (set-add! (byte-cell-interferes-with x) y)
-          (set-add! (byte-cell-interferes-with y) x))))
-
-  (define (interfere-pairwise live)
-    (set! all-live (union all-live live))
-    (table-for-each (lambda (x dummy) ;; TODO do it in utilities ?
-		      (table-for-each (lambda (y dummy)
-					(if (not (eq? x y)) (interfere x y)))
-				      live))
-		    live))
-
-  (define (instr-interference-graph instr)
-    (let ((dst (instr-dst instr)))
-      (if (byte-cell? dst)
-          (let ((src1 (instr-src1 instr))
-                (src2 (instr-src2 instr)))
-            (if (byte-cell? src1)
-                (begin
-		  (set-add! (byte-cell-coalesceable-with dst) src1)
-		  (set-add! (byte-cell-coalesceable-with src1) dst)))
-            (if (byte-cell? src2)
-                (begin
-		  (set-add! (byte-cell-coalesceable-with dst) src2)
-		  (set-add! (byte-cell-coalesceable-with src2) dst))))))
-    (let ((live-before (instr-live-before instr)))
-      (interfere-pairwise live-before)))
-
-  (define (bb-interference-graph bb)
-    (for-each instr-interference-graph (bb-rev-instrs bb)))
-
-  (analyze-liveness cfg)
-
-  (for-each bb-interference-graph (cfg-bbs cfg))
-
-  all-live)
-
-(define (allocate-registers cfg)
-  (let ((all-live (interference-graph cfg)))
-
-    (define (color byte-cell)
-      (let ((coalesce-candidates ; TODO right now, no coalescing is done
-             (set-filter byte-cell-adr
-			 (diff (byte-cell-coalesceable-with byte-cell)
-			       (byte-cell-interferes-with byte-cell)))))
-        '
-        (pp (list byte-cell: byte-cell;;;;;;;;;;;;;;;
-                  coalesce-candidates
-;                  interferes-with: (byte-cell-interferes-with byte-cell)
-;                  coalesceable-with: (byte-cell-coalesceable-with byte-cell)
-		  ))
-
-        (if #f #;(not (null? coalesce-candidates))
-            (let ((adr (byte-cell-adr (car (set->list coalesce-candidates))))) ;; TODO have as a set all along
-              (byte-cell-adr-set! byte-cell adr))
-            (let ((neighbours (byte-cell-interferes-with byte-cell)))
-              (let loop1 ((adr 0))
-		(if (and memory-divide ; the user wants his own zone
-			 (>= adr memory-divide)) ; and we'd use it
-		    (error "register allocation would cross the memory divide") ;; TODO fallback ?
-		    (let loop2 ((lst (set->list neighbours))) ;; TODO keep using sets, but not urgent, it's not a bottleneck
-		      (if (null? lst)
-			  (byte-cell-adr-set! byte-cell adr)
-			  (let ((x (car lst)))
-			    (if (= adr (byte-cell-adr x))
-				(loop1 (+ adr 1))
-				(loop2 (cdr lst))))))))))))
-
-    (define (delete byte-cell1 neighbours)
-      (table-for-each (lambda (byte-cell2 dummy)
-			(set-remove! (byte-cell-interferes-with byte-cell2)
-				     byte-cell1))
-		      neighbours))
-
-    (define (undelete byte-cell1 neighbours)
-      (table-for-each (lambda (byte-cell2 val)
-			(set-add! (byte-cell-interferes-with byte-cell2)
-				  byte-cell1))
-		      neighbours))
-
-    (define (find-min-neighbours graph)
-      (let loop ((lst graph) (m #f) (byte-cell #f))
-        (if (null? lst)
-            byte-cell
-            (let* ((x (car lst))
-                   (n (table-length (byte-cell-interferes-with x))))
-              (if (or (not m) (< n m))
-                  (loop (cdr lst) n x)
-                  (loop (cdr lst) m byte-cell))))))
-
-    (define (alloc-reg graph)
-      (if (not (null? graph))
-          (let* ((byte-cell (find-min-neighbours graph))
-                 (neighbours (byte-cell-interferes-with byte-cell)))
-            (let ((new-graph (remove byte-cell graph)))
-              (delete byte-cell neighbours)
-              (alloc-reg new-graph)
-              (undelete byte-cell neighbours))
-            (if (not (byte-cell-adr byte-cell))
-                (color byte-cell)))))
-
-    (alloc-reg (set->list all-live)))) ;; TODO convert find-min-neighbors andalloc-reg to use tables, not urgent since it's not a bottleneck
-
-
 (define (linearize-and-cleanup cfg)
 
   (define bbs-vector (cfg->vector cfg))
@@ -182,7 +67,7 @@
 
   (define (comf adr)
     (emit (list 'comf adr)))
-  
+
   (define (cpfseq adr)
     (emit (list 'cpfseq adr)))
   (define (cpfslt adr)
@@ -198,7 +83,7 @@
 
   (define (return)
     (if (and #f (and (not (null? rev-code))
-		     (eq? (caar rev-code) 'rcall)))
+                     (eq? (caar rev-code) 'rcall)))
         (let ((label (cadar rev-code)))
           (set! rev-code (cdr rev-code))
           (bra label))
@@ -206,8 +91,8 @@
 
   (define (label lab)
     (if (and #f (and (not (null? rev-code))
-             (eq? (caar rev-code) 'bra)
-             (eq? (cadar rev-code) lab)))
+                     (eq? (caar rev-code) 'bra)
+                     (eq? (cadar rev-code) lab)))
         (begin
           (set! rev-code (cdr rev-code))
           (label lab))
@@ -215,7 +100,7 @@
 
   (define (sleep)
     (emit (list 'sleep)))
-  
+
   (define (move-reg src dst)
     (cond ((= src dst))
           ((= src WREG)
@@ -223,11 +108,11 @@
           ((= dst WREG)
            (movfw src))
           (else
-;;         (movfw src)
-;;         (movwf dst)
-	   ;; takes 2 cycles (as much as movfw src ; movwf dst), but takes
-	   ;; only 1 instruction
-	   (movff src dst))))
+           ;;         (movfw src)
+           ;;         (movwf dst)
+           ;; takes 2 cycles (as much as movfw src ; movwf dst), but takes
+           ;; only 1 instruction
+           (movff src dst))))
 
   (define (bb-linearize bb)
     (let ((label-num (bb-label-num bb)))
@@ -241,7 +126,7 @@
                 (else
                  (movlw n)
                  (movwf adr))))
-	
+
         (define (dump-instr instr)
           (cond ((call-instr? instr)
                  (let* ((def-proc (call-instr-def-proc instr))
@@ -266,7 +151,7 @@
                                 (byte-cell-adr src2)))
 
                        (case (instr-id instr)
-			 
+
                          ((move)
                           (if (byte-lit? src1)
                               (let ((n (byte-lit-val src1))
@@ -275,7 +160,7 @@
                               (let ((x (byte-cell-adr src1))
                                     (z (byte-cell-adr dst)))
                                 (move-reg x z))))
-			 
+
                          ((add addc sub subb)
                           (if (byte-lit? src2)
                               (let ((n (byte-lit-val src2))
@@ -285,120 +170,120 @@
                                     (move-reg (byte-cell-adr src1) z))
                                 (case (instr-id instr)
                                   ((add)  (cond ((= n 1)    (incf z))
-						((= n #xff) (decf z))
-						(else       (movlw n)
-							    (addwf z))))
+                                                ((= n #xff) (decf z))
+                                                (else       (movlw n)
+                                                            (addwf z))))
                                   ((addc) (movlw n) (addwfc z))
                                   ((sub)  (cond ((= n 1)    (decf z))
-						((= n #xff) (incf z))
-						(else       (movlw n)
-							    (subwf z))))
+                                                ((= n #xff) (incf z))
+                                                (else       (movlw n)
+                                                            (subwf z))))
                                   ((subb) (movlw n) (subwfb z))))
                               (let ((x (byte-cell-adr src1))
                                     (y (byte-cell-adr src2))
                                     (z (byte-cell-adr dst)))
                                 (cond ((and (not (= x y))
-					    (= y z)
-					    (memq (instr-id instr)
-						  '(add addc)))
-				       ;; since this basically swaps the
-				       ;; arguments, it can't be used for
-				       ;; subtraction
+                                            (= y z)
+                                            (memq (instr-id instr)
+                                                  '(add addc)))
+                                       ;; since this basically swaps the
+                                       ;; arguments, it can't be used for
+                                       ;; subtraction
                                        (move-reg x WREG))
-				      ((and (not (= x y))
-					    (= y z))
-				       ;; for subtraction, preserves argument
-				       ;; order
-				       (move-reg y WREG)
-				       ;; this NEEDS to be done with movff, or
-				       ;; else wreg will get clobbered and this
-				       ;; won't work
-				       (move-reg x z))
+                                      ((and (not (= x y))
+                                            (= y z))
+                                       ;; for subtraction, preserves argument
+                                       ;; order
+                                       (move-reg y WREG)
+                                       ;; this NEEDS to be done with movff, or
+                                       ;; else wreg will get clobbered and this
+                                       ;; won't work
+                                       (move-reg x z))
                                       (else ;; TODO check if it could be merged with the previous case
                                        (move-reg x z)
                                        (move-reg y WREG)))
-				(case (instr-id instr)
-				  ((add)  (addwf z))
-				  ((addc) (addwfc z))
-				  ((sub)  (subwf z))
-				  ((subb) (subwfb z))
-				  (else   (error "..."))))))
-			 
-			 ((mul) ; 8 by 8 multiplication
-			  (if (byte-lit? src2)
-			      ;; since multiplication is commutative, the
-			      ;; arguments are set up so the second one will
-			      ;; be a literal if the operator is applied on a
-			      ;; literal and a variable
+                                (case (instr-id instr)
+                                  ((add)  (addwf z))
+                                  ((addc) (addwfc z))
+                                  ((sub)  (subwf z))
+                                  ((subb) (subwfb z))
+                                  (else   (error "..."))))))
+
+                         ((mul) ; 8 by 8 multiplication
+                          (if (byte-lit? src2)
+                              ;; since multiplication is commutative, the
+                              ;; arguments are set up so the second one will
+                              ;; be a literal if the operator is applied on a
+                              ;; literal and a variable
                               (let ((n (byte-lit-val src2)))
                                 (if (byte-lit? src1)
-				    (movlw   (byte-lit-val src1))
+                                    (movlw   (byte-lit-val src1))
                                     (move-reg (byte-cell-adr src1) WREG))
-				;; literal multiplication
-				(mullw n))
+                                ;; literal multiplication
+                                (mullw n))
                               (let ((x (byte-cell-adr src1))
                                     (y (byte-cell-adr src2)))
-				(move-reg x WREG)
-				(mulwf y))))
-			 
-			 ((and ior xor)
-			  ;; no instructions for bitwise operations involving
-			  ;; literals exist on the PIC18
-			  (let ((x (if (byte-lit? src1)
-				       (byte-lit-val src1)
-				       (byte-cell-adr src1)))
-				(y (if (byte-lit? src2)
-				       (byte-lit-val src2)
-				       (byte-cell-adr src2)))
-				(z (byte-cell-adr dst)))
-			    (cond ((byte-lit? src1)
-				   (if (byte-lit? src2)
-				       (move-lit y z)
-				       (move-reg y z))
-				   (movlw x))
-				  ((and (not (= x y)) (= y z))
-				   (move-reg x WREG))
-				  (else
-				   (move-reg x z)
-				   (move-reg y WREG)))
-			    (case (instr-id instr)
-			      ((and) (andwf z))
-			      ((ior) (iorwf z))
-			      ((xor) (xorwf z))
-			      (else (error "...")))))
+                                (move-reg x WREG)
+                                (mulwf y))))
 
-			 ((shl shr)
-			  (let ((x (if (byte-lit? src1)
-				       (byte-lit-val src1)
-				       (byte-cell-adr src1)))
-				(z (byte-cell-adr dst)))
-			    (cond ((byte-lit? src1) (move-lit x z))
-				  ((not (= x z))    (move-reg x z)))
-			    (case (instr-id instr)
-			      ((shl) (rlcf z))
-			      ((shr) (rrcf z)))))
+                         ((and ior xor)
+                          ;; no instructions for bitwise operations involving
+                          ;; literals exist on the PIC18
+                          (let ((x (if (byte-lit? src1)
+                                       (byte-lit-val src1)
+                                       (byte-cell-adr src1)))
+                                (y (if (byte-lit? src2)
+                                       (byte-lit-val src2)
+                                       (byte-cell-adr src2)))
+                                (z (byte-cell-adr dst)))
+                            (cond ((byte-lit? src1)
+                                   (if (byte-lit? src2)
+                                       (move-lit y z)
+                                       (move-reg y z))
+                                   (movlw x))
+                                  ((and (not (= x y)) (= y z))
+                                   (move-reg x WREG))
+                                  (else
+                                   (move-reg x z)
+                                   (move-reg y WREG)))
+                            (case (instr-id instr)
+                              ((and) (andwf z))
+                              ((ior) (iorwf z))
+                              ((xor) (xorwf z))
+                              (else (error "...")))))
 
-			 ((set clear toggle)
-			  ;; bit operations
-			  (if (not (byte-lit? src2))
-			      (error "bit offset must be a literal"))
-			  (let ((x (byte-cell-adr src1))
-				(y (byte-lit-val src2)))
-			    (case (instr-id instr)
-			      ((set)    (bsf x y))
-			      ((clear)  (bcf x y))
-			      ((toggle) (btg x y)))))
+                         ((shl shr)
+                          (let ((x (if (byte-lit? src1)
+                                       (byte-lit-val src1)
+                                       (byte-cell-adr src1)))
+                                (z (byte-cell-adr dst)))
+                            (cond ((byte-lit? src1) (move-lit x z))
+                                  ((not (= x z))    (move-reg x z)))
+                            (case (instr-id instr)
+                              ((shl) (rlcf z))
+                              ((shr) (rrcf z)))))
 
-			 ((not)
-			  (let ((z (byte-cell-adr dst)))
-			    (if (byte-lit? src1)
-				(move-lit (byte-lit-val  src1) z)
-				(move-reg (byte-cell-adr src1) z))
-			    (comf z)))
-			 
+                         ((set clear toggle)
+                          ;; bit operations
+                          (if (not (byte-lit? src2))
+                              (error "bit offset must be a literal"))
+                          (let ((x (byte-cell-adr src1))
+                                (y (byte-lit-val src2)))
+                            (case (instr-id instr)
+                              ((set)    (bsf x y))
+                              ((clear)  (bcf x y))
+                              ((toggle) (btg x y)))))
+
+                         ((not)
+                          (let ((z (byte-cell-adr dst)))
+                            (if (byte-lit? src1)
+                                (move-lit (byte-lit-val  src1) z)
+                                (move-reg (byte-cell-adr src1) z))
+                            (comf z)))
+
                          ((goto)
-			  (if (null? (bb-succs bb))
-			      (error "I think you might have given me an empty source file."))
+                          (if (null? (bb-succs bb))
+                              (error "I think you might have given me an empty source file."))
                           (let* ((succs (bb-succs bb))
                                  (dest (car succs)))
                             (bra (bb-label dest))
@@ -422,50 +307,50 @@
                                    (let ((n (byte-lit-val src1))
                                          (y (byte-cell-adr src2)))
                                      (if #f #;(and (or (= n 0) (= n 1) (= n #xff))
-                                              (eq? (instr-id instr) 'x==y))
-                                         (special-compare-eq-lit n x)
-                                         (begin
-                                           (movlw n)
-                                           (compare #t y)))))
-                                  ((byte-lit? src2)
-                                   (let ((x (byte-cell-adr src1))
-                                         (n (byte-lit-val src2)))
-                                     (if #f #;(and (or (= n 0) (= n 1) (= n #xff))
-                                              (eq? (instr-id instr) 'x==y))
-                                         (special-compare-eq-lit n x)
-                                         (begin
-                                           (movlw n)
-                                           (compare #f x)))))
-                                  (else
-                                   (let ((x (byte-cell-adr src1))
-                                         (y (byte-cell-adr src2)))
-                                     (move-reg y WREG)
-                                     (compare #f x))))))
-                         (else
-                          ;...
-                          (emit (list (instr-id instr))))))))))
+                                         (eq? (instr-id instr) 'x==y))
+                                     (special-compare-eq-lit n x)
+                                     (begin
+                                       (movlw n)
+                                       (compare #t y)))))
+                            ((byte-lit? src2)
+                             (let ((x (byte-cell-adr src1))
+                                   (n (byte-lit-val src2)))
+                               (if #f #;(and (or (= n 0) (= n 1) (= n #xff))
+                                   (eq? (instr-id instr) 'x==y))
+                               (special-compare-eq-lit n x)
+                               (begin
+                                 (movlw n)
+                                 (compare #f x)))))
+                          (else
+                           (let ((x (byte-cell-adr src1))
+                                 (y (byte-cell-adr src2)))
+                             (move-reg y WREG)
+                             (compare #f x))))))
+                   (else
+                                        ;...
+                    (emit (list (instr-id instr))))))))))
 
-        (if bb
-            (begin
-              (vector-set! bbs-vector label-num #f)
-              (label (bb-label bb))
-              (for-each dump-instr (reverse (bb-rev-instrs bb)))
-              (for-each add-todo (bb-succs bb)))))))
-  
-  (let ((prog-label (asm-make-label 'PROG)))
-    (rcall prog-label)
-    (sleep)
-    (label prog-label))
+    (if bb
+        (begin
+          (vector-set! bbs-vector label-num #f)
+          (label (bb-label bb))
+          (for-each dump-instr (reverse (bb-rev-instrs bb)))
+          (for-each add-todo (bb-succs bb)))))))
 
-  (add-todo (vector-ref bbs-vector 0))
+(let ((prog-label (asm-make-label 'PROG)))
+  (rcall prog-label)
+  (sleep)
+  (label prog-label))
 
-  (let loop ()
-    (if (null? todo)
-        (reverse rev-code)
-        (let ((bb (car todo)))
-          (set! todo (cdr todo))
-          (bb-linearize bb)
-          (loop)))))
+(add-todo (vector-ref bbs-vector 0))
+
+(let loop ()
+  (if (null? todo)
+      (reverse rev-code)
+      (let ((bb (car todo)))
+        (set! todo (cdr todo))
+        (bb-linearize bb)
+        (loop)))))
 
 
 (define (assembler-gen filename cfg)
@@ -541,14 +426,13 @@
 
   (asm-begin! 0 #f)
 
-;  (pretty-print cfg)
+                                        ;  (pretty-print cfg)
 
   (let ((code (linearize-and-cleanup cfg)))
-;    (pretty-print code)
+                                        ;    (pretty-print code)
     (for-each gen code)))
 
 (define (code-gen filename cfg)
-  (pp register-allocation:)
   (allocate-registers cfg)
   (pp code-generation:)
-  (assembler-gen filename cfg))
+  (time (assembler-gen filename cfg)))

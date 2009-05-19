@@ -1,5 +1,10 @@
 *.hex
 *.tmp
 *~
+*.o1
+.nfs*
 garbage
 TAGS
+TODO
+OPTS
+profiling-*/*
