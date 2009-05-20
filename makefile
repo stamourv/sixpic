@@ -3,7 +3,7 @@
 
 all: sixpic
 
-sixpic: six-comp.o1 pic18-sim.o1 utilities.o1 ast.o1 operators.o1 cte.o1 parser.o1 cfg.o1 optimizations.o1 code-generation.o1 register-allocation.o1
+sixpic: six-comp.o1 pic18-sim.o1 utilities.o1 ast.o1 operators.o1 cte.o1 parser.o1 cfg.o1 optimizations.o1 code-generation.o1 register-allocation.o1 pic18.o1 asm.o1
 
 six-comp.o1: six-comp.scm
 	rm $@ || true
@@ -46,6 +46,14 @@ code-generation.o1: code-generation.scm
 	gsc -debug $<
 
 register-allocation.o1: register-allocation.scm
+	rm $@ || true
+	gsc -debug $<
+
+pic18.o1: pic18.scm
+	rm $@ || true
+	gsc -debug $<
+
+asm.o1: asm.scm
 	rm $@ || true
 	gsc -debug $<
 

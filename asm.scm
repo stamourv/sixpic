@@ -230,7 +230,7 @@
               (if (= (vector-ref x 1) pos)
                 (loop2 (cdr lst) changed? pos)
                 (begin
-                  (vector-set! x 1 pos)
+                  (vector-set! x 1 pos) ;; TODO FOO change here to build the symbol table, associate the address with the label
                   (loop2 (cdr lst) #t pos)))
               ; DEFERRED
               (let loop3 ()
@@ -414,7 +414,11 @@
                 (print-line 0
                             (- pos (length rev-bytes))
                             (reverse rev-bytes)))
-            (print-line 1 0 '())))))))
+            (print-line 1 0 '())
+	    (if #t
+                (begin
+                  (display pos ##stderr-port)
+                  (display " ROM bytes\n" ##stderr-port)))))))))
 
 ;; Utilities.
 

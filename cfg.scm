@@ -51,7 +51,7 @@
 (define (new-return-instr def-proc)
   (make-return-instr '() '() #f 'return #f #f #f def-proc))
 
-(define (add-bb cfg)
+(define (add-bb cfg proc id) ;; TODO maybe have the name in the label for named-bbs ? would help debugging
   (let* ((label-num (cfg-next-label-num cfg))
          (bb (make-bb label-num #f #f '() '() '() (new-empty-set))))
     (bb-label-set!
@@ -59,7 +59,9 @@
      (asm-make-label
       (string->symbol
        (string-append "$"
-                      (number->string label-num)))))
+		      (if proc (symbol->string proc) "")
+		      "$"
+                      (number->string (if proc id label-num))))))
     (cfg-bbs-set! cfg (cons bb (cfg-bbs cfg)))
     (cfg-next-label-num-set! cfg (+ 1 (cfg-next-label-num cfg)))
     bb))
@@ -80,11 +82,17 @@
 
   (define (in x) (set! bb x))
 
-  (define (new-bb) (add-bb cfg))
+  (define (new-bb)
+    (let ((bb (add-bb cfg
+		      (if current-def-proc (def-id current-def-proc) #f)
+		      current-def-proc-bb-id)))
+      (set! current-def-proc-bb-id (+ current-def-proc-bb-id 1))
+      bb))
 
   (define (emit instr) (add-instr bb instr))
 
   (define current-def-proc #f)
+  (define current-def-proc-bb-id 0)
   (define break-stack '())
   (define continue-stack '())
   (define delayed-post-incdec '())
@@ -154,6 +162,7 @@
 			   (bb-succs start))))))
   
   (define (def-procedure ast)
+    (set! current-def-proc-bb-id 0)
     (let ((old-bb bb)
           (entry (new-bb)))
       (def-procedure-entry-set! ast entry)

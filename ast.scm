@@ -52,7 +52,9 @@
   (interferes-with unprintable:) ; these 2 are stored as sets
   (coalesceable-with unprintable:))
 (define (new-byte-cell)
-  (make-byte-cell (byte-cell-next-id) #f (new-empty-set) (new-empty-set)))
+  (let ((id (byte-cell-next-id)))
+    (make-byte-cell id (if allocate-registers? #f id)
+		    (new-empty-set) (new-empty-set))))
 (define (get-register n) ;; TODO will these byte cells be used for register allocation ? do they need an id ?
   (make-byte-cell (byte-cell-next-id) n  (new-empty-set) (new-empty-set)))
 

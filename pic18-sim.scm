@@ -1,6 +1,6 @@
 ;;; File: "pic18-sim.scm"
 
-(include "pic18.scm")
+(load "pic18")
 
 ;------------------------------------------------------------------------------
 
@@ -27,8 +27,8 @@
         ((= adr TOSL)
          (bitwise-and (get-tos) #xff))
         ((= adr PCL)
-         (set-ram PCLATU (bitwise-and (arithmetic-shift (get-pc) -16)) #x1f)
-         (set-ram PCLATH (bitwise-and (arithmetic-shift (get-pc) -8)) #xff)
+         (set-ram PCLATU (bitwise-and (arithmetic-shift (get-pc) -16) #x1f))
+         (set-ram PCLATH (bitwise-and (arithmetic-shift (get-pc) -8)  #xff))
          (bitwise-and (get-pc) #xfe))
         ((= adr STATUS)
          (+ pic18-carry-flag
@@ -41,8 +41,9 @@
 			 (cons INDF2 (cons FSR2H FSR2L))))
 	 => (lambda (x)
 	      (get-ram (bitwise-ior
-			(arithmetic-shift (u8vector-ref pic18-ram
-							(cadr x))
+			(arithmetic-shift (bitwise-and (u8vector-ref pic18-ram
+								     (cadr x))
+						       #xf)
 					  8)
 			(u8vector-ref pic18-ram
 				      (cddr x))))))
@@ -75,8 +76,9 @@
 			 (cons INDF2 (cons FSR2H FSR2L))))
 	 => (lambda (x)
 	      (set-ram (bitwise-ior ;; TODO factor common code with get-ram ?
-			(arithmetic-shift (u8vector-ref pic18-ram
-							(cadr x))
+			(arithmetic-shift (bitwise-and (u8vector-ref pic18-ram
+								     (cadr x))
+						       #xf)
 					  8)
 			(u8vector-ref pic18-ram
 				      (cddr x)))
@@ -166,7 +168,7 @@
 
 (define (pic18-sim-setup)
   (set! pic18-ram   (make-u8vector #x1000 0))
-  (set! pic18-rom   (make-u8vector #x2000 0))
+  (set! pic18-rom   (make-u8vector #x10000 0))
   (set! pic18-stack (make-vector #x1f 0))
   (set-pc 0)
   (set-wreg 0)
@@ -317,7 +319,7 @@
 
 (define (call-branch opcode mnemonic)
   (let ((adr (* 2 (+ (bitwise-and opcode #xff)
-                     (arithmetic-shift (get-program-mem) 8)))))
+                     (arithmetic-shift (bitwise-and (get-program-mem) #xfff) 8)))))
     (if trace-instr
         (print (list (last-pc) "	" mnemonic "	"
                        "0x"
@@ -333,7 +335,7 @@
 
 (define (goto-branch opcode mnemonic)
   (let ((adr (* 2 (+ (bitwise-and opcode #xff)
-                     (arithmetic-shift (get-program-mem) 8)))))
+                     (arithmetic-shift (bitwise-and (get-program-mem) #xfff) 8)))))
     (if trace-instr
         (print (list (last-pc) "	" mnemonic "	"
                        "0x"

@@ -60,6 +60,8 @@
       (read-all)))
   )
 
+(define allocate-registers? #t) ; can be turned off to reduce compilation time
+
 (define (main filename)
 
   (output-port-readtable-set!
@@ -78,14 +80,11 @@
         (remove-branch-cascades-and-dead-code cfg)
 	(remove-converging-branches cfg)
 	(remove-dead-instructions cfg)
-	(profile-start!) ;; TODO DEBUG
-	(allocate-registers cfg)
-	(profile-stop!) ;; TODO DEBUG
-	(write-profile-report "profiling-registers") ;; TODO DEBUG
+ 	(if allocate-registers? (allocate-registers cfg))
 	(assembler-gen filename cfg)
 	(asm-assemble)
 	'(display "------------------ GENERATED CODE\n")
-	(asm-display-listing (current-output-port))
+	'(asm-display-listing (current-output-port))
 	(asm-write-hex-file (string-append filename ".hex"))
 	(asm-end!)
 	'(display "------------------ EXECUTION USING SIMULATOR\n")

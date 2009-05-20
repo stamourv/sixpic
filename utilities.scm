@@ -8,24 +8,6 @@
         ((f (car lst)) (cons (car lst) (keep f (cdr lst))))
         (else          (keep f (cdr lst)))))
 
-;; sets using bit vectors ;; TODO put both kinds of sets on the dumping grounds
-;; TODO now with bignums
-(define (new-empty-bit-vector) 0)
-(define (new-bit-vector x) (arithmetic-shift 1 x))
-(define (bit-vector-member? s x)
-  (not (= (bit-vector-intersection s (new-bit-vector x)) 0)))
-(define (bit-vector-length s) TODO) ;; TODO will that be needed ? doubt so, is for register allocation proper, but ordinary sets are likely ok for that (but we'd have to convert between the two if we don't switch register allocation to bit vectors)
-(define bit-vector-equal? =)
-(define (bit-vector-diff s1 s2) (bitwise-and a1 (bitwise-not s2)))
-(define (bit-vector-intersection s1 s2) (bitwise-and s1 s2))
-(define (bit-vector-union s1 s2) (bitwise-ior s1 s2))
-(define (bit-vector-union-multi bit-vectors)
-  (foldl bit-vector-union (new-empty-bit-vector) bit-vectors))
-(define (bit-vector-empty? s) (= 0 s))
-(define (list->bit-vector l) TODO)
-(define (bit-vector->list s) TODO)
-(define (bit-vector-filter p s1) TODO)
-(define (bit-vector-for-each f s) TODO)
 
 ;; sets using hash tables
 (define (new-empty-set) (make-table hash: eq?-hash test: eq?))

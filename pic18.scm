@@ -1,6 +1,6 @@
 ;;; File: "pic18.scm"
 
-(include "asm.scm")
+(load "asm")
 
 (define-macro (bitmask encoding . field-values)
   (let loop ((i 0)
@@ -405,12 +405,23 @@
    (lambda (dist-8bit)
      (asm-16 (bitmask "1110 0100 nnnn nnnn" dist-8bit)))))
 
-(define (bra l)
-  (make-long-relative-branch-instruction
+;; (define (bra l)
+;;   (make-long-relative-branch-instruction
+;;    "bra"
+;;    l
+;;    (lambda (dist-11bit)
+;;      (asm-16 (bitmask "1101 0nnn nnnn nnnn" dist-11bit)))))
+
+(define (bra-or-goto l)
+  (make-long-relative-or-absolute-branch-instruction
    "bra"
+   "goto"
    l
    (lambda (dist-11bit)
-     (asm-16 (bitmask "1101 0nnn nnnn nnnn" dist-11bit)))))
+     (asm-16 (bitmask "1101 0nnn nnnn nnnn" dist-11bit)))
+   (lambda (pos-20bit)
+     (asm-16 (bitmask "1110 1111 nnnn nnnn" (modulo pos-20bit (expt 2 8))))
+     (asm-16 (bitmask "1111 nnnn nnnn nnnn" (quotient pos-20bit (expt 2 8)))))))
 
 (define (bz l)
   (make-short-relative-branch-instruction
@@ -494,6 +505,17 @@
    (lambda (dist-11bit)
      (asm-16 (bitmask "1101 1nnn nnnn nnnn" dist-11bit)))))
 
+(define (rcall-or-call l)
+  (make-long-relative-or-absolute-branch-instruction
+   "rcall"
+   "call"
+   l
+   (lambda (dist-11bit)
+     (asm-16 (bitmask "1101 1nnn nnnn nnnn" dist-11bit)))
+   (lambda (pos-20bit)
+     (asm-16 (bitmask "1110 1100 nnnn nnnn" (modulo pos-20bit (expt 2 8))))
+     (asm-16 (bitmask "1111 nnnn nnnn nnnn" (quotient pos-20bit (expt 2 8)))))))
+
 (define (reset)
   (make-instruction
    1
@@ -541,7 +563,7 @@
                    (<= dist 255)
                    (even? dist))
               (generate (modulo (quotient dist 2) 256))
-              (error "branch target is too far or improperly aligned" l dist))))))))
+              (error "short relative branch target is too far or improperly aligned" l dist))))))))
 
 (define (make-long-relative-branch-instruction mnemonic l generate)
   (make-instruction
@@ -558,7 +580,33 @@
                    (<= dist 2047)
                    (even? dist))
               (generate (modulo (quotient dist 2) 2048))
-              (error "branch target is too far or improperly aligned" l dist))))))))
+              (error "long relative branch target is too far or improperly aligned" l dist))))))))
+
+(define (make-long-relative-or-absolute-branch-instruction mnemonic1 mnemonic2 l generate1 generate2)
+  (make-instruction
+   -1
+   (lambda ()
+     (make-listing mnemonic1 (label-text l))) ;; TODO should show mnemonic1 when it's used, or mnemonic2
+   (lambda ()
+     (asm-at-assembly
+      (lambda (self)
+        (let ((dist (- (label-pos l) (+ self 2))))
+          (if (and (>= dist -2048)
+                   (<= dist 2047)
+                   (even? dist))
+              2
+              #f)))
+      (lambda (self)
+	(let ((dist (- (label-pos l) (+ self 2))))
+	  (generate1 (modulo (quotient dist 2) 2048))))
+      (lambda (self)
+        4)
+      (lambda (self)
+        (let ((pos (label-pos l)))
+          (if (and (< pos (expt 2 21))
+                   (even? pos))
+              (generate2 (quotient pos 2))
+              (error "goto branch target is too far or unaligned" l pos))))))))
 
 ; Literal operations.
 
