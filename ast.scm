@@ -42,14 +42,19 @@
 (define (new-value bytes)
   (make-value bytes))
 
+(define byte-cell-counter 0)
+(define (byte-cell-next-id) (let ((id byte-cell-counter))
+			      (set! byte-cell-counter (+ id 1))
+			      id))
 (define-type byte-cell
+  id
   adr
   (interferes-with unprintable:) ; these 2 are stored as sets
   (coalesceable-with unprintable:))
 (define (new-byte-cell)
-  (make-byte-cell #f (new-empty-set) (new-empty-set)))
-(define (get-register n)
-  (make-byte-cell n  (new-empty-set) (new-empty-set)))
+  (make-byte-cell (byte-cell-next-id) #f (new-empty-set) (new-empty-set)))
+(define (get-register n) ;; TODO will these byte cells be used for register allocation ? do they need an id ?
+  (make-byte-cell (byte-cell-next-id) n  (new-empty-set) (new-empty-set)))
 
 (define-type byte-lit
   val)

@@ -13,21 +13,23 @@
 	      ((call-instr? instr)
 	       (let ((def-proc (call-instr-def-proc instr)))
 		 (if (not (set-empty? live-after))
-		     (begin (set! changed #t)
-			    (union! (def-procedure-live-after-calls def-proc)
-				    live-after)))
+		     (begin
+		       (set! changed #t)
+		       (set-union! (def-procedure-live-after-calls def-proc)
+				   live-after)))
 		 (let ((live
-			(union
-			 (union-multi
+			(set-union
+			 (set-union-multi
 			  (map (lambda (def-var)
 				 (list->set (value-bytes
 					     (def-variable-value def-var))))
 			       (def-procedure-params def-proc)))
-			 (diff live-after
-			       (list->set (value-bytes
-					   (def-procedure-value def-proc)))))))
+			 (set-diff live-after
+				   (list->set
+				    (value-bytes
+				     (def-procedure-value def-proc)))))))
 		   (if (bb? (def-procedure-entry def-proc))
-		       (intersection
+		       (set-intersection
 			(bb-live-before (def-procedure-entry def-proc))
 			live)
 		       live))))
@@ -59,13 +61,13 @@
 		     ;;      (not (memq dst live-after))
 		     ;;      (not (and (byte-cell? dst) (byte-cell-adr dst))))
 		     live-after
-		     (union use (diff live-after def))))))))
+		     (set-union use (set-diff live-after def))))))))
 	(instr-live-before-set! instr live-before)
 	(instr-live-after-set! instr live-after)
 	live-before))
     (define (bb-analyze-liveness bb)
       (let loop ((rev-instrs (bb-rev-instrs bb))
-		 (live-after (union-multi (map bb-live-before (bb-succs bb)))))
+		 (live-after (set-union-multi (map bb-live-before (bb-succs bb)))))
 	(if (null? rev-instrs)
 	    (if (not (set-equal? live-after (bb-live-before bb)))
 		(begin (set! changed? #t)
@@ -87,7 +89,7 @@
 	  (begin (set-add! (byte-cell-interferes-with x) y)
 		 (set-add! (byte-cell-interferes-with y) x))))
     (define (interfere-pairwise live)
-      (union! all-live live)
+      (set-union! all-live live)
       (set-for-each (lambda (x)
 		      (set-for-each (lambda (y)
 				      (if (not (eq? x y)) (interfere x y)))
@@ -126,8 +128,8 @@
     (define (color byte-cell)
       (let ((coalesce-candidates ; TODO right now, no coalescing is done
              (set-filter byte-cell-adr
-                         (diff (byte-cell-coalesceable-with byte-cell)
-                               (byte-cell-interferes-with byte-cell)))))
+                         (set-diff (byte-cell-coalesceable-with byte-cell)
+				   (byte-cell-interferes-with byte-cell)))))
         '
         (pp (list byte-cell: byte-cell;;;;;;;;;;;;;;;
                   coalesce-candidates
