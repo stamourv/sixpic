@@ -45,10 +45,18 @@
 (define (type-rule-bool-op2 ast)
   'int)
 
+(define (constant-fold-op2 op)
+  (lambda (ast)
+    (let ((x (subast1   ast))
+	  (y (subast2   ast)))
+      (if (and (literal? x) (literal? y))
+	  (new-literal (expr-type ast) (op (literal-val x) (literal-val y)))
+	  ast))))
+
 (define-op1 'six.!x '!x
   type-rule-int-op1
-  (lambda (ast) ;; TODO implement these ?
-    ast)
+  (lambda (ast)
+    ast) ;; TODO also call this when testing expressions
   (lambda (ast)
     ...))
 
@@ -56,49 +64,47 @@
 (define-op1 'six.++x '++x
   type-rule-int-op1
   (lambda (ast)
-    ast)
+    ast) ;; TODO
   (lambda (ast)
     ...))
 
 (define-op1 'six.x++ 'x++
   type-rule-int-op1
   (lambda (ast)
-    ast)
+    ast) ;; TODO
   (lambda (ast)
     ...))
 
 (define-op1 'six.--x '--x
   type-rule-int-op1
   (lambda (ast)
-    ast)
+    ast) ;; TODO
   (lambda (ast)
     ...))
 
 (define-op1 'six.x-- 'x--
   type-rule-int-op1
   (lambda (ast)
-    ast)
+    ast) ;; TODO
   (lambda (ast)
     ...))
 
 (define-op1 'six.~x '~x
   type-rule-int-op1
   (lambda (ast)
-    ast)
+    ast) ;; TODO
   (lambda (ast)
     ...))
 
 (define-op2 'six.x%y 'x%y
   type-rule-int-op2
-  (lambda (ast)
-    ast)
+  (constant-fold-op2 modulo)
   (lambda (ast)
     ...))
 
 (define-op2 'six.x*y 'x*y
   type-rule-int-op2
-  (lambda (ast)
-    ast)
+  (constant-fold-op2 *)
   (lambda (ast)
     ...))
 
@@ -120,15 +126,13 @@
 
 (define-op2 'six.x/y 'x/y
   type-rule-int-op2
-  (lambda (ast)
-    ast)
+  (constant-fold-op2 /)
   (lambda (ast)
     ...))
 
 (define-op2 'six.x+y 'x+y
   type-rule-int-op2
-  (lambda (ast)
-    ast)
+  (constant-fold-op2 +)
   (lambda (ast)
     ...))
 
@@ -141,79 +145,69 @@
 
 (define-op2 'six.x-y 'x-y
   type-rule-int-op2
-  (lambda (ast)
-    ast)
+  (constant-fold-op2 -)
   (lambda (ast)
     ...))
 
 (define-op1 'six.-x '-x
   type-rule-int-op1
   (lambda (ast)
-    ast)
+    ast) ;; TODO
   (lambda (ast)
     ...))
 
 ;; TODO check with the C standard for the next 2
 (define-op2 'six.x<<y 'x<<y
   type-rule-int-op2
-  (lambda (ast)
-    ast)
+  (constant-fold-op2 arithmetic-shift)
   (lambda (ast)
     ...))
 
 (define-op2 'six.x>>y 'x>>y
   type-rule-int-op2
-  (lambda (ast)
-    ast)
+  (constant-fold-op2 (lambda (x y) (arithmetic-shift x (- y))))
   (lambda (ast)
     ...))
 
 (define-op2 'six.x<y 'x<y
   type-rule-int-comp-op2
-  (lambda (ast)
-    ast)
+  (constant-fold-op2 (lambda (x y) (if (< x y) 1 0)))
   (lambda (ast)
     ...))
 
 (define-op2 'six.x<=y 'x<=y
   type-rule-int-comp-op2
-  (lambda (ast)
-    ast)
+  (constant-fold-op2 (lambda (x y) (if (<= x y) 1 0)))
   (lambda (ast)
     ...))
 
 (define-op2 'six.x>y 'x>y
   type-rule-int-comp-op2
-  (lambda (ast)
-    ast)
+  (constant-fold-op2 (lambda (x y) (if (> x y) 1 0)))
   (lambda (ast)
     ...))
 
 (define-op2 'six.x>=y 'x>=y
   type-rule-int-comp-op2
-  (lambda (ast)
-    ast)
+  (constant-fold-op2 (lambda (x y) (if (>= x y) 1 0)))
   (lambda (ast)
     ...))
 
 (define-op2 'six.x!=y 'x!=y
   type-rule-int-comp-op2
-  (lambda (ast)
-    ast)
+  (constant-fold-op2 (lambda (x y) (if (not (= x y)) 1 0)))
   (lambda (ast)
     ...))
 
 (define-op2 'six.x==y 'x==y
   type-rule-int-comp-op2
-  (lambda (ast)
-    ast)
+  (constant-fold-op2 (lambda (x y) (if (= x y) 1 0)))
   (lambda (ast)
     ...))
 
 (define-op2 'six.x&y 'x&y
   type-rule-int-op2
-  (lambda (ast)
-    ast)
+  (constant-fold-op2 bitwise-and)
   (lambda (ast)
     ...))
 
@@ -221,35 +215,31 @@
   (lambda (ast)
     ...)
   (lambda (ast)
-    ast)
+    ast) ;; TODO
   (lambda (ast)
     ...))
 
 (define-op2 'six.x^y 'x^y
   type-rule-int-op2
-  (lambda (ast)
-    ast)
+  (constant-fold-op2 bitwise-xor)
   (lambda (ast)
     ...))
 
 (define-op2 '|six.x\|y| '|x\|y|
   type-rule-int-op2
-  (lambda (ast)
-    ast)
+  (constant-fold-op2 bitwise-ior)
   (lambda (ast)
     ...))
 
 (define-op2 'six.x&&y 'x&&y
   type-rule-bool-op2
-  (lambda (ast)
-    ast)
+  (constant-fold-op2 (lambda (x y) (if (and (not (= x 0)) (not (= y 0))) 1 0)))
   (lambda (ast)
     ...))
 
 (define-op2 '|six.x\|\|y| '|x\|\|y|
   type-rule-bool-op2
-  (lambda (ast)
-    ast)
+  (constant-fold-op2 (lambda (x y) (if (or (not (= x 0)) (not (= y 0))) 1 0)))
   (lambda (ast)
     ...))
 
@@ -260,7 +250,7 @@
 	  (t2 (expr-type (subast3 ast))))
     (largest t1 t2)))
   (lambda (ast)
-    ast)
+    ast) ;; TODO
   (lambda (ast)
     ...))
 
@@ -272,7 +262,7 @@
   (lambda (ast)
     ...))
 
-(define-op2 'six.x%=y 'x%=y ;; TODO these don't work
+(define-op2 'six.x%=y 'x%=y
   type-rule-assign
   (lambda (ast)
     ast)

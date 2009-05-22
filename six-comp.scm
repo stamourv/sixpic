@@ -61,6 +61,7 @@
   )
 
 (define allocate-registers? #t) ; can be turned off to reduce compilation time
+(define fold-constants? #t)
 
 (define (main filename . data)
 

@@ -761,179 +761,179 @@
 	(new-value (list (get-register INDF2)))))
   
   (define (oper ast)
+    ;; TODO FOO check if both are constants, if so, call the constant folding function of the operator (look at the code that calls the typeing function for the operators), which would return a new ast (which will not contain operations) to use instead of the original, and then call expression on it, also check the global fold-constants?
     (let* ((type (expr-type ast))
            (op (oper-op ast))
            (id (op-id op)))
-      (let ((op (oper-op ast)))
 
-	(define (arith-op id x y value-x value-y) ;; TODO find a way not to pass x and y as well
-	  ;; since code generation does not accept literals as first
-	  ;; arguments unless both arguments are, if this is the
-	  ;; case, we either have to swap the arguments (if
-	  ;; possible) or allocate the argument somewhere
-	  (if (and (literal? x) (not (literal? y)))
-	      (if (memq id '(x+y x*y x&y |x\|y| x^y))
-		  ;; the operator is commutative, we can swap the args
-		  (let ((tmp value-x))
-		    (set! value-x value-y)
-		    (set! value-y tmp))
-		  ;; the operator is not commutative, we have to
-		  ;; allocate the first argument somewhere
-		  (let ((dest (alloc-value (expr-type x))))
-		    (move-value value-x dest)
-		    (set! value-x dest))))
-	  (let ((result (alloc-value type)))
-	    (case id
-	      ((x+y x-y)        (add-sub id value-x value-y result))
-	      ((x*y)            (mul x y type result))
-	      ((x/y)            (error "division not implemented yet")) ;; TODO optimize for powers of 2
-	      ((x%y)            (mod value-x value-y result))
-	      ((x&y |x\|y| x^y) (bitwise id value-x value-y result))
-	      ((x>>y x<<y)      (shift id x y type result)))
-	    result))
-	
-        (cond
-	 ((op1? op)
+      (define (arith-op id x y value-x value-y) ;; TODO find a way not to pass x and y as well
+	;; since code generation does not accept literals as first
+	;; arguments unless both arguments are, if this is the
+	;; case, we either have to swap the arguments (if
+	;; possible) or allocate the argument somewhere
+	(if (and (literal? x) (not (literal? y)))
+	    (if (memq id '(x+y x*y x&y |x\|y| x^y))
+		;; the operator is commutative, we can swap the args
+		(let ((tmp value-x))
+		  (set! value-x value-y)
+		  (set! value-y tmp))
+		;; the operator is not commutative, we have to
+		;; allocate the first argument somewhere
+		(let ((dest (alloc-value (expr-type x))))
+		  (move-value value-x dest)
+		  (set! value-x dest))))
+	(let ((result (alloc-value type)))
 	  (case id
-	    ((-x ~x)
-	     (let ((x (extend (expression (subast1 ast))
-			      type))
-		   (result (alloc-value type)))
-	       (case id
-		 ((-x) (add-sub 'x-y
-				(int->value 0 type)
-				x
-				result))
-		 ((~x) (bitwise-negation x result)))
-	       result))
-	    ((++x --x)
-	     (let ((x (subast1 ast)))
-	       (if (not (ref? x))
-		   (error "assignment target must be a variable"))
-	       (let ((result (def-variable-value (ref-def-var x))))
-		 (add-sub (if (eq? id '++x) 'x+y 'x-y)
-			  result
-			  (int->value 1 type)
-			  result)
-		 result)))
-	    ((x++ x--)
-	     (let ((x (subast1 ast)))
-	       (if (not (ref? x))
-		   (error "assignment target must be a variable"))
-	       ;; push-delayed-post-incdec moves the original value
-	       ;; somewhere else, and returns that location
-	       (push-delayed-post-incdec ast)))
-	    ((*x)
-	     ;; if it's a FSR variable, no adress to set
-	     (let ((base-name (array-base-name ast)))
-	       (if (and (ref? (subast1 ast)) ; do we have a FSR variable ?
-			base-name
-			(memq base-name fsr-variables))
-		   (get-indf base-name)
-		   (begin (calculate-address ast)
-			  (new-value (list (get-register INDF0)))))))
-	    (else
-	     (error "unary operation error" id))))
-
-	 ((op2? op)
-	  (case id
-	    ((x+y x-y x*y x/y x%y x&y |x\|y| x^y x>>y x<<y)
-	     (let* ((x (subast1 ast))
-		    (y (subast2 ast)))
-	       (let* ((value-x (extend (expression x) type))
-		      (value-y (extend (expression y) type)))
-		 (arith-op id x y value-x value-y))))
-	    ((x=y)
-	     (let* ((x       (subast1 ast))
-		    (y       (subast2 ast))
-		    (value-y (expression y)))
-	       (cond
-		;; lhs is a variable
-		((ref? x)
-		 (let ((ext-value-y (extend value-y type)))
-		   (let ((result (def-variable-value (ref-def-var x))))
-		     (move-value value-y result)
-		     result)))
-		;; lhs is a pointer dereference
-		((and (oper? x) (eq? (op-id (oper-op x)) '*x))
-		 (let ((base-name (array-base-name x))
-		       (val       (car (value-bytes value-y))))
-		   (if (and (ref? (subast1 x))
-			    base-name
-			    (memq base-name fsr-variables))
-		       (move val (car (value-bytes (get-indf base-name))))
-		       (begin (calculate-address x)
-			      (move val (get-register INDF0))))))
-		;; lhs is an indexed array access
-		((and (oper? x) (eq? (op-id (oper-op x)) 'index))
-		 ;; note: this will throw an error if SIXPIC_FSR{1,2} is
-		 ;; used. this is by design, as it would clobber the value
-		 ;; in the FSR registers, which goes against their purpose
-		 ;; of storing a user-chosen value
-		 (calculate-address x)
-		 ;; this section of memory is a byte array, only the lsb
-		 ;; of y is used
-		 (move (car (value-bytes value-y)) (get-register INDF0)))
-		(else (error "assignment target must be a variable or an array slot")))))
-	    ((index)
-	     ;; note: throws an error if given SIXPIC_FSR{1,2}, see above
-	     (calculate-address ast)
-	     (new-value (list (get-register INDF0))))
-	    ((x+=y x-=y x*=y x/=y x%=y x&=y |x\|=y| x^=y x>>=y x<<=y)
-	     (let* ((x (subast1 ast))
-		    (y (subast2 ast))
-		    (value-x (extend (expression x) type))
+	    ((x+y x-y)        (add-sub id value-x value-y result))
+	    ((x*y)            (mul x y type result))
+	    ((x/y)            (error "division not implemented yet")) ;; TODO optimize for powers of 2
+	    ((x%y)            (mod value-x value-y result))
+	    ((x&y |x\|y| x^y) (bitwise id value-x value-y result))
+	    ((x>>y x<<y)      (shift id x y type result)))
+	  result))
+      
+      (cond
+       ((op1? op)
+	(case id
+	  ((-x ~x)
+	   (let ((x (extend (expression (subast1 ast))
+			    type))
+		 (result (alloc-value type)))
+	     (case id
+	       ((-x) (add-sub 'x-y
+			      (int->value 0 type)
+			      x
+			      result))
+	       ((~x) (bitwise-negation x result)))
+	     result))
+	  ((++x --x)
+	   (let ((x (subast1 ast)))
+	     (if (not (ref? x))
+		 (error "assignment target must be a variable"))
+	     (let ((result (def-variable-value (ref-def-var x))))
+	       (add-sub (if (eq? id '++x) 'x+y 'x-y)
+			result
+			(int->value 1 type)
+			result)
+	       result)))
+	  ((x++ x--)
+	   (let ((x (subast1 ast)))
+	     (if (not (ref? x))
+		 (error "assignment target must be a variable"))
+	     ;; push-delayed-post-incdec moves the original value
+	     ;; somewhere else, and returns that location
+	     (push-delayed-post-incdec ast)))
+	  ((*x)
+	   ;; if it's a FSR variable, no adress to set
+	   (let ((base-name (array-base-name ast)))
+	     (if (and (ref? (subast1 ast)) ; do we have a FSR variable ?
+		      base-name
+		      (memq base-name fsr-variables))
+		 (get-indf base-name)
+		 (begin (calculate-address ast)
+			(new-value (list (get-register INDF0)))))))
+	  (else
+	   (error "unary operation error" id))))
+       
+       ((op2? op)
+	(case id
+	  ((x+y x-y x*y x/y x%y x&y |x\|y| x^y x>>y x<<y)
+	   (let* ((x (subast1 ast))
+		  (y (subast2 ast)))
+	     (let* ((value-x (extend (expression x) type))
 		    (value-y (extend (expression y) type)))
-	       (move-value (arith-op (case id
-				       ((x+=y)    'x+y)
-				       ((x-=y)    'x-y)
-				       ((x*=y)    'x*y)
-				       ((x/=y)    'x/y)
-				       ((x%=y)    'x%y)
-				       ((x&=y)    'x&y)
-				       ((|x\|=y|) '|x\|y|)
-				       ((x^=y)    'x^=y)
-				       ((x>>=y)   'x>>y)
-				       ((x<<=y)   'x<<y))
-				     x y value-x value-y)
-			   value-x)
-	       value-x))
-	    ((x==y x!=y x>y x>=y x<y x<=y x&&y |x\|\|y|) ;; TODO !x, have it also, maybe do this check before the op1-2-3 test to catch them all ?
-	     (let ((bb-start bb)
-		   (bb-true  (new-bb))
-		   (bb-false (new-bb))
-		   (bb-join  (new-bb))
-		   (result   (alloc-value type)))
-	       (in bb-true)
-	       (move-value (int->value 1 type) result)
-	       (gen-goto bb-join)
-	       (in bb-false)
-	       (move-value (int->value 0 type) result)
-	       (gen-goto bb-join)
-	       (in bb-start)
-	       (test-expression ast bb-true bb-false)
-	       (in bb-join)
-	       result))
-	    (else
-	     (error "binary operation error" id))))
-
-	 ((op3? op)
-	  (let ((bb-start bb)
-		(bb-true  (new-bb))
-		(bb-false (new-bb))
-		(bb-join  (new-bb))
-		(result   (alloc-value type)))
-	    (in bb-true)
-	    (move-value (expression (subast2 ast)) result)
-	    (gen-goto bb-join)
-	    (in bb-false)
-	    (move-value (expression (subast3 ast)) result)
-	    (gen-goto bb-join)
-	    (in bb-start)
-	    (test-expression (subast1 ast) bb-true bb-false)
-	    (in bb-join)
-	    result))))))
-
+	       (arith-op id x y value-x value-y))))
+	  ((x=y)
+	   (let* ((x       (subast1 ast))
+		  (y       (subast2 ast))
+		  (value-y (expression y)))
+	     (cond
+	      ;; lhs is a variable
+	      ((ref? x)
+	       (let ((ext-value-y (extend value-y type)))
+		 (let ((result (def-variable-value (ref-def-var x))))
+		   (move-value value-y result)
+		   result)))
+	      ;; lhs is a pointer dereference
+	      ((and (oper? x) (eq? (op-id (oper-op x)) '*x))
+	       (let ((base-name (array-base-name x))
+		     (val       (car (value-bytes value-y))))
+		 (if (and (ref? (subast1 x))
+			  base-name
+			  (memq base-name fsr-variables))
+		     (move val (car (value-bytes (get-indf base-name))))
+		     (begin (calculate-address x)
+			    (move val (get-register INDF0))))))
+	      ;; lhs is an indexed array access
+	      ((and (oper? x) (eq? (op-id (oper-op x)) 'index))
+	       ;; note: this will throw an error if SIXPIC_FSR{1,2} is
+	       ;; used. this is by design, as it would clobber the value
+	       ;; in the FSR registers, which goes against their purpose
+	       ;; of storing a user-chosen value
+	       (calculate-address x)
+	       ;; this section of memory is a byte array, only the lsb
+	       ;; of y is used
+	       (move (car (value-bytes value-y)) (get-register INDF0)))
+	      (else (error "assignment target must be a variable or an array slot")))))
+	  ((index)
+	   ;; note: throws an error if given SIXPIC_FSR{1,2}, see above
+	   (calculate-address ast)
+	   (new-value (list (get-register INDF0))))
+	  ((x+=y x-=y x*=y x/=y x%=y x&=y |x\|=y| x^=y x>>=y x<<=y)
+	   (let* ((x (subast1 ast))
+		  (y (subast2 ast))
+		  (value-x (extend (expression x) type))
+		  (value-y (extend (expression y) type)))
+	     (move-value (arith-op (case id
+				     ((x+=y)    'x+y)
+				     ((x-=y)    'x-y)
+				     ((x*=y)    'x*y)
+				     ((x/=y)    'x/y)
+				     ((x%=y)    'x%y)
+				     ((x&=y)    'x&y)
+				     ((|x\|=y|) '|x\|y|)
+				     ((x^=y)    'x^=y)
+				     ((x>>=y)   'x>>y)
+				     ((x<<=y)   'x<<y))
+				   x y value-x value-y)
+			 value-x)
+	     value-x))
+	  ((x==y x!=y x>y x>=y x<y x<=y x&&y |x\|\|y|) ;; TODO !x, have it also, maybe do this check before the op1-2-3 test to catch them all ?
+	   (let ((bb-start bb)
+		 (bb-true  (new-bb))
+		 (bb-false (new-bb))
+		 (bb-join  (new-bb))
+		 (result   (alloc-value type)))
+	     (in bb-true)
+	     (move-value (int->value 1 type) result)
+	     (gen-goto bb-join)
+	     (in bb-false)
+	     (move-value (int->value 0 type) result)
+	     (gen-goto bb-join)
+	     (in bb-start)
+	     (test-expression ast bb-true bb-false)
+	     (in bb-join)
+	     result))
+	  (else
+	   (error "binary operation error" id))))
+       
+       ((op3? op)
+	(let ((bb-start bb)
+	      (bb-true  (new-bb))
+	      (bb-false (new-bb))
+	      (bb-join  (new-bb))
+	      (result   (alloc-value type)))
+	  (in bb-true)
+	  (move-value (expression (subast2 ast)) result)
+	  (gen-goto bb-join)
+	  (in bb-false)
+	  (move-value (expression (subast3 ast)) result)
+	  (gen-goto bb-join)
+	  (in bb-start)
+	  (test-expression (subast1 ast) bb-true bb-false)
+	  (in bb-join)
+	  result)))))
+  
   ;; generates the cfg for a predefined routine and adds it to the current cfg
   (define (include-predefined-routine proc)
     (define (get-bytes var)
