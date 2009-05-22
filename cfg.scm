@@ -163,11 +163,11 @@
   
   (define (def-procedure ast)
     (set! current-def-proc-bb-id 0)
+    (set! current-def-proc ast)
+    (pp (list cfg: (def-id ast)))
     (let ((old-bb bb)
           (entry (new-bb)))
       (def-procedure-entry-set! ast entry)
-      (set! current-def-proc ast)
-      (pp (list cfg: (def-id ast)))
       (in entry)
       (for-each statement (ast-subasts ast))
       (return-with-no-new-bb ast)
@@ -949,6 +949,15 @@
       (set! current-def-proc proc)
       (in entry)
       (case id
+
+	((rom_get)
+	 (let* ((x  (get-bytes (car params)))
+		(x0 (car  x))
+		(x1 (cadr x))
+		(z0 (car (value-bytes value))))
+	   ;; TODO use postinc/dec and co
+	   (emit (new-instr 'tblrd x0 x1 #f))
+	   (move (get-register TABLAT) z0)))
 	
 	((mul8_8)
 	 (let ((x (car params))
@@ -960,12 +969,12 @@
 	
 	((mul16_8)
 	 (let* ((x  (get-bytes (car params)))
-		(x0 (car x)) ; lsb
+		(x0 (car  x)) ; lsb
 		(x1 (cadr x))
 		(y  (get-bytes (cadr params)))
 		(y0 (car y))
 		(z  (value-bytes value))
-		(z0 (car z)) ; lsb
+		(z0 (car  z)) ; lsb
 		(z1 (cadr z)))
 	   (emit (new-instr 'mul y0 x1 #f))
 	   (move (get-register PRODL) z1)
@@ -976,13 +985,13 @@
 
 	((mul16_16)
 	 (let* ((x  (get-bytes (car params)))
-		(x0 (car x))
+		(x0 (car  x))
 		(x1 (cadr x))
 		(y  (get-bytes (cadr params)))
-		(y0 (car y))
+		(y0 (car  y))
 		(y1 (cadr y))
 		(z  (value-bytes value))
-		(z0 (car z))
+		(z0 (car  z))
 		(z1 (cadr z)))
 
 	   (emit (new-instr 'mul x0 y0 #f))
@@ -997,17 +1006,17 @@
 
 	((mul32_16)
 	 (let* ((x  (get-bytes (car params)))
-		(x0 (car x))
-		(x1 (cadr x))
-		(x2 (caddr x))
+		(x0 (car    x))
+		(x1 (cadr   x))
+		(x2 (caddr  x))
 		(x3 (cadddr x))
 		(y  (get-bytes (cadr params)))
-		(y0 (car y))
+		(y0 (car  y))
 		(y1 (cadr y))
 		(z  (value-bytes value))
-		(z0 (car z))
-		(z1 (cadr z))
-		(z2 (caddr z))
+		(z0 (car    z))
+		(z1 (cadr   z))
+		(z2 (caddr  z))
 		(z3 (cadddr z)))
 
 	   (emit (new-instr 'mul x0 y0 #f))

@@ -1,5 +1,7 @@
 *.hex
 *.tmp
+*.s
+*.map
 *~
 *.o1
 .nfs*

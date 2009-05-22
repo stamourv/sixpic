@@ -42,10 +42,10 @@ void halt_with_error (){
 }
 
 
-/* typedef int16 obj; */
-int8 rom_get (int16 a){
-  return /* *(int8*) */a; // TODO had rom, but caused problems
-}
+/* typedef int16 obj; */ // TODO actually has 21 bits
+/* int8 rom_get (int16 a){ */
+/*   return /\* *(int8*) *\/a; // TODO had rom, but caused problems */
+/* } */ // TODO now a predefined routine
 /* int8 ram_get_gc_tags (int16 o); */
 /* int8 ram_get_gc_tag0 (int16 o); */
 /* int8 ram_get_gc_tag1 (int16 o); */
@@ -131,13 +131,13 @@ int8 rom_get_field3 (int16 o) { int16 t2 = (o) - (3 +255 - -1 +1); return rom_ge
 /* int16 rom_get_entry (int16 o); */
 
 int16 ram_get_car (int16 o)
-{ return ((ram_get_field0 (o) & #x1f) << 8) | ram_get_field1 (o); }
+{ int16 tmp = (ram_get_field0 (o) & #x1f); return (tmp << 8) | ram_get_field1 (o); }
 int16 rom_get_car (int16 o)
-{ return ((rom_get_field0 (o) & #x1f) << 8) | rom_get_field1 (o); }
+{ int16 tmp = (rom_get_field0 (o) & #x1f); return (tmp << 8) | rom_get_field1 (o); }
 int16 ram_get_cdr (int16 o)
-{ return ((ram_get_field2 (o) & #x1f) << 8) | ram_get_field3 (o); }
+{ int16 tmp = (ram_get_field2 (o) & #x1f); return (tmp << 8) | ram_get_field3 (o); }
 int16 rom_get_cdr (int16 o)
-{ return ((rom_get_field2 (o) & #x1f) << 8) | rom_get_field3 (o); }
+{ int16 tmp = (rom_get_field2 (o) & #x1f); return (tmp << 8) | rom_get_field3 (o); }
 
 void ram_set_car (int16 o, int16 val) {
   ram_set_field0 (o, (val >> 8) | (ram_get_field0 (o) & #xe0));
@@ -150,12 +150,14 @@ void ram_set_cdr (int16 o, int16 val) {
 
 
 int16 ram_get_entry (int16 o) {
-  return (((ram_get_field0 (o) & #x1f) << 11)
+  int16 tmp = (ram_get_field0 (o) & #x1f);
+  return ((tmp << 11)
    | (ram_get_field1 (o) << 3)
    | (ram_get_field2 (o) >> 5));
 }
 int16 rom_get_entry (int16 o){
-  return (((rom_get_field0 (o) & #x1f) << 11)
+  int16 tmp = (rom_get_field0 (o) & #x1f);
+  return ((tmp << 11)
    | (rom_get_field1 (o) << 3)
    | (rom_get_field2 (o) >> 5));
 }
@@ -211,7 +213,8 @@ void mark (int16 temp) {
 
  if ((!((temp) >= 4096) && ((temp) >= 512))) {
    ;
-   ram_set_gc_tags (visit, (2<<5));
+   int16 tmp = 2; // TODO literals should be int, but that's wasteful
+   ram_set_gc_tags (visit, (tmp<<5));
    ram_set_cdr (visit, stack);
    goto push;
  }
@@ -234,7 +237,8 @@ void mark (int16 temp) {
 
  if ((!((temp) >= 4096) && ((temp) >= 512))) {
    ;
-   ram_set_gc_tag0 (visit, (1<<5));
+   int16 tmp = 1;
+   ram_set_gc_tag0 (visit, (tmp<<5));
    if (((ram_get_field0 (visit) & #xc0) == #x40))
      ram_set_cdr (visit, stack);
    else
@@ -247,8 +251,8 @@ void mark (int16 temp) {
       }
       else
  ;
-
-      ram_set_gc_tag0 (visit, (1<<5));
+      int tmp = 1;
+      ram_set_gc_tag0 (visit, (tmp<<5));
     }
 
   pop:
@@ -311,9 +315,10 @@ void sweep () {
 
   while (visit >= (512 + ((glovars + 1) >> 1))) {
 
+    int tmp = 1;
     if ((((ram_get_field0 (visit) & #x80) == #x80)
   && (ram_get_gc_tags (visit) == (0<<5)))
- || !(ram_get_gc_tags (visit) & (1<<5))) {
+ || !(ram_get_gc_tags (visit) & (tmp<<5))) {
 
       if ((((ram_get_field0 (visit) & #x80) == #x80) && ((ram_get_field2 (visit) & #xe0) == #x60))) {
 
@@ -544,8 +549,9 @@ int16 norm (int16 prefix, int16 n) {
       }
     }
     else if (((n) == (((0 + (3 - -1))-1)))) {
-      if (d >= (1<<16) + -1) {
-	int16 t = d - (1 << 16);
+      int tmp = 1;
+      if (d >= (tmp<<16) + -1) {
+	int16 t = d - (tmp << 16);
 	n = (t + (3 - -1));
 	continue;
       }
@@ -635,8 +641,9 @@ int16 shr (int16 x) {
 
     d = integer_lo (x);
     x = integer_hi (x);
+    int tmp = 1;
     result = make_integer ((d >> 1) |
-			   ((integer_lo (x) & 1) ? (1<<15) : 0), // TODO only shifting by literals is permitted, so had to change the 16 -1 to 15
+			   ((integer_lo (x) & 1) ? (tmp<<15) : 0), // TODO only shifting by literals is permitted, so had to change the 16 -1 to 15
 			   result);
   }
 
@@ -667,7 +674,8 @@ int16 shl (int16 x) {
     d = integer_lo (x);
     x = integer_hi (x);
     temp = negc;
-    negc = negative_carry (d & (1<<15));
+    int tmp = 1;
+    negc = negative_carry (d & (tmp<<15));
     result = make_integer ((d << 1) | ((temp) == (3)), result); // TODO was ((0 + (3 - -1))-1)
   }
 
@@ -810,7 +818,8 @@ int16 scale (int16 n, int16 x) {
 
     if (((x) == (((0 + (3 - -1))-1)))) {
       carry = carry - n;
-      if (carry >= ((1<<16) + -1))
+      int tmp = 1;
+      if (carry >= ((tmp<<16) + -1))
 	result = norm (result, ((carry & #xff) + (3 - -1)));
       else
 	result = norm (result, make_integer (carry, ((0 + (3 - -1))-1)));
@@ -1771,8 +1780,8 @@ void init_ram_heap () {
 
 
 void interpreter () {
-  int16 tmp = rom_get (#x5000 +2) << 2;
-  pc = (#x5000 + 4) + tmp;
+  int16 tmp = rom_get (#x5000 +2);
+  pc = (#x5000 + 4) + (tmp << 2);
 
   glovars = rom_get (#x5000 +3);
 

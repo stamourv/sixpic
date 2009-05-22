@@ -68,6 +68,9 @@
   (define (comf adr)
     (emit (list 'comf adr)))
 
+  (define (tblrd) ;; TODO support the different modes
+    (emit (list 'tblrd)))
+  
   (define (cpfseq adr)
     (emit (list 'cpfseq adr)))
   (define (cpfslt adr)
@@ -281,6 +284,16 @@
                                 (move-reg (byte-cell-adr src1) z))
                             (comf z)))
 
+			 ((tblrd)
+			  (if (byte-lit? src1)
+			      (move-lit (byte-lit-val  src1) TBLPTRL)
+			      (move-reg (byte-cell-adr src1) TBLPTRL))
+			  (if (byte-lit? src2)
+			      (move-lit (byte-lit-val  src2) TBLPTRH)
+			      (move-reg (byte-cell-adr src2) TBLPTRH))
+			  ;; TODO the 5 high bytes are not used for now
+			  (tblrd))
+
                          ((goto)
                           (if (null? (bb-succs bb))
                               (error "I think you might have given me an empty source file."))
@@ -403,6 +416,8 @@
        (btg (cadr instr) (caddr instr)))
       ((comf)
        (comf (cadr instr)))
+      ((tblrd)
+       (tblrd*)) ;; TODO support the other modes
       ((cpfseq)
        (cpfseq (cadr instr)))
       ((cpfslt)

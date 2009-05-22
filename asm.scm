@@ -212,6 +212,7 @@
 ;; "asm-at-assembly" are called, the code stream will have to be
 ;; assembled once more.
 
+(define symbol-table (make-table)) ; associates addresses to labels
 (define (asm-assemble)
   (let ((fixup-lst (asm-pass1)))
 
@@ -226,13 +227,14 @@
                  (curr (cdr fixup))
                  (x (car curr)))
             (if (eq? (vector-ref x 0) 'LABEL)
-              ; LABEL
+              ;; LABEL
               (if (= (vector-ref x 1) pos)
                 (loop2 (cdr lst) changed? pos)
                 (begin
-                  (vector-set! x 1 pos) ;; TODO FOO change here to build the symbol table, associate the address with the label
+		  (table-set! symbol-table pos (vector-ref x 2))
+                  (vector-set! x 1 pos)
                   (loop2 (cdr lst) #t pos)))
-              ; DEFERRED
+              ;; DEFERRED
               (let loop3 ()
                 (let ((n ((car (vector-ref x 1)) pos)))
                   (if n

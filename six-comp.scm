@@ -62,7 +62,7 @@
 
 (define allocate-registers? #t) ; can be turned off to reduce compilation time
 
-(define (main filename)
+(define (main filename . data)
 
   (output-port-readtable-set!
    (current-output-port)
@@ -85,13 +85,22 @@
 	(asm-assemble)
 	'(display "------------------ GENERATED CODE\n")
 	'(asm-display-listing (current-output-port))
+	(with-output-to-file (string-append filename ".s")
+	  (lambda () (asm-display-listing (current-output-port))))
+	(with-output-to-file (string-append filename ".map")
+	  (lambda () (write (table->list symbol-table))))
 	(asm-write-hex-file (string-append filename ".hex"))
 	(asm-end!)
 	'(display "------------------ EXECUTION USING SIMULATOR\n")
-	(execute-hex-file (string-append filename ".hex"))
+	;; data contains a list of additional hex files
+	(apply execute-hex-files (cons (string-append filename ".hex") data))
 	#t))))
 
-(define (picobit) (main "tests/picobit/picobit-vm-sixpic.c"))
+(define (picobit prog) (main "tests/picobit/picobit-vm-sixpic.c" prog))
+(define (simulate hexs map-file)
+  (set! symbol-table (with-input-from-file map-file
+		       (lambda () (list->table (read)))))
+  (apply execute-hex-files hexs))
 
 (include "../statprof/statprof.scm")
 (define (profile) ; profile using picobit

@@ -8,6 +8,8 @@
         ((f (car lst)) (cons (car lst) (keep f (cdr lst))))
         (else          (keep f (cdr lst)))))
 
+(define (identity x) x)
+
 
 ;; sets using hash tables
 (define (new-empty-set) (make-table hash: eq?-hash test: eq?))

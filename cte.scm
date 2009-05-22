@@ -66,6 +66,9 @@
    (predefine-var 'SIXPIC_FSR0 'int16 (list FSR0L FSR0H))
    (predefine-var 'SIXPIC_FSR1 'int16 (list FSR1L FSR1H))
    (predefine-var 'SIXPIC_FSR2 'int16 (list FSR2L FSR2H))
+
+   ;; TODO have the equivalent of FSR variabes pour TBLPTR
+   (predefine-routine 'rom_get  'int8  '(int16)) ;; TODO actually, 21 bits of address
 	
    (predefine-routine 'mul8_8   'int8  '(int8  int8))
    (predefine-routine 'mul16_8  'int16 '(int16 int8)) ;; TODO since multiplication arguments are not padded, these asymetric operations are used, they are more efficient, but padding would mean fewer necessary routines

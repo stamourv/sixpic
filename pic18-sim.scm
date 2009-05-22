@@ -296,9 +296,7 @@
          (adr (+ (get-pc) (* 2 (if (> n #x7f) (- n #x100) n)))))
     (if trace-instr
         (print (list (last-pc) "	" mnemonic "	"
-                       "0x"
-                       (number->string adr 16)
-                       "")))
+		     (symbol->string (table-ref symbol-table adr)))))
     (if (branch)
         (begin
           (get-program-mem)
@@ -309,9 +307,7 @@
          (adr (+ (get-pc) (* 2 (if (> n #x3ff) (- n #x800) n)))))
     (if trace-instr
         (print (list (last-pc) "	" mnemonic "	"
-                       "0x"
-                       (number->string adr 16)
-                       "")))
+		     (symbol->string (table-ref symbol-table adr)))))
     (if call?
         (stack-push (get-pc)))
     (get-program-mem)
@@ -322,12 +318,10 @@
                      (arithmetic-shift (bitwise-and (get-program-mem) #xfff) 8)))))
     (if trace-instr
         (print (list (last-pc) "	" mnemonic "	"
-                       "0x"
-                       (number->string adr 16)
-                       (if (= 0 (bitwise-and opcode #x100))
-                           ""
-                           ", FAST")
-                       "")))
+		     (symbol->string (table-ref symbol-table adr))
+		     (if (= 0 (bitwise-and opcode #x100))
+			 ""
+			 ", FAST"))))
     (stack-push (get-pc))
     (if (not (= 0 (bitwise-and opcode #x100)))
         (error "call fast not implemented"))
@@ -338,17 +332,14 @@
                      (arithmetic-shift (bitwise-and (get-program-mem) #xfff) 8)))))
     (if trace-instr
         (print (list (last-pc) "	" mnemonic "	"
-                       "0x"
-                       (number->string adr 16)
-                       "")))
+		     (symbol->string (table-ref symbol-table adr)))))
     (set-pc adr)))
 
 (define (literal-operation opcode mnemonic flags-changed operation)
   (let ((k (bitwise-and opcode #xff)))
     (if trace-instr
         (print (list (last-pc) "	" mnemonic "	"
-                       (if (< k 10) k (list "0x" (number->string k 16)))
-                       "")))
+                       (if (< k 10) k (list "0x" (number->string k 16))))))
     (let* ((result (operation k))
            (result-8bit (bitwise-and result #xff)))
       (set-wreg result-8bit)
@@ -365,6 +356,20 @@
                             (begin
                               (set-deccarry-flag 0);;;;;;;;;;;;;;
                               (set-overflow-flag 0))))))))))));;;;;;;;;;;;;;
+
+(define (program-memory-read mnemonic read-adr-fun set-adr-fun)
+  (if trace-instr
+      (print (list (last-pc) "	" mnemonic "	")))
+  (let ((adr (bitwise-ior (arithmetic-shift (get-ram TBLPTRU) 16)
+			  (arithmetic-shift (get-ram TBLPTRH) 8)
+			  (get-ram TBLPTRL))))
+    (set-ram TABLAT (get-rom (bitwise-and (read-adr-fun adr)
+					  ;; rom addresses are 21 bits wide
+					  #x1fffff)))
+    (let ((new-adr (bitwise-and (set-adr-fun adr) #x1fffff)))
+      (set-ram TBLPTRU (arithmetic-shift new-adr -16))
+      (set-ram TBLPTRH (bitwise-and (arithmetic-shift new-adr -8) #xff))
+      (set-ram TBLPTRL (bitwise-and new-adr #xff)))))
 
 (define (get-program-mem)
   (set! pic18-cycles (+ pic18-cycles 1))
@@ -559,7 +564,7 @@
   (lambda (opcode)
     (byte-oriented opcode "rlcf" 'c-z-n
      (lambda (f)
-       ;; the carry flasg will be set automatically
+       ;; the carry flag will be set automatically
        (+ (arithmetic-shift f 1) (carry))))))
 
 (decode-opcode #b010001 10
@@ -772,6 +777,27 @@
            (if trace-instr
                (print (list (last-pc) "	sleep	")))
            (set! pic18-exit #t))
+	  ;; program memory operations
+	  ((= opcode #b0000000000001000)
+	   (program-memory-read   "tblrd*"  identity identity))
+	  ((= opcode #b0000000000001001)
+	   (program-memory-read   "tblrd*+" identity (lambda (adr) (+ adr 1))))
+	  ((= opcode #b0000000000001010)
+	   (program-memory-read   "tblrd*-" identity (lambda (adr) (- adr 1))))
+	  ((= opcode #b0000000000001011)
+	   (program-memory-read   "tblrd+*"
+				  (lambda (adr) (+ adr 1))
+				  (lambda (adr) (+ adr 1))))
+	  ((= opcode #b0000000000001100)
+	   (program-memory-write  "tblwt*"  identity identity)) ;; TODO not implemented
+	  ((= opcode #b0000000000001101)
+	   (program-memory-write  "tblwt*+" identity (lambda (adr) (+ adr 1))))
+	  ((= opcode #b0000000000001110)
+	   (program-memory-write  "tblwt*-" identity (lambda (adr) (- adr 1))))
+	  ((= opcode #b0000000000001111)
+	   (program-memory-write  "tblwt+*"
+				  (lambda (adr) (+ adr 1))
+				  (lambda (adr) (+ adr 1))))
           (else
            (if trace-instr
                (print (list (last-pc) "	???	")))
@@ -848,79 +874,6 @@
      (lambda (k)
        (bitwise-xor k (get-wreg))))))
 
-; Program memory operations.
-
-'
-(define (tblrd*)
-  (make-instruction
-   2
-   (lambda ()
-     (make-listing "tblrd*"))
-   (lambda ()
-     (asm-16 (bitmask "0000 0000 0000 1000")))))
-
-'
-(define (tblrd*+)
-  (make-instruction
-   2
-   (lambda ()
-     (make-listing "tblrd*+"))
-   (lambda ()
-     (asm-16 (bitmask "0000 0000 0000 1001")))))
-
-'
-(define (tblrd*-)
-  (make-instruction
-   2
-   (lambda ()
-     (make-listing "tblrd*-"))
-   (lambda ()
-     (asm-16 (bitmask "0000 0000 0000 1010")))))
-
-'
-(define (tblrd+*)
-  (make-instruction
-   2
-   (lambda ()
-     (make-listing "tblrd+*"))
-   (lambda ()
-     (asm-16 (bitmask "0000 0000 0000 1011")))))
-
-'
-(define (tblwt*)
-  (make-instruction
-   2
-   (lambda ()
-     (make-listing "tblwt*"))
-   (lambda ()
-     (asm-16 (bitmask "0000 0000 0000 1100")))))
-
-'
-(define (tblwt*+)
-  (make-instruction
-   2
-   (lambda ()
-     (make-listing "tblwt*+"))
-   (lambda ()
-     (asm-16 (bitmask "0000 0000 0000 1101")))))
-
-'
-(define (tblwt*-)
-  (make-instruction
-   2
-   (lambda ()
-     (make-listing "tblwt*-"))
-   (lambda ()
-     (asm-16 (bitmask "0000 0000 0000 1110")))))
-
-'
-(define (tblwt+*)
-  (make-instruction
-   2
-   (lambda ()
-     (make-listing "tblwt+*"))
-   (lambda ()
-     (asm-16 (bitmask "0000 0000 0000 1111")))))
 
 ;------------------------------------------------------------------------------
 
@@ -1047,9 +1000,12 @@
 
 ;------------------------------------------------------------------------------
 
-(define (execute-hex-file filename)
-  (let ((program (read-hex-file filename)))
+(define (execute-hex-files . filenames)
+  (let ((programs (map read-hex-file filenames)))
     (pic18-sim-setup)
-    (for-each (lambda (x) (set-rom (car x) (cdr x))) program)
+    (for-each (lambda (prog)
+		(for-each (lambda (x) (set-rom (car x) (cdr x)))
+			  prog))
+	      programs)
     (pic18-execute)
     (pic18-sim-cleanup)))
