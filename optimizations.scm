@@ -38,10 +38,10 @@
                       (if (not (eq? old-dest new-dest))
                           (begin
 			    (bb-succs-set! bb (replace old-dest new-dest (bb-succs bb)))
-                            (bb-preds-set! old-dest
+                            (bb-preds-set! old-dest ;; TODO we could probably remove all the preds at once and, and add them all to new-dest, right ?
                                            (remove bb (bb-preds old-dest)))
 			    (bb-preds-set! new-dest
-                                           (cons bb (bb-preds old-dest))))))
+                                           (cons bb (bb-preds new-dest))))))
                     old-succs
                     new-succs)))
 

@@ -164,7 +164,6 @@
   (define (def-procedure ast)
     (set! current-def-proc-bb-id 0)
     (set! current-def-proc ast)
-    (pp (list cfg: (def-id ast)))
     (let ((old-bb bb)
           (entry (new-bb)))
       (def-procedure-entry-set! ast entry)
@@ -939,6 +938,8 @@
   (define (include-predefined-routine proc)
     (define (get-bytes var)
       (value-bytes (def-variable-value var)))
+    (set! current-def-proc proc)
+    (set! current-def-proc-bb-id 0)
     (let ((old-proc current-def-proc) ; if we were already defining a procedure, save it
 	  (id (def-id proc))
 	  (params (def-procedure-params proc))
@@ -946,7 +947,6 @@
 	  (old-bb bb)
           (entry (new-bb))) ;; TODO insipired from def-procedure, abstract
       (def-procedure-entry-set! proc entry)
-      (set! current-def-proc proc)
       (in entry)
       (case id
 

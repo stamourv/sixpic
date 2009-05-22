@@ -78,12 +78,11 @@
 	'(print-cfg-bbs cfg)
 	'(pretty-print cfg)
         (remove-branch-cascades-and-dead-code cfg)
-	(remove-converging-branches cfg)
+	(remove-converging-branches cfg) ;; TODO maybe make it possible to disable it, and the next one ?
 	(remove-dead-instructions cfg)
  	(if allocate-registers? (allocate-registers cfg))
 	(assembler-gen filename cfg)
 	(asm-assemble)
-	'(display "------------------ GENERATED CODE\n")
 	'(asm-display-listing (current-output-port))
 	(with-output-to-file (string-append filename ".s")
 	  (lambda () (asm-display-listing (current-output-port))))
@@ -91,7 +90,6 @@
 	  (lambda () (write (table->list symbol-table))))
 	(asm-write-hex-file (string-append filename ".hex"))
 	(asm-end!)
-	'(display "------------------ EXECUTION USING SIMULATOR\n")
 	;; data contains a list of additional hex files
 	(apply execute-hex-files (cons (string-append filename ".hex") data))
 	#t))))
