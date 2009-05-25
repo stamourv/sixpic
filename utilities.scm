@@ -1,5 +1,10 @@
 ;;; utilities
 
+(define (list-set! l i x)
+  (cond ((null? l) (error "list-set!: out of bounds"))
+	  ((= i 0)   (set-car! l x))
+	  (else      (list-set! (cdr l) (- i 1) x))))
+
 (define (interval n m) ; returns the list (n n+1 n+2 ... m)
   (if (<= n m) (cons n (interval (+ n 1) m)) '()))
 

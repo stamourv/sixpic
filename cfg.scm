@@ -761,7 +761,6 @@
 	(new-value (list (get-register INDF2)))))
   
   (define (oper ast)
-    ;; TODO FOO check if both are constants, if so, call the constant folding function of the operator (look at the code that calls the typeing function for the operators), which would return a new ast (which will not contain operations) to use instead of the original, and then call expression on it, also check the global fold-constants?
     (let* ((type (expr-type ast))
            (op (oper-op ast))
            (id (op-id op)))

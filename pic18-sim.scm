@@ -1,9 +1,5 @@
 ;;; File: "pic18-sim.scm"
 
-(load "pic18")
-
-;------------------------------------------------------------------------------
-
 (define pic18-ram   #f)
 (define pic18-rom   #f)
 (define pic18-stack #f)
@@ -222,8 +218,10 @@
 (define (byte-oriented-aux opcode mnemonic flags-changed operation dest)
   (let* ((f (bitwise-and opcode #xff))
          (adr (if (= 0 (bitwise-and opcode #x100))
+		  ;; the upper 160 addresses of the first bank are the special
+		  ;; registers #xF60 to #xFFF
                   (if (= 0 (bitwise-and f #x80)) f (+ f #xf00))
-                  (+ f (arithmetic-shift (get-bsr) 8)))))
+		  (+ f (arithmetic-shift (get-bsr) 8)))))
     (if trace-instr
         (print (list (last-pc) "	" mnemonic "	"
                        (let ((x (assv adr file-reg-names)))

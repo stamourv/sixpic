@@ -12,6 +12,8 @@
 ;; (include "optimizations.scm")
 ;; (include "code-generation.scm")
 
+(load "asm")
+(load "pic18")
 (load "pic18-sim")
 (load "utilities")
 (load "ast")
@@ -95,7 +97,11 @@
 	(apply execute-hex-files (cons (string-append filename ".hex") data))
 	#t))))
 
-(define (picobit prog) (main "tests/picobit/picobit-vm-sixpic.c" prog))
+(define (picobit prog #!optional (recompile? #f))
+  (if recompile?
+      (main "tests/picobit/picobit-vm-sixpic.c" prog)
+      (simulate (list "tests/picobit/picobit-vm-sixpic.c.hex" prog)
+		"tests/picobit/picobit-vm-sixpic.c.map")))
 (define (simulate hexs map-file)
   (set! symbol-table (with-input-from-file map-file
 		       (lambda () (list->table (read)))))
