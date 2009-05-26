@@ -98,10 +98,12 @@
 	#t))))
 
 (define (picobit prog #!optional (recompile? #f))
+  (set! trace-instr #f)
   (if recompile?
       (main "tests/picobit/picobit-vm-sixpic.c" prog)
       (simulate (list "tests/picobit/picobit-vm-sixpic.c.hex" prog)
 		"tests/picobit/picobit-vm-sixpic.c.map")))
+
 (define (simulate hexs map-file)
   (set! symbol-table (with-input-from-file map-file
 		       (lambda () (list->table (read)))))

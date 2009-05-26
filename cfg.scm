@@ -623,7 +623,7 @@
 	    (routine-call
 	     (string->symbol ; mul8_8, mul8_16, etc
 	      ;; for now, only unsigned multiplications are supported
-	      (string-append "mul"
+	      (string-append "__mul"
 			     (number->string (* lx 8)) "_"
 			     (number->string (* ly 8))))
 	     (list x y)
@@ -678,7 +678,7 @@
 		       (loop (+ i 1) x))))))
 	    (routine-call
 	     (string->symbol
-	      (string-append "sh"
+	      (string-append "__sh"
 			     (case id ((x<<y) "l") ((x>>y) "r"))
 			     (number->string (* 8 (length bytes1)))))
 	     (list x y)
@@ -958,7 +958,7 @@
 	   (emit (new-instr 'tblrd x0 x1 #f))
 	   (move (get-register TABLAT) z0)))
 	
-	((mul8_8)
+	((__mul8_8)
 	 (let ((x (car params))
 	       (y (cadr params))
 	       (z (value-bytes value)))
@@ -966,7 +966,7 @@
 	   (emit (new-instr 'mul (car (get-bytes x)) (car (get-bytes y)) #f))
 	   (move (get-register PRODL) (car z)))) ; lsb
 	
-	((mul16_8)
+	((__mul16_8)
 	 (let* ((x  (get-bytes (car params)))
 		(x0 (car  x)) ; lsb
 		(x1 (cadr x))
@@ -982,7 +982,7 @@
 	   (move (get-register PRODL) z0)
 	   (emit (new-instr 'add  (get-register PRODH) z1 z1))))
 
-	((mul16_16)
+	((__mul16_16)
 	 (let* ((x  (get-bytes (car params)))
 		(x0 (car  x))
 		(x1 (cadr x))
@@ -1003,7 +1003,7 @@
 	   (emit (new-instr 'mul x1 y0 #f))
 	   (emit (new-instr 'add  (get-register PRODL) z1 z1))))
 
-	((mul32_16)
+	((__mul32_16)
 	 (let* ((x  (get-bytes (car params)))
 		(x0 (car    x))
 		(x1 (cadr   x))
@@ -1046,7 +1046,7 @@
 	   (emit (new-instr 'mul x3 y0 #f))
 	   (emit (new-instr 'add  (get-register PRODL) z3 z3))))
 
-	((shl8 shr8 shl16 shr16 shl32 shr32)
+	((__shl8 __shr8 __shl16 __shr16 __shl32 __shr32)
 	 (let* ((id (symbol->string id))
 		(left-shift? (eq? (string-ref id 2) #\l))
 		(x (def-variable-value (car params)))

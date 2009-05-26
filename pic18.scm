@@ -586,7 +586,7 @@
    (lambda ()
      (make-listing mnemonic1 (label-text l))) ;; TODO should show mnemonic1 when it's used, or mnemonic2
    (lambda ()
-     (asm-at-assembly ;; TODO seems to mix up generation of call vs rcall, see the rom_get example FOO
+     (asm-at-assembly ;; TODO seems to mix up generation of call vs rcall, see the rom_get example
       (lambda (self)
         (let ((dist (- (label-pos l) (+ self 2))))
           (if (and (>= dist -2048)

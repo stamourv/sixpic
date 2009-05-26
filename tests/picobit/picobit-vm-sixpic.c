@@ -68,7 +68,7 @@ void halt_with_error (){
 /* int8 rom_get_field3 (int16 o); */
 int8 ram_get_gc_tags (int16 o) {
   int16 t2 = o - 512;
-  return (*(((t2 << 2))+#x200) & #x60);
+  return (*(((t2 << 2))+#x200) & #x60); // TODO not sure these shifts really save on code space, maybe multiplications (which would be 2 additions) would be better
 }
 int8 ram_get_gc_tag0 (int16 o) {
   int16 t2 = o - 512;
@@ -79,16 +79,16 @@ int8 ram_get_gc_tag1 (int16 o) {
   return (*(((t2 << 2))+#x200) & #x40);
 }
 void ram_set_gc_tags (int16 o, int8 tags) {
-  int16 t2 = o - 512;
-  (*(((t2 << 2) + (0))+#x200) = ((*(((t2 << 2) + (0))+#x200) & #x9f) | (tags)));
+  int16 t2 = (o - 512) << 2; // TODO optimized a couple of things
+  (*((t2)+#x200) = ((*((t2)+#x200) & #x9f) | (tags))); // TODO if we could use bst and bcf, would be better
 }
 void ram_set_gc_tag0 (int16 o, int8 tag) {
-  int16 t2 = o - 512;
-  *(((t2 << 2) + (0))+#x200) = ((*(((t2 << 2) + (0))+#x200) & #xdf) | (tag));
+  int16 t2 = (o - 512) << 2; // TODO same here
+  *(t2+#x200) = ((*(t2+#x200) & #xdf) | (tag));
 }
 void ram_set_gc_tag1 (int16 o, int8 tag) {
-  int16 t2 = o - 512;
-  *(((t2 << 2) + (0))+#x200) = ((*(((t2 << 2) + (0))+#x200) & #xbf) | (tag));
+  int16 t2 = (o - 512) << 2; // TODO same here
+  *(t2+#x200) = ((*(t2+#x200) & #xbf) | (tag));
 }
 int8 ram_get_field0 (int16 o) { int16 t2 = o - 512; return *(((t2 << 2) + (0))+#x200); }
 int8 ram_get_field1 (int16 o) { int16 t2 = o - 512; return *(((t2 << 2) + (1))+#x200); }
@@ -1751,7 +1751,8 @@ void init_ram_heap () {
 
   free_list = 0;
 
-  while (o > (512 + (glovars + 1) >> 1)) {
+  int16 tmp = (512 + (glovars + 1) >> 1); // TODO optimization
+  while (o > tmp) {
 
 
     ram_set_gc_tags (o, (0<<5));

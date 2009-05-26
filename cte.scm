@@ -70,17 +70,17 @@
    ;; TODO have the equivalent of FSR variabes pour TBLPTR
    (predefine-routine 'rom_get  'int8  '(int16)) ;; TODO actually, 21 bits of address
 	
-   (predefine-routine 'mul8_8   'int8  '(int8  int8))
-   (predefine-routine 'mul16_8  'int16 '(int16 int8)) ;; TODO since multiplication arguments are not padded, these asymetric operations are used, they are more efficient, but padding would mean fewer necessary routines
-   (predefine-routine 'mul16_16 'int16 '(int16 int16))
-   (predefine-routine 'mul32_16 'int32 '(int32 int16))
+   (predefine-routine '__mul8_8   'int8  '(int8  int8))
+   (predefine-routine '__mul16_8  'int16 '(int16 int8)) ;; TODO since multiplication arguments are not padded, these asymetric operations are used, they are more efficient, but padding would mean fewer necessary routines
+   (predefine-routine '__mul16_16 'int16 '(int16 int16))
+   (predefine-routine '__mul32_16 'int32 '(int32 int16))
 
-   (predefine-routine 'shl8  'int8  '(int8  int8))
-   (predefine-routine 'shl16 'int16 '(int16 int8))
-   (predefine-routine 'shl32 'int32 '(int32 int8))
-   (predefine-routine 'shr8  'int8  '(int8  int8))
-   (predefine-routine 'shr16 'int16 '(int16 int8))
-   (predefine-routine 'shr32 'int32 '(int32 int8))   
+   (predefine-routine '__shl8  'int8  '(int8  int8))
+   (predefine-routine '__shl16 'int16 '(int16 int8))
+   (predefine-routine '__shl32 'int32 '(int32 int8))
+   (predefine-routine '__shr8  'int8  '(int8  int8))
+   (predefine-routine '__shr16 'int16 '(int16 int8))
+   (predefine-routine '__shr32 'int32 '(int32 int8))   
    ))
 
 (define (cte-extend cte bindings)
