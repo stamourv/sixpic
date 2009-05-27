@@ -362,8 +362,26 @@
                                  (y (byte-cell-adr src2)))
                              (move-reg y WREG)
                              (compare #f x))))))
+
+			 ((branch-table)
+			  (let ((off (byte-cell-adr src1))) ; branch no TODO might be a literal, watch out FOO
+			    ;; multiply offset by 2, since a branch is 2 bytes
+			    (movfw off)
+			    (emit-byte-oriented 'addwf off)
+			    (let ((i (car rev-code))) ; we want the result in w
+			      (list-set! i 2 'w)
+			      i)
+			    ;; add to the PC
+			    (addwf PCL) ;; TODO if we end up overflowing, oops, we'd need to calculate the new PCH and put it in the latch before calculating PCL
+			    ;; create the jump table
+			    (for-each (lambda (bb)
+					;; (nop) ;; TODO the nop is not necessary, it seems TODO if we use a goto instead of a bra, don't generate the nop on the next entry, the 2nd word of the goto is a nop, and we must stay aligned
+					(bra (bb-label bb))
+					(add-todo bb))
+				      (bb-succs bb))))
+			 
                    (else
-                                        ;...
+		    ;; ...
                     (emit (list (instr-id instr))))))))))
 
     (if bb

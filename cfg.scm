@@ -187,7 +187,7 @@
 				 (set-add! visited start)
 				 (loop bb named))
 			       (bb-succs start)))))
-	      (if (bb-label-name start)
+	      (if (bb-label-name start) ;; TODO use bb-label instead ?
 		  (cons (cons (bb-label-name start) start) succs)
 		  succs))))))
 
@@ -212,7 +212,7 @@
 	(begin (let ((new (new-bb)))
 		 (gen-goto new)
 		 (in new))
-	       (bb-label-name-set! bb (block-name ast)) ))
+	       (bb-label-name-set! bb (block-name ast)))) ;; TODO use bb-label instead ?
     (for-each statement (ast-subasts ast)))
 
   (define (move from to)
@@ -316,56 +316,131 @@
       (pop-continue)
       (pop-break)))
 
+  ;; switchs with branch tables
   (define (switch ast)
-    (let* ((var (subast1 ast))
-	   (case-list #f)
-	   (default #f)
-	   (decision-bb bb)
-	   (exit-bb (new-bb))
-	   (prev-bb decision-bb))
-      (push-break exit-bb)
-      (for-each (lambda (x) ; generate each case
-		  (in (new-bb)) ; this bb will be given the name of the case
-		  (add-succ decision-bb bb)
-		  ;; if the previous case didn't end in a break, fall through
-		  (if (null? (bb-succs prev-bb))
-		      (let ((curr bb))
-			(in prev-bb)
-			(gen-goto curr)
-			(in curr)))
-		  (statement x)
-		  (set! prev-bb bb))
-		(cdr (ast-subasts ast)))
-      (if (null? (bb-succs prev-bb)) ; if the last case didn't end in a break, fall through to the exit
-	  (gen-goto exit-bb))
-      (bb-succs-set! decision-bb (reverse (bb-succs decision-bb))) ; preserving the order is important in the absence of break
-      (set! case-list (list-named-bbs decision-bb))
-      (set! default (keep (lambda (x) (eq? (car x) 'default))
-			  (list-named-bbs decision-bb)))
-      (set! case-list (keep (lambda (x) (and (list? (car x))
-					     (eq? (caar x) 'case)))
-			    case-list))
-      (bb-succs-set! decision-bb '()) ; now that we have the list of cases we don't need the successors anymore
-      (let loop ((case-list case-list)
-		 (decision-bb decision-bb))
-	(in decision-bb)
-	(if (not (null? case-list))
-	    (let* ((next-bb (new-bb))
-		   (curr-case (car case-list))
-		   (curr-case-id (cadar curr-case))
-		   (curr-case-bb (cdr curr-case)))
-	      (emit (new-instr 'x==y
-			       (car (value-bytes (expression var)))
-			       (new-byte-lit curr-case-id) #f))
-	      (add-succ bb next-bb) ; if false, keep looking
-	      (add-succ bb curr-case-bb) ; if true, go to the case
-	      (loop (cdr case-list)
-		    next-bb))
-	    (gen-goto (if (not (null? default))
-			  (cdar default)
-			  exit-bb))))
+    (let* ((var      (subast1 ast))
+	   (entry-bb bb)
+	   (exit-bb  (begin (in (new-bb)) (push-break bb) bb)))
+      (let loop ((asts    (cdr (ast-subasts ast))) ; car is the tested variable
+		 (bbs     '())  ; first bb of each case
+		 (end-bbs '())  ; last bb of each case
+		 (cases   '())) ; case labels
+	(if (not (null? asts))
+	    (let ((x       (car asts))
+		  (case-bb (new-bb)))
+	      (in case-bb)
+	      (block x)
+	      (loop (cdr asts)
+		    (cons case-bb bbs)
+		    (cons bb      end-bbs)
+		    ;; blocks create their own bb, which contains the case label
+		    (cons (bb-label-name (car (bb-succs case-bb)))
+			  cases)))
+	    (let ((bbs     (reverse bbs))
+		  (end-bbs (reverse end-bbs))
+		  (cases   (reverse cases))
+		  (l       (length  bbs)))
+	      ;; handle fall-throughs
+	      (for-each
+	       (lambda (i)
+		 (let ((case-bb (list-ref end-bbs i)))
+		   (if (null? (bb-succs case-bb))
+		       ;; fall through
+		       (begin (in case-bb)
+			      (gen-goto (if (= i (- l 1)) ; last bb
+					    exit-bb
+					    (list-ref bbs (+ i 1))))))))
+	       (iota l))
+	      (let* ((default   (memq 'default cases)) ;; TODO if default, since we can't know the domain of possible values (at least, not with enough precision for it to be interesting), revert to naive switch
+		     ;; cases are lists (case n) and we want the numbers
+		     (cases     (map cadr (keep list? cases)))
+		     (case-max  (foldl max 0        cases))
+		     (case-min  (foldl min case-max cases))
+		     (n-entries (+ (- case-max case-min) 1)))
+		(if default (error "default is not supported with switch"))
+		(in entry-bb)
+		(bb-succs-set! bb
+			       (map (lambda (i)
+				      (cond ((pos-in-list (+ i case-min) cases)
+					     => (lambda (j) (list-ref bbs j)))
+					    ;; no label, jump to the exit TODO would jump to default, eventually
+					    (else exit-bb)))
+				    (iota n-entries)))
+		;; the branch-table virtual instruction takes the byte to check
+		;; to choose the branch
+		;; TODO eventually, the 2nd argument should be the number to multiply by, to fit larger blocks, not just jumps (would have to make sure they are contiguous, though)
+		(emit
+		 (new-instr
+		  'branch-table
+		  ;; the cases now start from 0, so we might have to
+		  ;; adjust the checked variable
+		  (car (value-bytes
+			(expression
+			 (if (= case-min 0)
+			     var
+			     (let* ((op  (operation? '(six.x-y)))
+				    (ast (new-oper
+					  (list var (new-literal 'int8
+								 case-min))
+					  #f
+					  op)))
+			       (expr-type-set! ast ((op-type-rule op) ast))
+			       ast)))))
+		  #f #f))))))
       (in exit-bb)
       (pop-break)))
+
+;;   ;; naive switch with if cascade
+;;   (define (switch ast)
+;;     (let* ((var (subast1 ast))
+;; 	   (case-list #f)
+;; 	   (default #f)
+;; 	   (decision-bb bb)
+;; 	   (exit-bb (new-bb))
+;; 	   (prev-bb decision-bb))
+;;       (push-break exit-bb)
+;;       (for-each (lambda (x) ; generate each case
+;; 		  (in (new-bb)) ; this bb will be given the name of the case
+;; 		  (add-succ decision-bb bb)
+;; 		  ;; if the previous case didn't end in a break, fall through
+;; 		  (if (null? (bb-succs prev-bb))
+;; 		      (let ((curr bb))
+;; 			(in prev-bb)
+;; 			(gen-goto curr)
+;; 			(in curr)))
+;; 		  (statement x)
+;; 		  (set! prev-bb bb))
+;; 		(cdr (ast-subasts ast)))
+;;       (if (null? (bb-succs prev-bb)) ; if the last case didn't end in a break, fall through to the exit
+;; 	  (gen-goto exit-bb))
+;;       (bb-succs-set! decision-bb (reverse (bb-succs decision-bb))) ; preserving the order is important in the absence of break
+;;       (set! case-list (list-named-bbs decision-bb))
+;;       (set! default (keep (lambda (x) (eq? (car x) 'default))
+;; 			  (list-named-bbs decision-bb)))
+;;       (set! case-list (keep (lambda (x) (and (list? (car x))
+;; 					     (eq? (caar x) 'case)))
+;; 			    case-list))
+;;       (bb-succs-set! decision-bb '()) ; now that we have the list of cases we don't need the successors anymore
+;;       (let loop ((case-list case-list)
+;; 		 (decision-bb decision-bb))
+;; 	(in decision-bb)
+;; 	(if (not (null? case-list))
+;; 	    (let* ((next-bb (new-bb))
+;; 		   (curr-case (car case-list))
+;; 		   (curr-case-id (cadar curr-case))
+;; 		   (curr-case-bb (cdr curr-case)))
+;; 	      (emit (new-instr 'x==y
+;; 			       (car (value-bytes (expression var)))
+;; 			       (new-byte-lit curr-case-id) #f))
+;; 	      (add-succ bb next-bb) ; if false, keep looking
+;; 	      (add-succ bb curr-case-bb) ; if true, go to the case
+;; 	      (loop (cdr case-list)
+;; 		    next-bb))
+;; 	    (gen-goto (if (not (null? default))
+;; 			  (cdar default)
+;; 			  exit-bb))))
+;;       (in exit-bb)
+;;       (pop-break)))
 
   (define (break ast)
     (gen-goto (car break-stack)))

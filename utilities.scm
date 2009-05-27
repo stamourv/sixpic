@@ -8,6 +8,8 @@
 (define (interval n m) ; returns the list (n n+1 n+2 ... m)
   (if (<= n m) (cons n (interval (+ n 1) m)) '()))
 
+(define (iota n) (interval 0 (- n 1)))
+
 (define (keep f lst)
   (cond ((null? lst)   '())
         ((f (car lst)) (cons (car lst) (keep f (cdr lst))))

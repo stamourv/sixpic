@@ -80,6 +80,7 @@
 	     (op   (instr-id head)))
 	(if (or (eq? op 'return)
 		(eq? op 'goto)
+		(eq? op 'branch-table)
 		(memq op conditional-instrs))
 	    (bb-rev-instrs-set! bb (cons head new-instrs))
 	    (loop (cdr instrs)

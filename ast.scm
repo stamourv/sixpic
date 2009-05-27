@@ -76,7 +76,7 @@
 (define (type->bytes type)
   (cond ((assq type types-bytes)
 	 => (lambda (x) (cdr x)))
-	(else (error "wrong number of bytes ?"))))
+	(else (error "wrong type?"))))
 
 (define (bytes->type n)
   (let loop ((l types-bytes))

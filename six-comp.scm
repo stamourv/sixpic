@@ -86,7 +86,7 @@
  	(if allocate-registers? (allocate-registers cfg))
 	(assembler-gen filename cfg)
 	(asm-assemble)
-	'(asm-display-listing (current-output-port))
+	(asm-display-listing (current-output-port))
 	(with-output-to-file (string-append filename ".s")
 	  (lambda () (asm-display-listing (current-output-port))))
 	(with-output-to-file (string-append filename ".map")
