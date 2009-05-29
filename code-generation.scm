@@ -101,8 +101,10 @@
   (define (cpfsgt adr)
     (emit-byte-oriented 'cpfsgt adr #f))
 
-  (define (bra label)
-    (emit (list 'bra label)))
+  (define (bra-or-goto label)
+    (emit (list 'bra-or-goto label)))
+  (define (goto label)
+    (emit (list 'goto label)))
 
   (define (rcall label)
     (emit (list 'rcall label)))
@@ -112,12 +114,12 @@
                      (eq? (caar rev-code) 'rcall)))
         (let ((label (cadar rev-code)))
           (set! rev-code (cdr rev-code))
-          (bra label))
+          (bra-or-goto label))
         (emit (list 'return))))
 
   (define (label lab)
     (if (and #f (and (not (null? rev-code))
-                     (eq? (caar rev-code) 'bra)
+                     (eq? (caar rev-code) 'bra-or-goto)
                      (eq? (cadar rev-code) lab)))
         (begin
           (set! rev-code (cdr rev-code))
@@ -314,7 +316,7 @@
 			  (if (byte-lit? src2)
 			      (move-lit (byte-lit-val  src2) TBLPTRH)
 			      (move-reg (byte-cell-adr src2) TBLPTRH))
-			  ;; TODO the 5 high bytes are not used for now
+			  ;; TODO the 5 high bits are not used for now
 			  (tblrd))
 
                          ((goto)
@@ -322,7 +324,7 @@
                               (error "I think you might have given me an empty source file."))
                           (let* ((succs (bb-succs bb))
                                  (dest (car succs)))
-                            (bra (bb-label dest))
+                            (bra-or-goto (bb-label dest))
                             (add-todo dest)))
                          ((x==y x<y x>y)
                           (let* ((succs (bb-succs bb))
@@ -334,8 +336,8 @@
                                 ((x<y) (if flip (cpfsgt adr) (cpfslt adr)))
                                 ((x>y) (if flip (cpfslt adr) (cpfsgt adr)))
                                 (else (cpfseq adr)))
-                              (bra (bb-label dest-false))
-                              (bra (bb-label dest-true))
+                              (bra-or-goto (bb-label dest-false))
+                              (bra-or-goto (bb-label dest-true))
                               (add-todo dest-false)
                               (add-todo dest-true))
 
@@ -364,19 +366,26 @@
                              (compare #f x))))))
 
 			 ((branch-table)
-			  (let ((off (byte-cell-adr src1))) ; branch no TODO might be a literal, watch out FOO
-			    ;; multiply offset by 2, since a branch is 2 bytes
+			  (let ((off (byte-cell-adr src1))) ; branch no TODO we can't have literals, we need the space to calculate the address
+			    ;; precalculate the low byte of the PC
 			    (movfw off)
-			    (emit-byte-oriented 'addwf off)
-			    (let ((i (car rev-code))) ; we want the result in w
-			      (list-set! i 2 'w)
-			      i)
-			    ;; add to the PC
-			    (addwf PCL) ;; TODO if we end up overflowing, oops, we'd need to calculate the new PCH and put it in the latch before calculating PCL
+			    (movff PCL off) ;; TODO at assembly, this can all be known statically
+			    ;; we add 4 times the offset, since gotos are 4
+			    ;; bytes long
+			    (addwf off)
+			    (addwf off)
+			    (addwf off)
+			    (addwf off)
+			    ;; to compensate for the PC advancing while we calculate
+			    (movlw 20)
+			    (addwf off)
+			    (clrf WREG)
+			    (addwfc PCLATH) ; set PCH if we overflow
+			    (movff off PCL) ; setting PCL moves PCLATH to PCH
+			    			    
 			    ;; create the jump table
 			    (for-each (lambda (bb)
-					;; (nop) ;; TODO the nop is not necessary, it seems TODO if we use a goto instead of a bra, don't generate the nop on the next entry, the 2nd word of the goto is a nop, and we must stay aligned
-					(bra (bb-label bb))
+					(goto (bb-label bb))
 					(add-todo bb))
 				      (bb-succs bb))))
 			 
@@ -427,6 +436,10 @@
       ((tblrd)
        (tblrd*)) ;; TODO support the other modes
       ((bra)
+       (bra (cadr instr)))
+      ((goto)
+       (goto (cadr instr)))
+      ((bra-or-goto)
        (bra-or-goto (cadr instr)))
       ((rcall)
        (rcall-or-call (cadr instr)))

@@ -410,6 +410,14 @@
 ;;    (lambda (dist-11bit)
 ;;      (asm-16 (bitmask "1101 0nnn nnnn nnnn" dist-11bit)))))
 
+(define (goto l)
+  (make-long-absolute-branch-instruction
+   "goto"
+   l
+   (lambda (pos-20bit)
+     (asm-16 (bitmask "1110 1111 nnnn nnnn" (modulo pos-20bit (expt 2 8))))
+     (asm-16 (bitmask "1111 nnnn nnnn nnnn" (quotient pos-20bit (expt 2 8)))))))
+
 (define (bra-or-goto l)
   (make-long-relative-or-absolute-branch-instruction
    "bra"
@@ -457,20 +465,6 @@
      (make-listing "daw"))
    (lambda ()
      (asm-16 (bitmask "0000 0000 0000 0111")))))
-
-(define (goto l)
-  (make-instruction
-   2
-   (lambda ()
-     (make-listing "goto" (label-text l)))
-   (lambda ()
-     (asm-at-assembly
-      (lambda (self)
-        4)
-      (lambda (self)
-        (let ((pos-div-2 (quotient (label-pos l) 2)))
-          (asm-16 (bitmask "1110 1111 kkkk kkkk" (quotient pos-div-2 4096)))
-          (asm-16 (bitmask "1111 kkkk kkkk kkkk" (modulo pos-div-2 4096)))))))))
 
 (define (nop)
   (make-instruction
@@ -580,13 +574,29 @@
               (generate (modulo (quotient dist 2) 2048))
               (error "long relative branch target is too far or improperly aligned" l dist))))))))
 
+(define (make-long-absolute-branch-instruction mnemonic l generate)
+  (make-instruction
+   -1
+   (lambda ()
+     (make-listing mnemonic (label-text l)))
+   (lambda ()
+     (asm-at-assembly
+      (lambda (self)
+	4)
+      (lambda (self)
+	(let ((pos (label-pos l)))
+	  (if (and (< pos (expt 2 21))
+                   (even? pos))
+              (generate (quotient pos 2))
+              (error "goto branch target is too far or unaligned" l pos))))))))
+
 (define (make-long-relative-or-absolute-branch-instruction mnemonic1 mnemonic2 l generate1 generate2)
   (make-instruction
    -1
    (lambda ()
      (make-listing mnemonic1 (label-text l))) ;; TODO should show mnemonic1 when it's used, or mnemonic2
    (lambda ()
-     (asm-at-assembly ;; TODO seems to mix up generation of call vs rcall, see the rom_get example
+     (asm-at-assembly
       (lambda (self)
         (let ((dist (- (label-pos l) (+ self 2))))
           (if (and (>= dist -2048)

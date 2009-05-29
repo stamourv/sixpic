@@ -1788,7 +1788,7 @@ void interpreter () {
 
   init_ram_heap ();
 
-  dispatch: ; bytecode = rom_get (pc++); bytecode_hi4 = bytecode & #xf0; bytecode_lo4 = bytecode & #x0f; switch (bytecode_hi4 >> 4) {;
+ dispatch: ; bytecode = rom_get (pc++); bytecode_hi4 = bytecode & #xf0; bytecode_lo4 = bytecode & #x0f; switch (bytecode_hi4 >> 4) {;
 
 
   case 0: // TODO used to be #x00 >> 4

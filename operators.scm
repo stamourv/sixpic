@@ -35,7 +35,6 @@
   (let ((t1 (expr-type (subast1 ast))))
     ;; the type of the rhs is irrelevant, since it will be promoted
     ;; or truncated at the cfg level
-    ;; TODO not sure it's true anymore
     t1))
 
 ;; the standard says it should be int
@@ -56,7 +55,7 @@
 (define-op1 'six.!x '!x
   type-rule-int-op1
   (lambda (ast)
-    ast) ;; TODO also call this when testing expressions
+    ast)
   (lambda (ast)
     ...))
 
@@ -156,7 +155,6 @@
   (lambda (ast)
     ...))
 
-;; TODO check with the C standard for the next 2
 (define-op2 'six.x<<y 'x<<y
   type-rule-int-op2
   (constant-fold-op2 arithmetic-shift)

@@ -187,7 +187,7 @@
 				 (set-add! visited start)
 				 (loop bb named))
 			       (bb-succs start)))))
-	      (if (bb-label-name start) ;; TODO use bb-label instead ?
+	      (if (bb-label-name start)
 		  (cons (cons (bb-label-name start) start) succs)
 		  succs))))))
 
@@ -212,7 +212,7 @@
 	(begin (let ((new (new-bb)))
 		 (gen-goto new)
 		 (in new))
-	       (bb-label-name-set! bb (block-name ast)))) ;; TODO use bb-label instead ?
+	       (bb-label-name-set! bb (block-name ast))))
     (for-each statement (ast-subasts ast)))
 
   (define (move from to)
@@ -330,12 +330,19 @@
 		  (case-bb (new-bb)))
 	      (in case-bb)
 	      (block x)
-	      (loop (cdr asts)
-		    (cons case-bb bbs)
-		    (cons bb      end-bbs)
-		    ;; blocks create their own bb, which contains the case label
-		    (cons (bb-label-name (car (bb-succs case-bb)))
-			  cases)))
+	      (if (or (null? (bb-succs case-bb))
+		      (not (bb-label-name (car (bb-succs case-bb)))))
+		  ;; the first block inside the body of a switch might not
+		  ;; have a label, in which case it ill be skipped
+		  ;; to have a valid CFG, it must still contain an instruction
+		  (begin (gen-goto exit-bb)
+			 (loop (cdr asts) bbs end-bbs cases))
+		  (loop (cdr asts)
+			(cons case-bb bbs)
+			(cons bb      end-bbs)
+			;; blocks create their own bb, which contains the case label
+			(cons (bb-label-name (car (bb-succs case-bb)))
+			      cases))))
 	    (let ((bbs     (reverse bbs))
 		  (end-bbs (reverse end-bbs))
 		  (cases   (reverse cases))
@@ -368,7 +375,6 @@
 				    (iota n-entries)))
 		;; the branch-table virtual instruction takes the byte to check
 		;; to choose the branch
-		;; TODO eventually, the 2nd argument should be the number to multiply by, to fit larger blocks, not just jumps (would have to make sure they are contiguous, though)
 		(emit
 		 (new-instr
 		  'branch-table
@@ -390,7 +396,7 @@
       (in exit-bb)
       (pop-break)))
 
-;;   ;; naive switch with if cascade
+;;   ;; naive switch with if cascade ;; TODO revert to that if there's a case we can't handle with branch tables
 ;;   (define (switch ast)
 ;;     (let* ((var (subast1 ast))
 ;; 	   (case-list #f)
@@ -504,7 +510,7 @@
 	       ;; with 0s only
 	       (loop (if (null? bytes1) bytes1 (cdr bytes1))
 		     (if (null? bytes2) bytes2 (cdr bytes2))
-		     (cons (if (null? bytes1) (new-byte-lit 0) (car bytes1)) ;; TODO use extend ?
+		     (cons (if (null? bytes1) (new-byte-lit 0) (car bytes1))
 			   padded1)
 		     (cons (if (null? bytes2) (new-byte-lit 0) (car bytes2))
 			   padded2))
@@ -706,7 +712,7 @@
 	     result)))))
 
   (define (mod x y result)
-    (let ((bytes1 (value-bytes x)) ;; TODO common pattern, abstract
+    (let ((bytes1 (value-bytes x))
 	  (bytes2 (value-bytes y))
 	  (bytes3 (value-bytes result)))
       ;; if y is a literal and a power of 2, we can do a bitwise and
@@ -721,7 +727,7 @@
 					     (bytes->type (length bytes2)))
 				 tmp)
 		     (bitwise 'x&y x tmp result)))
-	    ;; TODO for the general case, try to optimise the case where division and modulo are used together, since they are used together
+	    ;; TODO for the general case, try to optimise the case where division and modulo are used together, since they are calculated together
 	    (error "modulo is only supported for powers of 2")))))
 
   (define (shift id x y type result)
@@ -840,7 +846,7 @@
            (op (oper-op ast))
            (id (op-id op)))
 
-      (define (arith-op id x y value-x value-y) ;; TODO find a way not to pass x and y as well
+      (define (arith-op id x y value-x value-y)
 	;; since code generation does not accept literals as first
 	;; arguments unless both arguments are, if this is the
 	;; case, we either have to swap the arguments (if
@@ -972,7 +978,7 @@
 				   x y value-x value-y)
 			 value-x)
 	     value-x))
-	  ((x==y x!=y x>y x>=y x<y x<=y x&&y |x\|\|y|) ;; TODO !x, have it also, maybe do this check before the op1-2-3 test to catch them all ?
+	  ((x==y x!=y x>y x>=y x<y x<=y x&&y |x\|\|y|)
 	   (let ((bb-start bb)
 		 (bb-true  (new-bb))
 		 (bb-false (new-bb))
@@ -1197,7 +1203,7 @@
 
   ;; remplaces empty bbs by bbs with a single goto, to have a valid CFG for
   ;; optimizations
-  (define (fill-empty-bbs) ;; TODO is this legitimate ? its not active for the moment, see if it ever is
+  (define (fill-empty-bbs)
     (for-each (lambda (x) (if (null? (bb-rev-instrs x))
 			       (begin (in x)
 				      (emit (new-instr 'goto #f #f #f)))))
@@ -1205,7 +1211,7 @@
   
   (in (new-bb))
   (program ast)
-;;   (fill-empty-bbs)
+;;   (fill-empty-bbs) ; not sure it's legitimate or just a patch. disable for now
   cfg)
 
 (define (print-cfg-bbs cfg)

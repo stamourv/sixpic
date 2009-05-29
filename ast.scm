@@ -55,7 +55,7 @@
   (let ((id (byte-cell-next-id)))
     (make-byte-cell id (if allocate-registers? #f id)
 		    (new-empty-set) (new-empty-set))))
-(define (get-register n) ;; TODO will these byte cells be used for register allocation ? do they need an id ?
+(define (get-register n)
   (make-byte-cell (byte-cell-next-id) n  (new-empty-set) (new-empty-set)))
 
 (define-type byte-lit

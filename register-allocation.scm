@@ -108,7 +108,7 @@
 	      (if (byte-cell? src2)
 		  (begin (set-add! (byte-cell-coalesceable-with dst) src2)
 			 (set-add! (byte-cell-coalesceable-with src2) dst)))
-	      (interfere-pairwise (set-add (instr-live-after instr) dst))))) ;; TODO FOO this solved the bug in register-mess-up.c, make sure it doesn't break anything, or bloats anything
+	      (interfere-pairwise (set-add (instr-live-after instr) dst)))))
       (interfere-pairwise (instr-live-before instr)))
     (for-each instr-interference-graph (bb-rev-instrs bb)))
 

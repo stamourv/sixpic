@@ -5,6 +5,7 @@
 (define pic18-stack #f)
 (define pic18-pc    #f)
 (define pic18-wreg  #f)
+(define instrs-counts #f) ; counts how many times each instruction is executed
 
 (define pic18-carry-flag    #f)
 (define pic18-deccarry-flag #f)
@@ -163,9 +164,10 @@
   (set! pic18-overflow-flag flag))
 
 (define (pic18-sim-setup)
-  (set! pic18-ram   (make-u8vector #x1000 0))
-  (set! pic18-rom   (make-u8vector #x10000 0))
-  (set! pic18-stack (make-vector #x1f 0))
+  (set! pic18-ram     (make-u8vector #x1000  0))
+  (set! pic18-rom     (make-u8vector #x10000 0))
+  (set! pic18-stack   (make-vector   #x1f    0))
+  (set! instrs-counts (make-vector   #x10000 0))
   (set-pc 0)
   (set-wreg 0)
   (set! pic18-carry-flag    0)
@@ -405,6 +407,8 @@
         (begin
           (print (list "WREG = d'" (get-wreg) "'\n")))
         (let ((opcode (get-program-mem)))
+	  (vector-set! instrs-counts (get-pc)
+		       (+ (vector-ref instrs-counts (get-pc)) 1))
           (let ((proc (vector-ref decode-vector (arithmetic-shift opcode -8))))
             (proc opcode)
             (loop))))))
@@ -1007,3 +1011,13 @@
 	      programs)
     (pic18-execute)
     (pic18-sim-cleanup)))
+
+(define (show-profiling-data) ;; TODO temporary solution until we have the true profile working
+  (for-each (lambda (adr)
+	      (let ((count (vector-ref instrs-counts adr)))
+		(if (> count 0)
+		    (print (list (number->string adr 16) "	"
+				 count "\n")))))
+	    (iota (vector-length instrs-counts))))
+(define (dump-profiling-data file)
+  (with-output-to-file file show-profiling-data))

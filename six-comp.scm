@@ -24,6 +24,7 @@
 (load "optimizations")
 (load "code-generation")
 (load "register-allocation")
+(load "profiler")
 
 ;------------------------------------------------------------------------------
 
