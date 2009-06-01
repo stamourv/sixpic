@@ -55,7 +55,7 @@
 (define (new-byte-cell #!optional (name #f))
   (let ((id (byte-cell-next-id)))
     (make-byte-cell id (if allocate-registers? #f id)
-		    (string-append (if name name "__tmp") "$" (number->string id))
+		    (if name (string-append name "$" (number->string id)) "__tmp")
 		    (new-empty-set) (new-empty-set))))
 (define (get-register n)
   (make-byte-cell (byte-cell-next-id) n

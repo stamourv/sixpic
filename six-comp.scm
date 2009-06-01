@@ -5,35 +5,35 @@
 (define allocate-registers? #t) ; can be turned off to reduce compilation time
 (define fold-constants? #t)
 
-;; to use when interpreting
-(include "asm.scm")
-(include "pic18.scm")
-(include "pic18-sim.scm")
-(include "utilities.scm")
-(include "ast.scm")
-(include "operators.scm")
-(include "cte.scm")
-(include "parser.scm")
-(include "cfg.scm")
-(include "optimizations.scm")
-(include "code-generation.scm")
-(include "register-allocation.scm")
-(include "profiler.scm")
+;; ;; to use when interpreting
+;; (include "asm.scm")
+;; (include "pic18.scm")
+;; (include "pic18-sim.scm")
+;; (include "utilities.scm")
+;; (include "ast.scm")
+;; (include "operators.scm")
+;; (include "cte.scm")
+;; (include "parser.scm")
+;; (include "cfg.scm")
+;; (include "optimizations.scm")
+;; (include "code-generation.scm")
+;; (include "register-allocation.scm")
+;; (include "profiler.scm")
 
-;; ;; to use with compiled code
-;; (load "asm")
-;; (load "pic18")
-;; (load "pic18-sim")
-;; (load "utilities")
-;; (load "ast")
-;; (load "operators")
-;; (load "cte")
-;; (load "parser")
-;; (load "cfg")
-;; (load "optimizations")
-;; (load "code-generation")
-;; (load "register-allocation")
-;; (load "profiler")
+;; to use with compiled code
+(load "asm")
+(load "pic18")
+(load "pic18-sim")
+(load "utilities")
+(load "ast")
+(load "operators")
+(load "cte")
+(load "parser")
+(load "cfg")
+(load "optimizations")
+(load "code-generation")
+(load "register-allocation")
+(load "profiler")
 
 ;------------------------------------------------------------------------------
 
@@ -73,6 +73,8 @@
   )
 
 
+(define asm-filename #f)
+
 (define (main filename . data)
 
   (output-port-readtable-set!
@@ -95,7 +97,8 @@
 	(assembler-gen filename cfg)
 	(asm-assemble)
 	'(asm-display-listing (current-output-port))
-	(with-output-to-file (string-append filename ".s")
+	(set! asm-filename (string-append filename ".s"))
+	(with-output-to-file asm-filename
 	  (lambda () (asm-display-listing (current-output-port))))
 	(with-output-to-file (string-append filename ".map")
 	  (lambda () (write (table->list symbol-table))))
@@ -112,11 +115,16 @@
   (if recompile?
       (main "tests/picobit/picobit-vm-sixpic.c" prog)
       (simulate (list "tests/picobit/picobit-vm-sixpic.c.hex" prog)
-		"tests/picobit/picobit-vm-sixpic.c.map")))
+		"tests/picobit/picobit-vm-sixpic.c.map"
+		"tests/picobit/picobit-vm-sixpic.c.reg"
+		"tests/picobit/picobit-vm-sixpic.c.s")))
 
-(define (simulate hexs map-file)
-  (set! symbol-table (with-input-from-file map-file
-		       (lambda () (list->table (read)))))
+(define (simulate hexs map-file reg-file asm-file)
+  (set! symbol-table   (with-input-from-file map-file
+			 (lambda () (list->table (read)))))
+  (set! register-table (with-input-from-file reg-file
+			 (lambda () (list->table (read)))))
+  (set! asm-filename asm-file)
   (apply execute-hex-files hexs))
 
 (include "../statprof/statprof.scm")

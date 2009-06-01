@@ -1000,7 +1000,10 @@
   (let ((x (assv f file-reg-names)))
     (if x
 	(symbol->string (cdr x))
-	(lit-text f))))
+	(let ((x (table-ref register-table f #f)))
+	  (if #f ;x
+	      (apply string-append-with-separator (cons "/" x)) ;; TODO unreadable with picobit
+	      (lit-text f))))))
 
 (define (label-text label)
   (if (number? label)

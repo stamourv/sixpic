@@ -106,3 +106,33 @@
   (cond ((null? l)   #f)
 	((p (car l)) l)
 	(else        (memp p (cdr l)))))
+
+(define (intersperse x l)
+  (cond ((or (null? l) (null? (cdr l))) l)
+	(else (cons (car l) (cons x (intersperse x (cdr l)))))))
+(define (unique l)
+  (if (null? l)
+      l
+      (let ((head (car l))
+	    (rest (unique (cdr l))))
+	(if (member head rest)
+	    rest
+	    (cons head rest)))))
+(define (string-append-with-separator sep . strings)
+  (apply string-append (intersperse sep (unique strings))))
+
+(define (split-string s delimiter) ; delimiter is a char
+  (let loop ((s   (string->list s))
+	     (acc '())
+	     (res '()))
+    (cond ((null? s)
+	   (reverse (map (lambda (x) (list->string (reverse x)))
+			 (if (null? acc) res (cons acc res)))))
+	  ((eq? (car s) delimiter)
+	   (loop (cdr s)
+		 '()
+		 (cons acc res)))
+	  (else
+	   (loop (cdr s)
+		 (cons (car s) acc)
+		 res)))))

@@ -229,7 +229,12 @@
     (if trace-instr
         (print (list (last-pc) "	" mnemonic "	"
                        (let ((x (assv adr file-reg-names)))
-                         (if x (cdr x) (list "0x" (number->string adr 16))))
+                         (if x
+			     (cdr x)
+			     (let ((x (table-ref register-table f #f)))
+			       (if #f ;x ;; TODO unreadable with picobit
+				   (apply string-append-with-separator (cons "/" x))
+				   (list "0x" (number->string adr 16))))))
                        (if (or (eq? dest 'wreg)
 			       (= 0 (bitwise-and opcode #x200)))
                            ", w"
@@ -1021,12 +1026,18 @@
     (pic18-sim-cleanup)))
 
 (define (show-profiling-data) ;; TODO temporary solution until we have the true profile working
-  (for-each (lambda (adr)
-	      (let ((count (vector-ref instrs-counts adr)))
-		(if (> count 0)
-		    (print (list (number->string adr 16) "	"
-				 count "\n")))))
-	    (iota (vector-length instrs-counts))))
+  (with-input-from-file asm-filename
+    (lambda ()
+      (let loop ((line (read-line)))
+	(if (not (eq? line #!eof))
+	    (begin (if (not (eq? (string-ref line 0) #\tab)) ; not a label
+		       (let ((adr (string->number (car (split-string line
+								     #\space))
+						  16)))
+			 (print (list (vector-ref instrs-counts adr)
+				      "	"))))
+		   (print (list line "\n"))
+		   (loop (read-line))))))))
 (define (dump-profiling-data file)
   (with-output-to-file file show-profiling-data))
 
