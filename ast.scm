@@ -49,14 +49,18 @@
 (define-type byte-cell
   id
   adr
+  name ; to display in the listing
   (interferes-with unprintable:) ; these 2 are stored as sets
   (coalesceable-with unprintable:))
-(define (new-byte-cell)
+(define (new-byte-cell #!optional (name #f))
   (let ((id (byte-cell-next-id)))
     (make-byte-cell id (if allocate-registers? #f id)
+		    (string-append (if name name "__tmp") "$" (number->string id))
 		    (new-empty-set) (new-empty-set))))
 (define (get-register n)
-  (make-byte-cell (byte-cell-next-id) n  (new-empty-set) (new-empty-set)))
+  (make-byte-cell (byte-cell-next-id) n
+		  (symbol->string (cdr (assv n file-reg-names)))
+		  (new-empty-set) (new-empty-set)))
 
 (define-type byte-lit
   val)
@@ -117,13 +121,18 @@
 		      rev-bytes)
 		(- n 1))))))
 
-(define (alloc-value type)
+(define (alloc-value type #!optional (name #f))
   (let ((len (type->bytes type)))
     (let loop ((len len) (rev-bytes '()))
       (if (= len 0)
-          (new-value (reverse rev-bytes))
+          (new-value rev-bytes) ;; TODO FOO had a reverse, see if it breaks anything, it shouldn't
           (loop (- len 1)
-                (cons (new-byte-cell)
+                (cons (new-byte-cell
+		       (if name
+			   ;; the lsb is 0, and so on
+			   (string-append (symbol->string name)
+					  (number->string (- len 1)))
+			   #f))
                       rev-bytes))))))
 
 (define-type-of-def def-variable

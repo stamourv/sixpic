@@ -1,30 +1,39 @@
 #!/usr/bin/env gsi
 
-(declare (standard-bindings)) ;; add (block) to increase compilation time, but reduce execution time
+(declare (standard-bindings))
 
-;; (include "pic18-sim.scm") ;; use includes to increase compilation time, but reduce execution time
-;; (include "utilities.scm")
-;; (include "ast.scm")
-;; (include "operators.scm")
-;; (include "cte.scm")
-;; (include "parser.scm")
-;; (include "cfg.scm")
-;; (include "optimizations.scm")
-;; (include "code-generation.scm")
+(define allocate-registers? #t) ; can be turned off to reduce compilation time
+(define fold-constants? #t)
 
-(load "asm")
-(load "pic18")
-(load "pic18-sim")
-(load "utilities")
-(load "ast")
-(load "operators")
-(load "cte")
-(load "parser")
-(load "cfg")
-(load "optimizations")
-(load "code-generation")
-(load "register-allocation")
-(load "profiler")
+;; to use when interpreting
+(include "asm.scm")
+(include "pic18.scm")
+(include "pic18-sim.scm")
+(include "utilities.scm")
+(include "ast.scm")
+(include "operators.scm")
+(include "cte.scm")
+(include "parser.scm")
+(include "cfg.scm")
+(include "optimizations.scm")
+(include "code-generation.scm")
+(include "register-allocation.scm")
+(include "profiler.scm")
+
+;; ;; to use with compiled code
+;; (load "asm")
+;; (load "pic18")
+;; (load "pic18-sim")
+;; (load "utilities")
+;; (load "ast")
+;; (load "operators")
+;; (load "cte")
+;; (load "parser")
+;; (load "cfg")
+;; (load "optimizations")
+;; (load "code-generation")
+;; (load "register-allocation")
+;; (load "profiler")
 
 ;------------------------------------------------------------------------------
 
@@ -63,8 +72,6 @@
       (read-all)))
   )
 
-(define allocate-registers? #t) ; can be turned off to reduce compilation time
-(define fold-constants? #t)
 
 (define (main filename . data)
 
@@ -87,11 +94,13 @@
  	(if allocate-registers? (allocate-registers cfg))
 	(assembler-gen filename cfg)
 	(asm-assemble)
-	(asm-display-listing (current-output-port))
+	'(asm-display-listing (current-output-port))
 	(with-output-to-file (string-append filename ".s")
 	  (lambda () (asm-display-listing (current-output-port))))
 	(with-output-to-file (string-append filename ".map")
 	  (lambda () (write (table->list symbol-table))))
+	(with-output-to-file (string-append filename ".reg")
+	  (lambda () (write (table->list register-table))))
 	(asm-write-hex-file (string-append filename ".hex"))
 	(asm-end!)
 	;; data contains a list of additional hex files

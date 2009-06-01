@@ -18,14 +18,14 @@
     (if (and (> adr #x5F) (< adr #xF60)) ; not a special register
 	(begin (set! bank-1-used? #t) #t)
 	#f))
-  (define (emit-byte-oriented op file #!optional (d? #t))
+  (define (emit-byte-oriented op file #!optional (d? #t) (w? #f))
     ;; we might have to access the second bank
     (emit (if (outside-bank-0? file)
 	      (if d?
-		  (list op (- file 96) 'f 'b)
+		  (list op (- file 96) (if w? 'w 'f) 'b)
 		  (list op (- file 96) 'b))
 	      (if d?
-		  (list op file 'f 'a)
+		  (list op file (if w? 'w 'f) 'a)
 		  (list op file 'a)))))
   (define (emit-bit-oriented op file bit)
     (emit (if (outside-bank-0? file)
@@ -37,12 +37,16 @@
   (define (movwf adr)
     (emit-byte-oriented 'movwf adr #f))
   (define (movfw adr)
-    (emit-byte-oriented 'movf adr)
-    (let ((i (car rev-code)))
-      (list-set! i 2 'w) ; destination is w, not f
-      i))
+    (emit-byte-oriented 'movf adr #t #t))
   (define (movff src dst)
-    (emit (list 'movff src dst)))
+    ;; anything over #x5f is in the second bank (at #x100)
+    (let ((src (if (outside-bank-0? src)
+		   (+ src #xa0)
+		   src))
+	  (dst (if (outside-bank-0? dst)
+		   (+ dst #xa0)
+		   dst)))
+      (emit (list 'movff src dst))))
 
   (define (clrf adr)
     (emit-byte-oriented 'clrf adr #f))
@@ -255,8 +259,6 @@
                                 (mulwf y))))
 
                          ((and ior xor)
-                          ;; no instructions for bitwise operations involving
-                          ;; literals exist on the PIC18
                           (let ((x (if (byte-lit? src1)
                                        (byte-lit-val src1)
                                        (byte-cell-adr src1)))
@@ -264,11 +266,11 @@
                                        (byte-lit-val src2)
                                        (byte-cell-adr src2)))
                                 (z (byte-cell-adr dst)))
-                            (cond ((byte-lit? src1)
-                                   (if (byte-lit? src2)
-                                       (move-lit y z)
-                                       (move-reg y z))
-                                   (movlw x))
+                            (cond ((byte-lit? src2)
+                                   (if (byte-lit? src1)
+                                       (move-lit x z)
+                                       (move-reg x z))
+                                   (movlw y))
                                   ((and (not (= x y)) (= y z))
                                    (move-reg x WREG))
                                   (else

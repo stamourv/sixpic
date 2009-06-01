@@ -5,7 +5,9 @@
 (define pic18-stack #f)
 (define pic18-pc    #f)
 (define pic18-wreg  #f)
+
 (define instrs-counts #f) ; counts how many times each instruction is executed
+(define break-points '()) ; list of adresses at which the simulation stops
 
 (define pic18-carry-flag    #f)
 (define pic18-deccarry-flag #f)
@@ -395,6 +397,7 @@
           (loop (+ i 1)))))
   (print (list "  WREG=" (hex (get-wreg)) "\n")))
 
+(define single-stepping-mode? #f)
 (define (pic18-execute)
   (set! pic18-exit #f)
   (set! pic18-cycles 0)
@@ -406,9 +409,14 @@
     (if pic18-exit
         (begin
           (print (list "WREG = d'" (get-wreg) "'\n")))
-        (let ((opcode (get-program-mem)))
-	  (vector-set! instrs-counts (get-pc)
-		       (+ (vector-ref instrs-counts (get-pc)) 1))
+        (let ((opcode (get-program-mem))
+	      (pc     (- (get-pc) 2)))
+	  (vector-set! instrs-counts pc (+ (vector-ref instrs-counts pc) 1))
+	  (if (member pc break-points)
+	      (begin (pp (list "break point at: " (number->string pc 16)))
+		     (set! trace-instr #t)
+		     (set! single-stepping-mode? #t)))
+	  (if single-stepping-mode? (step))
           (let ((proc (vector-ref decode-vector (arithmetic-shift opcode -8))))
             (proc opcode)
             (loop))))))
@@ -1021,3 +1029,7 @@
 	    (iota (vector-length instrs-counts))))
 (define (dump-profiling-data file)
   (with-output-to-file file show-profiling-data))
+
+;; debugging procedures
+(define (add-break-point adr) (set! break-points (cons adr break-points)))
+(define (continue) (set! single-stepping-mode? #f)) ;; TODO + the equivalent of ,c

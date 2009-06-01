@@ -1,7 +1,7 @@
 (define (predefine-var id type addresses)
   (let* ((value
 	  ;; adrs is the list of addresses this variable is stored at
-          (new-value (map (lambda (x) (make-byte-cell (byte-cell-next-id) x
+          (new-value (map (lambda (x) (make-byte-cell (byte-cell-next-id) x "dummy"
 						      (new-empty-set) (new-empty-set)))
 			  addresses)))
          (ast
@@ -13,6 +13,7 @@
           (cond ((eq? type 'byte) ;; TODO have the other types, or make this generic (this is not actually used anyway)
                  (new-value (list (make-byte-cell (byte-cell-next-id)
 						  WREG
+						  "dummy"
 						  (new-empty-set)
 						  (new-empty-set)))))
                 ((eq? type 'void)
@@ -40,12 +41,13 @@
 ;; of the main cfg
 (define (predefine-routine id type param-defs)
   (let ((params
-	 (map (lambda (type) ; parameters are passed like this: (type type ...)
-		;; parameters don't need names here
-		(new-def-variable '() 'foo '() type (alloc-value type) '()))
-	      param-defs)))
+	 (map
+	  (lambda (type) ; parameters are passed like this: (type type ...)
+	    ;; parameters don't need names here
+	    (new-def-variable '() 'foo '() type (alloc-value type 'foo) '()))
+	  param-defs)))
     (set! predefined-routines (cons id predefined-routines))
-    (new-def-procedure '() id '() type (alloc-value type) params)))
+    (new-def-procedure '() id '() type (alloc-value type id) params)))
 
 (define initial-cte
   (list

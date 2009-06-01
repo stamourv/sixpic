@@ -59,9 +59,11 @@
      (asm-make-label
       (string->symbol
        (string-append "$"
+		      (number->string label-num)
+		      "$"
 		      (if proc (symbol->string proc) "")
 		      "$"
-                      (number->string (if proc id label-num))))))
+                      (if proc (number->string id) "")))))
     (cfg-bbs-set! cfg (cons bb (cfg-bbs cfg)))
     (cfg-next-label-num-set! cfg (+ 1 (cfg-next-label-num cfg)))
     bb))
@@ -1018,14 +1020,15 @@
   (define (include-predefined-routine proc)
     (define (get-bytes var)
       (value-bytes (def-variable-value var)))
-    (set! current-def-proc proc)
-    (set! current-def-proc-bb-id 0)
     (let ((old-proc current-def-proc) ; if we were already defining a procedure, save it
+	  (old-bb-no current-def-proc-bb-id)
 	  (id (def-id proc))
 	  (params (def-procedure-params proc))
 	  (value (def-procedure-value proc))
 	  (old-bb bb)
-          (entry (new-bb))) ;; TODO insipired from def-procedure, abstract
+          (entry (begin (set! current-def-proc proc)
+			(set! current-def-proc-bb-id 0)
+			(new-bb)))) ;; TODO insipired from def-procedure, abstract
       (def-procedure-entry-set! proc entry)
       (in entry)
       (case id
@@ -1129,7 +1132,7 @@
 
 	((__shl8 __shr8 __shl16 __shr16 __shl32 __shr32)
 	 (let* ((id (symbol->string id))
-		(left-shift? (eq? (string-ref id 2) #\l))
+		(left-shift? (eq? (string-ref id 4) #\l))
 		(x (def-variable-value (car params)))
 		(y (def-variable-value (cadr params)))
 		(y0 (car (value-bytes y))) ; shift by 255 is enough
@@ -1160,7 +1163,8 @@
 	   (gen-goto start-bb)
 	   (in after-bb))))
       (return-with-no-new-bb proc)
-      (set! current-def-proc old-proc)
+      (set! current-def-proc old-proc) ;; FOO
+      (set! current-def-proc-bb-id old-bb-no)
       (resolve-all-gotos entry (list-named-bbs entry))
       (in old-bb)))
   

@@ -32,7 +32,7 @@
 
       (define (def asts cte)
         (let* ((value
-                (alloc-value type))
+                (alloc-value type id))
                (ast
                 (new-def-variable asts id '() type value '()))
                (cte
@@ -55,17 +55,16 @@
               (cadr proc))
              (params
               (map (lambda (x)
-                     (let* ((type
-                             (cadr x))
-                            (value
-                             (alloc-value type)))
-                       (new-def-variable '() (get-id (car x)) '() type value '())))
+                     (let* ((id    (get-id (car x)))
+			    (type  (cadr x))
+                            (value (alloc-value type id)))
+                       (new-def-variable '() id '() type value '())))
                    (caddr proc)))
              (body
               (cadddr proc)))
         (expect-form 'six.procedure-body body)
         (let* ((value
-                (alloc-value type))
+                (alloc-value type id))
                (ast
                 (new-def-procedure '() id '() type value params))
                (cte

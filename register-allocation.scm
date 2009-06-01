@@ -12,9 +12,14 @@
 	     (cond
 	      ((call-instr? instr)
 	       (let ((def-proc (call-instr-def-proc instr)))
-		 (if (not (set-empty? live-after))
+		 (if (and (not (set-empty? live-after))
+			  (not (set-equal?
+				(set-intersection
+				 (def-procedure-live-after-calls def-proc)
+				 live-after)
+				live-after)))
 		     (begin
-		       (set! changed #t)
+		       (set! changed? #t)
 		       (set-union! (def-procedure-live-after-calls def-proc)
 				   live-after)))
 		 (let ((live
@@ -122,6 +127,7 @@
 
 ;;-----------------------------------------------------------------------------
 
+(define register-table (make-table))
 (define (allocate-registers cfg)
   (let ((all-live (interference-graph cfg))
 	(max-adr  0)) ; to know how much ram we need
@@ -149,7 +155,11 @@
                     (error "register allocation would cross the memory divide") ;; TODO fallback ?
                     (let loop2 ((lst (set->list neighbours))) ;; TODO keep using sets, but not urgent, it's not a bottleneck
 		      (if (null? lst)
-			  (byte-cell-adr-set! byte-cell adr)
+			  (begin (byte-cell-adr-set! byte-cell adr)
+				 (table-set!
+				  register-table adr
+				  (cons (byte-cell-name byte-cell)
+					(table-ref register-table adr '()))))
 			  (let ((x (car lst)))
 			    (if (= adr (byte-cell-adr x))
 				(loop1 (+ adr 1))

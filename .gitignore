@@ -2,6 +2,7 @@
 *.tmp
 *.s
 *.map
+*.reg
 *~
 *.o1
 .nfs*
