@@ -114,10 +114,10 @@ void ram_set_fieldn (int16 o, int8 n, int8 val) {
   case 3: ram_set_field3 (o, val); break;
   }
 }
-int8 rom_get_field0 (int16 o) { int16 t2 = (o) - (3 +255 - -1 +1); return rom_get (((t2 << 2) + (#x5000 + 4 + (0)))); }
-int8 rom_get_field1 (int16 o) { int16 t2 = (o) - (3 +255 - -1 +1); return rom_get (((t2 << 2) + (#x5000 + 4 + (1)))); }
-int8 rom_get_field2 (int16 o) { int16 t2 = (o) - (3 +255 - -1 +1); return rom_get (((t2 << 2) + (#x5000 + 4 + (2)))); }
-int8 rom_get_field3 (int16 o) { int16 t2 = (o) - (3 +255 - -1 +1); return rom_get (((t2 << 2) + (#x5000 + 4 + (3)))); }
+int8 rom_get_field0 (int16 o) { int16 t2 = (o) - (3 +255 - -1 +1); return rom_get (((t2 << 2) + (#x8000 + 4 + (0)))); }
+int8 rom_get_field1 (int16 o) { int16 t2 = (o) - (3 +255 - -1 +1); return rom_get (((t2 << 2) + (#x8000 + 4 + (1)))); }
+int8 rom_get_field2 (int16 o) { int16 t2 = (o) - (3 +255 - -1 +1); return rom_get (((t2 << 2) + (#x8000 + 4 + (2)))); }
+int8 rom_get_field3 (int16 o) { int16 t2 = (o) - (3 +255 - -1 +1); return rom_get (((t2 << 2) + (#x8000 + 4 + (3)))); }
 
 
 /* int16 ram_get_car (int16 o); */
@@ -189,7 +189,7 @@ void mark (int16 temp) {
   int16 stack;
   int16 visit;
 
-  if ((!((temp) >= 4096) && ((temp) >= 512))) {
+  if ((!((temp) >= 1280) && ((temp) >= 512))) {
     visit = 0;
 
   push:
@@ -211,7 +211,7 @@ void mark (int16 temp) {
 
  temp = ram_get_cdr (visit);
 
- if ((!((temp) >= 4096) && ((temp) >= 512))) {
+ if ((!((temp) >= 1280) && ((temp) >= 512))) {
    ;
    int16 tmp = 2; // TODO literals should be int, but that's wasteful
    ram_set_gc_tags (visit, (tmp<<5));
@@ -235,7 +235,7 @@ void mark (int16 temp) {
  else
    temp = ram_get_car (visit);
 
- if ((!((temp) >= 4096) && ((temp) >= 512))) {
+ if ((!((temp) >= 1280) && ((temp) >= 512))) {
    ;
    int16 tmp = 1;
    ram_set_gc_tag0 (visit, (tmp<<5));
@@ -309,7 +309,7 @@ void sweep () {
 
 
 
-  int16 visit = 4095;
+  int16 visit = 1279;
 
   free_list = 0;
 
@@ -468,9 +468,9 @@ int16 make_integer (int16 lo, int16 hi) {
 }
 
 int16 integer_hi (int16 x) {
-  if ((!((x) >= 4096) && ((x) >= 512)))
+  if ((!((x) >= 1280) && ((x) >= 512)))
     return ram_get_car (x);
-  else if ((!((x) >= 4096) && !(!((x) >= 4096) && ((x) >= 512)) && ((x) >= (3 +255 - -1 +1))))
+  else if ((!((x) >= 1280) && !(!((x) >= 1280) && ((x) >= 512)) && ((x) >= (3 +255 - -1 +1))))
     return rom_get_car (x);
   else if (x < (3 - -1)){
     return ((0 + (3 - -1))-1);
@@ -482,9 +482,9 @@ int16 integer_hi (int16 x) {
 
 int16 integer_lo (int16 x) {
   int16 t = ram_get_field2 (x);
-  if ((!((x) >= 4096) && ((x) >= 512)))
+  if ((!((x) >= 1280) && ((x) >= 512)))
     return (t << 8) + ram_get_field3 (x);
-  else if ((!((x) >= 4096) && !(!((x) >= 4096) && ((x) >= 512)) && ((x) >= (3 +255 - -1 +1))))
+  else if ((!((x) >= 1280) && !(!((x) >= 1280) && ((x) >= 512)) && ((x) >= (3 +255 - -1 +1))))
     return (t << 8) + rom_get_field3 (x);
   else
     return x - (3 - -1);
@@ -515,12 +515,12 @@ int32 decode_int (int16 o) {
   if (o <= (3 + (255 - -1)))
     return (o - (3 - -1));
 
-  if ((!((o) >= 4096) && ((o) >= 512))) {
+  if ((!((o) >= 1280) && ((o) >= 512))) {
     if (!((ram_get_field0 (o) & #xc0) == 0))
       halt_with_error();
     return ram_get_field3 (o);
   }
-  else if ((!((o) >= 4096) && !(!((o) >= 4096) && ((o) >= 512)) && ((o) >= (3 +255 - -1 +1)))) {
+  else if ((!((o) >= 1280) && !(!((o) >= 1280) && ((o) >= 512)) && ((o) >= (3 +255 - -1 +1)))) {
     if (!((rom_get_field0 (o) & #xc0) == 0))
       halt_with_error();
     return rom_get_field3 (o);
@@ -944,10 +944,10 @@ void prim_numberp () {
       && arg1 <= (3 + (255 - -1)))
     arg1 = 1;
   else {
-    if ((!((arg1) >= 4096) && ((arg1) >= 512))){
+    if ((!((arg1) >= 1280) && ((arg1) >= 512))){
       arg1 = (ram_get_field0 (arg1) & #xc0) == 0;
     }
-    else if ((!((arg1) >= 4096) && !(!((arg1) >= 4096) && ((arg1) >= 512)) && ((arg1) >= (3 +255 - -1 +1))))
+    else if ((!((arg1) >= 1280) && !(!((arg1) >= 1280) && ((arg1) >= 512)) && ((arg1) >= (3 +255 - -1 +1))))
       arg1 = (rom_get_field0 (arg1) & #xc0) == 0;
     else
       arg1 = 0;
@@ -1116,9 +1116,9 @@ void prim_xor () {
 
 
 void prim_pairp () {
-  if ((!((arg1) >= 4096) && ((arg1) >= 512)))
+  if ((!((arg1) >= 1280) && ((arg1) >= 512)))
     arg1 = (((((ram_get_field0 (arg1) & #x80) == #x80) && ((ram_get_field2 (arg1) & #xe0) == 0))));
-  else if ((!((arg1) >= 4096) && !(!((arg1) >= 4096) && ((arg1) >= 512)) && ((arg1) >= (3 +255 - -1 +1))))
+  else if ((!((arg1) >= 1280) && !(!((arg1) >= 1280) && ((arg1) >= 512)) && ((arg1) >= (3 +255 - -1 +1))))
     arg1 = (((((rom_get_field0 (arg1) & #x80) == #x80) && ((rom_get_field2 (arg1) & #xe0) == 0))));
   else
     arg1 = 0;
@@ -1137,12 +1137,12 @@ void prim_cons () {
 }
 
 void prim_car () {
-  if ((!((arg1) >= 4096) && ((arg1) >= 512))) {
+  if ((!((arg1) >= 1280) && ((arg1) >= 512))) {
     if (!(((ram_get_field0 (arg1) & #x80) == #x80) && ((ram_get_field2 (arg1) & #xe0) == 0)))
       halt_with_error();
     arg1 = ram_get_car (arg1);
   }
-  else if ((!((arg1) >= 4096) && !(!((arg1) >= 4096) && ((arg1) >= 512)) && ((arg1) >= (3 +255 - -1 +1)))) {
+  else if ((!((arg1) >= 1280) && !(!((arg1) >= 1280) && ((arg1) >= 512)) && ((arg1) >= (3 +255 - -1 +1)))) {
     if (!(((rom_get_field0 (arg1) & #x80) == #x80) && ((rom_get_field2 (arg1) & #xe0) == 0)))
       halt_with_error();
     arg1 = rom_get_car (arg1);
@@ -1152,12 +1152,12 @@ void prim_car () {
 }
 
 void prim_cdr () {
-  if ((!((arg1) >= 4096) && ((arg1) >= 512))) {
+  if ((!((arg1) >= 1280) && ((arg1) >= 512))) {
     if (!(((ram_get_field0 (arg1) & #x80) == #x80) && ((ram_get_field2 (arg1) & #xe0) == 0)))
       halt_with_error();
     arg1 = ram_get_cdr (arg1);
   }
-  else if ((!((arg1) >= 4096) && !(!((arg1) >= 4096) && ((arg1) >= 512)) && ((arg1) >= (3 +255 - -1 +1)))) {
+  else if ((!((arg1) >= 1280) && !(!((arg1) >= 1280) && ((arg1) >= 512)) && ((arg1) >= (3 +255 - -1 +1)))) {
     if (!(((rom_get_field0 (arg1) & #x80) == #x80) && ((rom_get_field2 (arg1) & #xe0) == 0)))
       halt_with_error();
     arg1 = rom_get_cdr (arg1);
@@ -1167,7 +1167,7 @@ void prim_cdr () {
 }
 
 void prim_set_car () {
-  if ((!((arg1) >= 4096) && ((arg1) >= 512))) {
+  if ((!((arg1) >= 1280) && ((arg1) >= 512))) {
     if (!(((ram_get_field0 (arg1) & #x80) == #x80) && ((ram_get_field2 (arg1) & #xe0) == 0)))
       halt_with_error();
 
@@ -1180,7 +1180,7 @@ void prim_set_car () {
 }
 
 void prim_set_cdr () {
-  if ((!((arg1) >= 4096) && ((arg1) >= 512))) {
+  if ((!((arg1) >= 1280) && ((arg1) >= 512))) {
     if (!(((ram_get_field0 (arg1) & #x80) == #x80) && ((ram_get_field2 (arg1) & #xe0) == 0)))
       halt_with_error();
 
@@ -1201,9 +1201,9 @@ void prim_nullp () {
 
 
 void prim_u8vectorp () {
-  if ((!((arg1) >= 4096) && ((arg1) >= 512)))
+  if ((!((arg1) >= 1280) && ((arg1) >= 512)))
     arg1 = (((((ram_get_field0 (arg1) & #x80) == #x80) && ((ram_get_field2 (arg1) & #xe0) == #x60))));
-  else if ((!((arg1) >= 4096) && !(!((arg1) >= 4096) && ((arg1) >= 512)) && ((arg1) >= (3 +255 - -1 +1))))
+  else if ((!((arg1) >= 1280) && !(!((arg1) >= 1280) && ((arg1) >= 512)) && ((arg1) >= (3 +255 - -1 +1))))
     arg1 = (((((rom_get_field0 (arg1) & #x80) == #x80) && ((rom_get_field2 (arg1) & #xe0) == #x60))));
   else
     arg1 = 0;
@@ -1233,14 +1233,14 @@ void prim_make_u8vector () {
 void prim_u8vector_ref () {
   a2 = decode_int (arg2);
 
-  if ((!((arg1) >= 4096) && ((arg1) >= 512))) {
+  if ((!((arg1) >= 1280) && ((arg1) >= 512))) {
     if (!(((ram_get_field0 (arg1) & #x80) == #x80) && ((ram_get_field2 (arg1) & #xe0) == #x60)))
       halt_with_error();
     if ((ram_get_car (arg1) <= a2) || (a2 < 0))
       halt_with_error();
     arg1 = ram_get_cdr (arg1);
   }
-  else if ((!((arg1) >= 4096) && !(!((arg1) >= 4096) && ((arg1) >= 512)) && ((arg1) >= (3 +255 - -1 +1)))) {
+  else if ((!((arg1) >= 1280) && !(!((arg1) >= 1280) && ((arg1) >= 512)) && ((arg1) >= (3 +255 - -1 +1)))) {
     if (!(((rom_get_field0 (arg1) & #x80) == #x80) && ((rom_get_field2 (arg1) & #xe0) == #x60)))
       halt_with_error();
     if ((rom_get_car (arg1) <= a2) || (a2 < 0))
@@ -1250,7 +1250,7 @@ void prim_u8vector_ref () {
   else
     halt_with_error();
 
-  if (((arg1) >= 4096)) {
+  if (((arg1) >= 1280)) {
     arg1 += (a2 >> 2);
     a2 %= 4;
 
@@ -1276,7 +1276,7 @@ void prim_u8vector_set () {
   if (a3 > 255)
     halt_with_error();
 
-  if ((!((arg1) >= 4096) && ((arg1) >= 512))) {
+  if ((!((arg1) >= 1280) && ((arg1) >= 512))) {
     if (!(((ram_get_field0 (arg1) & #x80) == #x80) && ((ram_get_field2 (arg1) & #xe0) == #x60)))
       halt_with_error();
     if ((ram_get_car (arg1) <= a2) || (a2 < 0))
@@ -1297,12 +1297,12 @@ void prim_u8vector_set () {
 }
 
 void prim_u8vector_length () {
-  if ((!((arg1) >= 4096) && ((arg1) >= 512))) {
+  if ((!((arg1) >= 1280) && ((arg1) >= 512))) {
     if (!(((ram_get_field0 (arg1) & #x80) == #x80) && ((ram_get_field2 (arg1) & #xe0) == #x60)))
       halt_with_error();
     arg1 = encode_int (ram_get_car (arg1));
   }
-  else if ((!((arg1) >= 4096) && !(!((arg1) >= 4096) && ((arg1) >= 512)) && ((arg1) >= (3 +255 - -1 +1)))) {
+  else if ((!((arg1) >= 1280) && !(!((arg1) >= 1280) && ((arg1) >= 512)) && ((arg1) >= (3 +255 - -1 +1)))) {
     if (!(((rom_get_field0 (arg1) & #x80) == #x80) && ((rom_get_field2 (arg1) & #xe0) == #x60)))
       halt_with_error();
     arg1 = encode_int (rom_get_car (arg1));
@@ -1320,7 +1320,7 @@ void prim_u8vector_copy () {
   a3 = decode_int (arg5);
 
 
-  if ((!((arg1) >= 4096) && ((arg1) >= 512)) && (!((arg3) >= 4096) && ((arg3) >= 512))) {
+  if ((!((arg1) >= 1280) && ((arg1) >= 512)) && (!((arg3) >= 1280) && ((arg3) >= 512))) {
     if (!(((ram_get_field0 (arg1) & #x80) == #x80) && ((ram_get_field2 (arg1) & #xe0) == #x60)) || !(((ram_get_field0 (arg3) & #x80) == #x80) && ((ram_get_field2 (arg3) & #xe0) == #x60)))
       halt_with_error();
     if ((ram_get_car (arg1) < (a1 + a3)) || (a1 < 0) ||
@@ -1348,7 +1348,7 @@ void prim_u8vector_copy () {
     }
   }
 
-  else if ((!((arg1) >= 4096) && !(!((arg1) >= 4096) && ((arg1) >= 512)) && ((arg1) >= (3 +255 - -1 +1))) && (!((arg3) >= 4096) && ((arg3) >= 512))) {
+  else if ((!((arg1) >= 1280) && !(!((arg1) >= 1280) && ((arg1) >= 512)) && ((arg1) >= (3 +255 - -1 +1))) && (!((arg3) >= 1280) && ((arg3) >= 512))) {
     if (!(((rom_get_field0 (arg1) & #x80) == #x80) && ((rom_get_field2 (arg1) & #xe0) == #x60)) || !(((ram_get_field0 (arg3) & #x80) == #x80) && ((ram_get_field2 (arg3) & #xe0) == #x60)))
       halt_with_error();
     if ((rom_get_car (arg1) < (a1 + a3)) || (a1 < 0) ||
@@ -1396,31 +1396,31 @@ void prim_not () {
 }
 
 void prim_symbolp () {
-  if ((!((arg1) >= 4096) && ((arg1) >= 512)))
+  if ((!((arg1) >= 1280) && ((arg1) >= 512)))
     arg1 = (((((ram_get_field0 (arg1) & #x80) == #x80) && ((ram_get_field2 (arg1) & #xe0) == #x20))));
-  else if ((!((arg1) >= 4096) && !(!((arg1) >= 4096) && ((arg1) >= 512)) && ((arg1) >= (3 +255 - -1 +1))))
+  else if ((!((arg1) >= 1280) && !(!((arg1) >= 1280) && ((arg1) >= 512)) && ((arg1) >= (3 +255 - -1 +1))))
     arg1 = (((((rom_get_field0 (arg1) & #x80) == #x80) && ((rom_get_field2 (arg1) & #xe0) == #x20))));
   else
     arg1 = 0;
 }
 
 void prim_stringp () {
-  if ((!((arg1) >= 4096) && ((arg1) >= 512)))
+  if ((!((arg1) >= 1280) && ((arg1) >= 512)))
     arg1 = (((((ram_get_field0 (arg1) & #x80) == #x80) && ((ram_get_field2 (arg1) & #xe0) == #x40))));
-  else if ((!((arg1) >= 4096) && !(!((arg1) >= 4096) && ((arg1) >= 512)) && ((arg1) >= (3 +255 - -1 +1))))
+  else if ((!((arg1) >= 1280) && !(!((arg1) >= 1280) && ((arg1) >= 512)) && ((arg1) >= (3 +255 - -1 +1))))
     arg1 = (((((rom_get_field0 (arg1) & #x80) == #x80) && ((rom_get_field2 (arg1) & #xe0) == #x40))));
   else
     arg1 = 0;
 }
 
 void prim_string2list () {
-  if ((!((arg1) >= 4096) && ((arg1) >= 512))) {
+  if ((!((arg1) >= 1280) && ((arg1) >= 512))) {
     if (!(((ram_get_field0 (arg1) & #x80) == #x80) && ((ram_get_field2 (arg1) & #xe0) == #x40)))
       halt_with_error();
 
     arg1 = ram_get_car (arg1);
   }
-  else if ((!((arg1) >= 4096) && !(!((arg1) >= 4096) && ((arg1) >= 512)) && ((arg1) >= (3 +255 - -1 +1)))) {
+  else if ((!((arg1) >= 1280) && !(!((arg1) >= 1280) && ((arg1) >= 512)) && ((arg1) >= (3 +255 - -1 +1)))) {
     if (!(((rom_get_field0 (arg1) & #x80) == #x80) && ((rom_get_field2 (arg1) & #xe0) == #x40)))
       halt_with_error();
 
@@ -1674,17 +1674,17 @@ int16 pop () {
 void pop_procedure () {
   arg1 = pop();
 
-  if ((!((arg1) >= 4096) && ((arg1) >= 512))) {
+  if ((!((arg1) >= 1280) && ((arg1) >= 512))) {
     if (!((ram_get_field0 (arg1) & #xc0) == #x40))
       halt_with_error();
 
-    entry = ram_get_entry (arg1) + #x5000;
+    entry = ram_get_entry (arg1) + #x8000;
   }
-  else if ((!((arg1) >= 4096) && !(!((arg1) >= 4096) && ((arg1) >= 512)) && ((arg1) >= (3 +255 - -1 +1)))) {
+  else if ((!((arg1) >= 1280) && !(!((arg1) >= 1280) && ((arg1) >= 512)) && ((arg1) >= (3 +255 - -1 +1)))) {
     if (!((rom_get_field0 (arg1) & #xc0) == #x40))
       halt_with_error();
 
-    entry = rom_get_entry (arg1) + #x5000;
+    entry = rom_get_entry (arg1) + #x8000;
   }
   else
     halt_with_error();
@@ -1747,11 +1747,11 @@ void save_cont () {
 
 void init_ram_heap () {
   int8 i;
-  int16 o = 4095;
+  int16 o = 1279;
 
   free_list = 0;
 
-  int16 tmp = (512 + (glovars + 1) >> 1); // TODO optimization
+  int16 tmp = (512 + ((glovars + 1) >> 1)); // TODO optimization TODO parens added to solve a potential shift priority problem
   while (o > tmp) {
 
 
@@ -1761,12 +1761,12 @@ void init_ram_heap () {
     o--;
   }
 
-  free_list_vec = 4096;
+  free_list_vec = 1280;
   ram_set_car (free_list_vec, 0);
 
 
 
-  ram_set_cdr (free_list_vec, ((8191 - 4096 + 1)*4) >> 2);
+  ram_set_cdr (free_list_vec, ((2047 - 1280 + 1)*4) >> 2);
 
   for (i=0; i<glovars; i++)
     set_global (i, 0);
@@ -1781,10 +1781,10 @@ void init_ram_heap () {
 
 
 void interpreter () {
-  int16 tmp = rom_get (#x5000 +2);
-  pc = (#x5000 + 4) + (tmp << 2);
+  int16 tmp = rom_get (#x8000 +2);
+  pc = (#x8000 + 4) + (tmp << 2);
 
-  glovars = rom_get (#x5000 +3);
+  glovars = rom_get (#x8000 +3);
 
   init_ram_heap ();
 
@@ -1923,7 +1923,7 @@ void interpreter () {
     ;
 
 
-    entry = (arg2 << 8) + bytecode + #x5000;
+    entry = (arg2 << 8) + bytecode + #x8000;
     arg1 = 2;
 
     na = rom_get (entry++);
@@ -1948,7 +1948,7 @@ void interpreter () {
     ;
 
 
-    entry = (arg2 << 8) + bytecode + #x5000;
+    entry = (arg2 << 8) + bytecode + #x8000;
     arg1 = 2;
 
     na = rom_get (entry++);
@@ -1972,7 +1972,7 @@ void interpreter () {
     ;
 
 
-    pc = (arg2 << 8) + bytecode + #x5000;
+    pc = (arg2 << 8) + bytecode + #x8000;
 
     break;
 
@@ -1986,7 +1986,7 @@ void interpreter () {
 
 
     if (pop() == 0)
-      pc = (arg2 << 8) + bytecode + #x5000;
+      pc = (arg2 << 8) + bytecode + #x8000;
 
     break;
 
@@ -2020,7 +2020,7 @@ void interpreter () {
     ;
 
 
-    entry = pc + bytecode + #x5000;
+    entry = pc + bytecode + #x8000;
     arg1 = 2;
 
     na = rom_get (entry++);
@@ -2041,7 +2041,7 @@ void interpreter () {
     ;
 
 
-    entry = pc + bytecode + #x5000;
+    entry = pc + bytecode + #x8000;
     arg1 = 2;
 
     na = rom_get (entry++);
@@ -2060,7 +2060,7 @@ void interpreter () {
 
     ;
 
-    pc = pc + bytecode + #x5000;
+    pc = pc + bytecode + #x8000;
 
     break;
 
@@ -2071,7 +2071,7 @@ void interpreter () {
 
 
     if (pop() == 0)
-      pc = pc + bytecode + #x5000;
+      pc = pc + bytecode + #x8000;
 
     break;
 

@@ -4,7 +4,6 @@
 (define pic18-rom   #f)
 (define pic18-stack #f)
 (define pic18-pc    #f)
-(define pic18-wreg  #f)
 
 (define instrs-counts #f) ; counts how many times each instruction is executed
 (define break-points '()) ; list of adresses at which the simulation stops
@@ -17,6 +16,10 @@
 
 (define pic18-cycles #f)
 (define pic18-exit #f)
+
+(define fsr-alist (list (cons INDF0 (cons FSR0H FSR0L))
+			(cons INDF1 (cons FSR1H FSR1L))
+			(cons INDF2 (cons FSR2H FSR2L))))
 
 (define (get-ram adr)
   (cond ((= adr TOSU)
@@ -35,9 +38,7 @@
             (arithmetic-shift pic18-zero-flag 2)
             (arithmetic-shift pic18-overflow-flag 3)
             (arithmetic-shift pic18-negative-flag 4)))
-	((assq adr (list (cons INDF0 (cons FSR0H FSR0L))
-			 (cons INDF1 (cons FSR1H FSR1L))
-			 (cons INDF2 (cons FSR2H FSR2L))))
+	((assq adr fsr-alist)
 	 => (lambda (x)
 	      (get-ram (bitwise-ior
 			(arithmetic-shift (bitwise-and (u8vector-ref pic18-ram
@@ -61,8 +62,8 @@
          (set-tos (+ (bitwise-and (get-tos) #x1fff00)
                      byte)))
         ((= adr PCL)
-         (set-pc (+ (bitwise-and (arithmetic-shift (get-ram PCLATU) 16) #x1f)
-                    (bitwise-and (arithmetic-shift (get-ram PCLATH) 8) #xff)
+         (set-pc (+ (arithmetic-shift (get-ram PCLATU) 16)
+                    (arithmetic-shift (get-ram PCLATH) 8)
                     (bitwise-and byte #xfe))))
         ((= adr STATUS)
          (set! pic18-carry-flag    (bitwise-and byte 1))
@@ -70,9 +71,7 @@
          (set! pic18-zero-flag     (arithmetic-shift (bitwise-and byte 4) -2))
          (set! pic18-overflow-flag (arithmetic-shift (bitwise-and byte 8) -3))
          (set! pic18-negative-flag (arithmetic-shift (bitwise-and byte 16) -4)))
-	((assq adr (list (cons INDF0 (cons FSR0H FSR0L))
-			 (cons INDF1 (cons FSR1H FSR1L))
-			 (cons INDF2 (cons FSR2H FSR2L))))
+	((assq adr fsr-alist)
 	 => (lambda (x)
 	      (set-ram (bitwise-ior ;; TODO factor common code with get-ram ?
 			(arithmetic-shift (bitwise-and (u8vector-ref pic18-ram
@@ -130,10 +129,10 @@
   (bitwise-and (get-ram BSR) #x0f))
 
 (define (get-wreg)
-  pic18-wreg)
+  (get-ram WREG))
 
 (define (set-wreg byte)
-  (set! pic18-wreg byte))
+  (set-ram WREG byte))
 
 (define (zero-flag?)
   (not (= 0 pic18-zero-flag)))
@@ -1044,3 +1043,31 @@
 ;; debugging procedures
 (define (add-break-point adr) (set! break-points (cons adr break-points)))
 (define (continue) (set! single-stepping-mode? #f)) ;; TODO + the equivalent of ,c
+
+;; takes the regiter number for env0 and env1 and shows the picobit stack
+;; TODO can actually be used to show any list, if given a pointer to it (free list ?)
+;; TODO find the register by doing a reverse lookup on the register table
+(define (picobit-stack env0 env1)
+  (define (obj->ram o field)
+    (get-ram (+ 512 (arithmetic-shift (- o 512) 2) field)))
+  (define (get-car o) ;; TODO shouldn't end up seeing any rom objects
+    (bitwise-ior (arithmetic-shift (bitwise-and (obj->ram o 0) #x1f) 8)
+		 (obj->ram o 1)))
+  (define (get-cdr o)
+    (bitwise-ior (arithmetic-shift (bitwise-and (obj->ram o 2) #x1f) 8)
+		 (obj->ram o 3)))
+  (define (show-obj o)
+    (pp (list o (cond ((= o 0) #f)
+		      ((= o 1) #f)
+		      ((= o 2) '())
+		      ((< o (+ 3 255 1 1)) ; fixnum
+		       (- o 4))
+		      ((< o 512) ; rom
+		       "rom") ;; TODO be more precise
+		      ((< o 1280)
+		       "ram")
+		      (else "invalid")))))
+  (let loop ((ptr (+ (* 256 (get-ram env1)) (get-ram env0))))
+    (if (not (= ptr 2)) ;; '()
+	(begin (show-obj (get-car ptr))
+	       (loop (get-cdr ptr))))))

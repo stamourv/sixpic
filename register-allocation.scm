@@ -157,7 +157,11 @@
 		      (if (null? lst)
 			  (begin (byte-cell-adr-set! byte-cell adr)
 				 (table-set!
-				  register-table adr
+				  register-table
+				  (if (and (> adr #x5F) (< adr #xF60))
+				      ;; not in bank 0
+				      (+ adr #xa0)
+				      adr)
 				  (cons (byte-cell-name byte-cell)
 					(table-ref register-table adr '()))))
 			  (let ((x (car lst)))

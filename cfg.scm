@@ -319,6 +319,8 @@
       (pop-break)))
 
   ;; switchs with branch tables
+  ;; since offsets are calculated using one byte, switches are limited to
+  ;; 60 cases or so (slightly below 64)
   (define (switch ast)
     (let* ((var      (subast1 ast))
 	   (entry-bb bb)
@@ -349,6 +351,23 @@
 		  (end-bbs (reverse end-bbs))
 		  (cases   (reverse cases))
 		  (l       (length  bbs)))
+	      ;; add the case names to the bb names
+	      (for-each ;; TODO do it for all named bbs, not just switch (but, since the name is on the successor, might be lost)
+	       (lambda (bb case)
+		 (vector-set!
+		  (bb-label (car (bb-succs bb))) 2
+		  (string->symbol
+		   (string-append (symbol->string (asm-label-id (bb-label bb)))
+				  "$"
+				  (if (symbol? case)
+				      ;; default
+				      (symbol->string case)
+				      ;; (case n)
+				      (string-append
+				       (symbol->string (car case))
+				       (number->string (cadr case))))))))
+	       bbs
+	       cases)
 	      ;; handle fall-throughs
 	      (for-each
 	       (lambda (i)
@@ -394,7 +413,8 @@
 					  op)))
 			       (expr-type-set! ast ((op-type-rule op) ast))
 			       ast)))))
-		  #f #f))))))
+		  (new-byte-cell) ; working space to calculate addresses
+		  #f))))))
       (in exit-bb)
       (pop-break)))
 

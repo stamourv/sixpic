@@ -368,23 +368,25 @@
                              (compare #f x))))))
 
 			 ((branch-table)
-			  (let ((off (byte-cell-adr src1))) ; branch no TODO we can't have literals, we need the space to calculate the address
+			  (let ((off     (byte-cell-adr src1)) ; branch no TODO we can't have literals, we need the space to calculate the address FOO since we calculate elsewhere, maybe not
+				(scratch (byte-cell-adr src2))) ; working space
 			    ;; precalculate the low byte of the PC
 			    (movfw off)
-			    (movff PCL off) ;; TODO at assembly, this can all be known statically
 			    ;; we add 4 times the offset, since gotos are 4
 			    ;; bytes long
-			    (addwf off)
-			    (addwf off)
-			    (addwf off)
-			    (addwf off)
+			    (movff off scratch)
+			    (addwf scratch)
+			    (addwf scratch)
+			    (addwf scratch)
 			    ;; to compensate for the PC advancing while we calculate
-			    (movlw 20)
-			    (addwf off)
+			    (movlw 10)
+			    (addwf scratch)
+			    (movfw PCL) ;; TODO at assembly, this can all be known statically
+			    (addwf scratch)
 			    (clrf WREG)
-			    (addwfc PCLATH) ; set PCH if we overflow
-			    (movff off PCL) ; setting PCL moves PCLATH to PCH
-			    			    
+			    (addwfc PCLATH)
+			    (movff scratch PCL)
+			    
 			    ;; create the jump table
 			    (for-each (lambda (bb)
 					(goto (bb-label bb))

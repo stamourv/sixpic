@@ -5,35 +5,35 @@
 (define allocate-registers? #t) ; can be turned off to reduce compilation time
 (define fold-constants? #t)
 
-;; ;; to use when interpreting
-;; (include "asm.scm")
-;; (include "pic18.scm")
-;; (include "pic18-sim.scm")
-;; (include "utilities.scm")
-;; (include "ast.scm")
-;; (include "operators.scm")
-;; (include "cte.scm")
-;; (include "parser.scm")
-;; (include "cfg.scm")
-;; (include "optimizations.scm")
-;; (include "code-generation.scm")
-;; (include "register-allocation.scm")
-;; (include "profiler.scm")
+;; to use when interpreting
+(include "asm.scm")
+(include "pic18.scm")
+(include "pic18-sim.scm")
+(include "utilities.scm")
+(include "ast.scm")
+(include "operators.scm")
+(include "cte.scm")
+(include "parser.scm")
+(include "cfg.scm")
+(include "optimizations.scm")
+(include "code-generation.scm")
+(include "register-allocation.scm")
+(include "profiler.scm")
 
-;; to use with compiled code
-(load "asm")
-(load "pic18")
-(load "pic18-sim")
-(load "utilities")
-(load "ast")
-(load "operators")
-(load "cte")
-(load "parser")
-(load "cfg")
-(load "optimizations")
-(load "code-generation")
-(load "register-allocation")
-(load "profiler")
+;; ;; to use with compiled code
+;; (load "asm")
+;; (load "pic18")
+;; (load "pic18-sim")
+;; (load "utilities")
+;; (load "ast")
+;; (load "operators")
+;; (load "cte")
+;; (load "parser")
+;; (load "cfg")
+;; (load "optimizations")
+;; (load "code-generation")
+;; (load "register-allocation")
+;; (load "profiler")
 
 ;------------------------------------------------------------------------------
 
@@ -103,7 +103,11 @@
 	(with-output-to-file (string-append filename ".map")
 	  (lambda () (write (table->list symbol-table))))
 	(with-output-to-file (string-append filename ".reg")
-	  (lambda () (write (table->list register-table))))
+	  (lambda () (write (map (lambda (x)
+				   ;; write it in hex, for easier
+				   ;; cross-reference with the simulation
+				   (cons (number->string (car x) 16) (cdr x)))
+				 (table->list register-table)))))
 	(asm-write-hex-file (string-append filename ".hex"))
 	(asm-end!)
 	;; data contains a list of additional hex files
@@ -122,8 +126,13 @@
 (define (simulate hexs map-file reg-file asm-file)
   (set! symbol-table   (with-input-from-file map-file
 			 (lambda () (list->table (read)))))
-  (set! register-table (with-input-from-file reg-file
-			 (lambda () (list->table (read)))))
+  (set! register-table
+	(with-input-from-file reg-file
+	  (lambda () (list->table
+		      (map (lambda (x)
+			     ;; read from hex
+			     (cons (string->number (car x) 16) (cdr x)))
+			   (read))))))
   (set! asm-filename asm-file)
   (apply execute-hex-files hexs))
 

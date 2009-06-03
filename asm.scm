@@ -231,7 +231,7 @@
               (if (= (vector-ref x 1) pos)
                 (loop2 (cdr lst) changed? pos)
                 (begin
-		  (table-set! symbol-table pos (vector-ref x 2))
+		  (table-set! symbol-table pos (asm-label-id x))
                   (vector-set! x 1 pos)
                   (loop2 (cdr lst) #t pos)))
               ;; DEFERRED

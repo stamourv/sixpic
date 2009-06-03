@@ -44,12 +44,41 @@
 (define (type-rule-bool-op2 ast)
   'int)
 
+
+(define (constant-fold-op1 op)
+  (lambda (ast)
+    (let* ((x  (subast1   ast))
+	   (lx (cond ((literal? x)
+		      (literal-val x))
+		     ((operation? x) =>
+		      (lambda (op)
+			(let ((val ((op-constant-fold op) x)))
+			  (if (literal? val) val #f))))
+		     (else #f))))
+      (if lx
+	  (new-literal (expr-type ast) (op lx))
+	  ast))))
+
 (define (constant-fold-op2 op)
   (lambda (ast)
-    (let ((x (subast1   ast))
-	  (y (subast2   ast)))
-      (if (and (literal? x) (literal? y))
-	  (new-literal (expr-type ast) (op (literal-val x) (literal-val y)))
+    (let* ((x  (subast1   ast))
+	   (y  (subast2   ast))
+	   (lx (cond ((literal? x)
+		      (literal-val x))
+		     ((operation? x) =>
+		      (lambda (op)
+			(let ((val ((op-constant-fold op) x)))
+			  (if (literal? val) val #f))))
+		     (else #f)))
+	   (ly (cond ((literal? y)
+		      (literal-val y))
+		     ((operation? y) =>
+		      (lambda (op)
+			(let ((val ((op-constant-fold op) y)))
+			  (if (literal? val) val #f))))
+		     (else #f))))
+      (if (and lx ly)
+	  (new-literal (expr-type ast) (op lx ly))
 	  ast))))
 
 (define-op1 'six.!x '!x
@@ -150,8 +179,7 @@
 
 (define-op1 'six.-x '-x
   type-rule-int-op1
-  (lambda (ast)
-    ast) ;; TODO
+  (constant-fold-op1 (lambda (x) (- x)))
   (lambda (ast)
     ...))
 
