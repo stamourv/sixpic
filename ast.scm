@@ -125,7 +125,7 @@
   (let ((len (type->bytes type)))
     (let loop ((len len) (rev-bytes '()))
       (if (= len 0)
-          (new-value rev-bytes) ;; TODO FOO had a reverse, see if it breaks anything, it shouldn't
+          (new-value rev-bytes)
           (loop (- len 1)
                 (cons (new-byte-cell
 		       (if name

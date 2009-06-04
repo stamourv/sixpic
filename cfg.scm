@@ -538,38 +538,58 @@
 			   padded2))
 	       ;; now so the test itself, using the padded values
 	       ;; the comparisons are done msb-first, for < and >
-	       (case id
-		 ((x==y) ; unlike < and >, must check all bytes, so is simpler
-		  (let loop2 ((bytes1 padded1)
-			      (bytes2 padded2))
-		    (let ((byte1 (car bytes1))
-			  (byte2 (car bytes2)))
-		      (if (null? (cdr bytes1)) ;; TODO factor with code for < and > ?
-			  (test-byte 'x==y byte1 byte2 bb-true bb-false)
-			  (let ((bb-true2 (new-bb)))
-			    (test-byte 'x==y byte1 byte2 bb-true2 bb-false)
-			    (in bb-true2)
-			    (loop2 (cdr bytes1) (cdr bytes2)))))))
-		 
-		 (else ; < and >
-		  (let loop2 ((bytes1 padded1) ; msb first
-			      (bytes2 padded2))
-		    (let ((byte1 (car bytes1))
-			  (byte2 (car bytes2)))
-		      (if (null? (cdr bytes1))
-			  (test-byte id byte1 byte2 bb-true bb-false)
-			  (let ((bb-test-equal (new-bb))
-				(bb-keep-going (new-bb)))
-			    ;; if the test is true for the msb, the whole test
-			    ;; is true
-			    (test-byte id byte1 byte2 bb-true bb-test-equal)
-			    ;; if not, check for equality, if both bytes are
-			    ;; equal, keep going
-			    (in bb-test-equal)
-			    (test-byte 'x==y byte1 byte2 bb-keep-going bb-false)
-			    ;; TODO do some analysis to check the value already in w, in this case, it won't change between both tests, so no need to charge it back, as is done now
-			    (in bb-keep-going)
-			    (loop2 (cdr bytes1) (cdr bytes2)))))))))))
+	       (let ((padded1 (reverse padded1))
+		     (padded2 (reverse padded2)))
+		 (case id
+		   ((x==y) ; unlike < and >, must check all bytes, so is simpler
+		    (let loop2 ((bytes1 padded1) ;; TODO ior the xors FOO
+				(bytes2 padded2))
+		      (let ((byte1 (car bytes1))
+			    (byte2 (car bytes2)))
+			(if (null? (cdr bytes1))
+			    (test-byte 'x==y byte1 byte2 bb-true bb-false)
+			    (let ((bb-true2 (new-bb)))
+			      (test-byte 'x==y byte1 byte2 bb-true2 bb-false)
+			      (in bb-true2)
+			      (loop2 (cdr bytes1) (cdr bytes2)))))))
+		   
+		   (else ; < and >
+		    (if (= (length padded1) 1)
+			(test-byte id (car padded1) (car padded2)
+				   bb-true bb-false)
+			;; more than one byte, we subtract, then see if we had
+			;; to borrow
+			(let ((scratch (new-byte-cell)))
+			  
+			  ;; padded2 might contain a literal and sub and subb
+			  ;; can't have literals in their first argument,
+			  ;; allocate it somewhere
+			  (if (and (byte-lit? (car padded2))
+				   ;; TODO we might still have problems with padded values
+				   (eq? id 'x>y))
+			      (let ((tmp (alloc-value
+					  (bytes->type (length padded2)))))
+				(move-value (new-value padded2) tmp)
+				(set! padded2 (value-bytes tmp))))
+			  
+			  (let loop ((bytes1  padded1)
+				     (bytes2  padded2)
+				     (borrow? #f))
+			    (if (not (null? bytes1))
+				(begin ; subtract y from x
+				  (emit
+				   (case id
+				     ((x<y) (new-instr (if borrow? 'subb 'sub)
+						       (car bytes1) (car bytes2)
+						       scratch))
+				     ((x>y) (new-instr (if borrow? 'subb 'sub)
+						       (car bytes2) (car bytes1)
+						       scratch))))
+				  (loop (cdr bytes1) (cdr bytes2) #t))))
+			  
+			  (add-succ bb bb-false)
+			  (add-succ bb bb-true)
+			  (emit (new-instr 'branch-if-carry scratch #f #f))))))))))
     
     (define (test-relation id x y bb-true bb-false)
       (cond ((and (literal? x) (not (literal? y)))
@@ -1183,7 +1203,7 @@
 	   (gen-goto start-bb)
 	   (in after-bb))))
       (return-with-no-new-bb proc)
-      (set! current-def-proc old-proc) ;; FOO
+      (set! current-def-proc old-proc)
       (set! current-def-proc-bb-id old-bb-no)
       (resolve-all-gotos entry (list-named-bbs entry))
       (in old-bb)))

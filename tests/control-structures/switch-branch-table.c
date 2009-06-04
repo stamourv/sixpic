@@ -1,5 +1,5 @@
 byte f(){
-  byte x = 0;
+  byte x = 3;
   byte y = 0;
   switch (x){
   case 0:

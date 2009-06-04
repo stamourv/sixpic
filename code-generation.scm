@@ -105,6 +105,8 @@
   (define (cpfsgt adr)
     (emit-byte-oriented 'cpfsgt adr #f))
 
+  (define (bc label)
+    (emit (list 'bc label)))
   (define (bra-or-goto label)
     (emit (list 'bra-or-goto label)))
   (define (goto label)
@@ -352,29 +354,57 @@
 					 (begin
 					   (movlw n)
 					   (compare #t y)))))
-                            ((byte-lit? src2)
-                             (let ((x (byte-cell-adr src1))
-                                   (n (byte-lit-val src2)))
-                               (if #f #;(and (or (= n 0) (= n 1) (= n #xff))
-                                   (eq? (instr-id instr) 'x==y))
-				   (special-compare-eq-lit n x)
-				   (begin
-				     (movlw n)
-				     (compare #f x)))))
-                          (else
-                           (let ((x (byte-cell-adr src1))
-                                 (y (byte-cell-adr src2)))
-                             (move-reg y WREG)
-                             (compare #f x))))))
+				  ((byte-lit? src2)
+				   (let ((x (byte-cell-adr src1))
+					 (n (byte-lit-val src2)))
+				     (if #f #;(and (or (= n 0) (= n 1) (= n #xff))
+					 (eq? (instr-id instr) 'x==y))
+					 (special-compare-eq-lit n x)
+					 (begin
+					   (movlw n)
+					   (compare #f x)))))
+				  (else
+				   (let ((x (byte-cell-adr src1))
+					 (y (byte-cell-adr src2)))
+				     (move-reg y WREG)
+				     (compare #f x))))))
+
+			 ((branch-if-carry)
+			  (let* ((succs      (bb-succs bb))
+                                 (dest-true  (car succs))
+                                 (dest-false (cadr succs))
+				 ;; scratch is always a byte cell
+				 (scratch    (byte-cell-adr src1)))
+			    ;; note : bc is too short for some cases
+			    ;; (bc (bb-label dest-true))
+			    ;; (bra-or-goto (bb-label dest-false))
+			    ;; instead, we use scratch to indirectly test the
+			    ;; carry and use regular branches
+			    (clrf scratch)
+			    (clrf WREG)
+			    (addwfc scratch)
+			    (cpfsgt scratch)
+			    (bra-or-goto (bb-label dest-false))
+			    (bra-or-goto (bb-label dest-true))))
 
 			 ((branch-table)
-			  (let ((off     (byte-cell-adr src1)) ; branch no TODO we can't have literals, we need the space to calculate the address FOO since we calculate elsewhere, maybe not
+			  (let ((off     (if (byte-lit? src1) ; branch no
+					     (byte-lit-val  src1)
+					     (byte-cell-adr src1)))
 				(scratch (byte-cell-adr src2))) ; working space
 			    ;; precalculate the low byte of the PC
-			    (movfw off)
+			    ;; note: both branches (off is a literal or a
+			    ;; register) are of the same length in terms of
+			    ;; code, which is important
+			    (if (byte-lit? src1)
+				(movlw off)
+				(movfw off))
 			    ;; we add 4 times the offset, since gotos are 4
 			    ;; bytes long
-			    (movff off scratch)
+			    (if (byte-lit? src1)
+				(begin (movlw off)
+				       (movwf scratch))
+				(movff off scratch))
 			    (addwf scratch)
 			    (addwf scratch)
 			    (addwf scratch)
@@ -439,6 +469,8 @@
        (gen-3-args))
       ((tblrd)
        (tblrd*)) ;; TODO support the other modes
+      ((bc)
+       (bc (cadr instr)))
       ((bra)
        (bra (cadr instr)))
       ((goto)

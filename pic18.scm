@@ -548,7 +548,7 @@
    (lambda ()
      (asm-at-assembly
       (lambda (self)
-        2)
+	2)
       (lambda (self)
         (let ((dist (- (label-pos l) (+ self 2))))
           (if (and (>= dist -256)

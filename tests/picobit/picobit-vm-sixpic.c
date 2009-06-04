@@ -33,9 +33,9 @@ int16 entry;
 int8 bytecode;
 int8 bytecode_hi4;
 int8 bytecode_lo4;
-int32 a1;
-int32 a2;
-int32 a3;
+int16 a1;
+int16 a2;
+int16 a3;
 
 void halt_with_error (){
   return; // TODO

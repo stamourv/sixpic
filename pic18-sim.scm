@@ -1057,17 +1057,18 @@
     (bitwise-ior (arithmetic-shift (bitwise-and (obj->ram o 2) #x1f) 8)
 		 (obj->ram o 3)))
   (define (show-obj o)
-    (pp (list o (cond ((= o 0) #f)
-		      ((= o 1) #f)
-		      ((= o 2) '())
-		      ((< o (+ 3 255 1 1)) ; fixnum
-		       (- o 4))
-		      ((< o 512) ; rom
-		       "rom") ;; TODO be more precise
-		      ((< o 1280)
-		       "ram")
-		      (else "invalid")))))
-  (let loop ((ptr (+ (* 256 (get-ram env1)) (get-ram env0))))
-    (if (not (= ptr 2)) ;; '()
-	(begin (show-obj (get-car ptr))
-	       (loop (get-cdr ptr))))))
+    (cond ((= o 0) #f)
+	  ((= o 1) #f)
+	  ((= o 2) '())
+	  ((< o (+ 3 255 1 1)) ; fixnum
+	   (- o 4))
+	  ((< o 512) ; rom
+	   "rom") ;; TODO be more precise
+	  ((< o 1280)
+	   "ram")
+	  (else "invalid")))
+  (let loop ((ptr (+ (* 256 (get-ram env1)) (get-ram env0)))
+	     (l   '()))
+    (if (= ptr 2) ;; '()
+	(pp (reverse l))
+	(loop (get-cdr ptr) (cons (show-obj (get-car ptr)) l)))))
