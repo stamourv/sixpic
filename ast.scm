@@ -77,11 +77,14 @@
     (int24 . 3)
     (int32 . 4)))
 
+(define (val->type n)
+  (cond ((and (>= n 0) (< n 256))   'int8)
+	((and (>= n 0) (< n 65536)) 'int16)
+	(else                       'int32)))
 (define (type->bytes type)
   (cond ((assq type types-bytes)
 	 => (lambda (x) (cdr x)))
 	(else (error "wrong type?"))))
-
 (define (bytes->type n)
   (let loop ((l types-bytes))
     (cond ((null? l)     (error (string-append "no type contains "
@@ -107,7 +110,7 @@
 	(loop (cdr bytes)
 	      (+ (* 256 n) (byte-lit-val (car bytes)))))))
 
-;; TODO instead of carrying types around, use the length instead
+;; TODO instead of carrying types around, use the length instead, or even better, just pass the value-bytes, and calculate the length as needed
 (define (extend value type)
   ;; literals must be extended with literal 0s, while variables must be
   ;; extended with byte cells

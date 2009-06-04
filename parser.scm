@@ -368,14 +368,8 @@
 
   (define (literal source cte cont)
     (let ((n (cadr source)))
-      (cont (new-literal (cond ((and (>= n 0) (< n 256))
-				'int8)
-			       ((and (>= n 0) (< n 65536))
-				'int16)
-			       (else
-				'int32))
-			 n)
-          cte)))
+      (cont (new-literal (val->type n) n)
+	    cte)))
 
   (define (ref source cte cont)
     (let* ((id (cadr source))

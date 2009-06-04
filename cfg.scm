@@ -561,16 +561,25 @@
 			;; to borrow
 			(let ((scratch (new-byte-cell)))
 			  
-			  ;; padded2 might contain a literal and sub and subb
-			  ;; can't have literals in their first argument,
-			  ;; allocate it somewhere
-			  (if (and (byte-lit? (car padded2))
-				   ;; TODO we might still have problems with padded values
+			  ;; our values might contain literal bytes and sub and
+			  ;; subb can't have literals in their first argument,
+			  ;; allocate it somewhere if needed
+			  (if (and (foldl (lambda (acc new)
+					    (or acc (byte-lit? new)))
+					  #f padded2)
 				   (eq? id 'x>y))
 			      (let ((tmp (alloc-value
 					  (bytes->type (length padded2)))))
 				(move-value (new-value padded2) tmp)
 				(set! padded2 (value-bytes tmp))))
+			  (if (and (foldl (lambda (acc new) ;; TODO abstract both cases
+					    (or acc (byte-lit? new)))
+					  #f padded1)
+				   (eq? id 'x<y))
+			      (let ((tmp (alloc-value
+					  (bytes->type (length padded1)))))
+				(move-value (new-value padded1) tmp)
+				(set! padded1 (value-bytes tmp))))
 			  
 			  (let loop ((bytes1  padded1)
 				     (bytes2  padded2)

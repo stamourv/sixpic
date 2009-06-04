@@ -56,7 +56,8 @@
 			  (if (literal? val) val #f))))
 		     (else #f))))
       (if lx
-	  (new-literal (expr-type ast) (op lx))
+	  (let ((res (op lx)))
+	    (new-literal (val->type res) res))
 	  ast))))
 
 (define (constant-fold-op2 op)
@@ -78,7 +79,8 @@
 			  (if (literal? val) val #f))))
 		     (else #f))))
       (if (and lx ly)
-	  (new-literal (expr-type ast) (op lx ly))
+	  (let ((res (op lx ly)))
+	    (new-literal (val->type res) res))
 	  ast))))
 
 (define-op1 'six.!x '!x

@@ -203,12 +203,14 @@
                                     (move-lit (byte-lit-val src1) z)
                                     (move-reg (byte-cell-adr src1) z))
                                 (case (instr-id instr)
-                                  ((add)  (cond ((= n 1)    (incf z))
+                                  ((add)  (cond ((= n 0)) ; nop
+						((= n 1)    (incf z))
                                                 ((= n #xff) (decf z))
                                                 (else       (movlw n)
                                                             (addwf z))))
                                   ((addc) (movlw n) (addwfc z))
-                                  ((sub)  (cond ((= n 1)    (decf z))
+                                  ((sub)  (cond ((= n 0)) ; nop
+						((= n 1)    (decf z))
                                                 ((= n #xff) (incf z))
                                                 (else       (movlw n)
                                                             (subwf z))))
