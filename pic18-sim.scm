@@ -1058,7 +1058,7 @@
 		 (obj->ram o 3)))
   (define (show-obj o)
     (cond ((= o 0) #f)
-	  ((= o 1) #f)
+	  ((= o 1) #t)
 	  ((= o 2) '())
 	  ((< o (+ 3 255 1 1)) ; fixnum
 	   (- o 4))

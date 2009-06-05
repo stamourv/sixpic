@@ -542,7 +542,7 @@
 		     (padded2 (reverse padded2)))
 		 (case id
 		   ((x==y) ; unlike < and >, must check all bytes, so is simpler
-		    (let loop2 ((bytes1 padded1) ;; TODO ior the xors FOO
+		    (let loop2 ((bytes1 padded1) ;; TODO ior the xors
 				(bytes2 padded2))
 		      (let ((byte1 (car bytes1))
 			    (byte2 (car bytes2)))
@@ -708,12 +708,18 @@
                (bytes3 (value-bytes result))
                (ignore-carry-borrow? #t))
       (if (not (null? bytes3))
-	  (begin (emit
-		  (new-instr (if ignore-carry-borrow?
-				 (case id ((x+y) 'add)  ((x-y) 'sub))
-				 (case id ((x+y) 'addc) ((x-y) 'subb)))
-			     (car bytes1) (car bytes2) (car bytes3)))
-		 (loop (cdr bytes1) (cdr bytes2) (cdr bytes3) #f)))))
+	  ;; if we would add or subtract 0 and not use the carry, just move
+	  ;; the value
+	  (let ((b1 (car bytes1)) (b2 (car bytes2)) (b3 (car bytes3)))
+	    (if (and (byte-lit? b2)
+		     (= (byte-lit-val b2) 0)
+		     (or (eq? id 'add) (eq? id 'sub)))
+		(move b1 b3)
+		(emit (new-instr (if ignore-carry-borrow?
+				     (case id ((x+y) 'add)  ((x-y) 'sub))
+				     (case id ((x+y) 'addc) ((x-y) 'subb)))
+				 b1 b2 b3)))
+	    (loop (cdr bytes1) (cdr bytes2) (cdr bytes3) #f)))))
 
   (define (mul x y type result)
     (let* ((value-x (expression x))
@@ -824,7 +830,7 @@
     (let loop ((bytes1 (value-bytes value1))
                (bytes2 (value-bytes value2))
                (bytes3 (value-bytes result)))
-      (if (not (null? bytes3))
+      (if (not (null? bytes3)) ;; TODO check for cases like or 0, or ff, and 0, and ff, ...
 	  (begin
 	    (emit (new-instr (case id ((x&y) 'and) ((|x\|y|) 'ior) ((x^y) 'xor))
 			     (car bytes1) (car bytes2) (car bytes3)))

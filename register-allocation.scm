@@ -156,14 +156,17 @@
                     (let loop2 ((lst (set->list neighbours))) ;; TODO keep using sets, but not urgent, it's not a bottleneck
 		      (if (null? lst)
 			  (begin (byte-cell-adr-set! byte-cell adr)
-				 (table-set!
-				  register-table
-				  (if (and (> adr #x5F) (< adr #xF60))
-				      ;; not in bank 0
-				      (+ adr #xa0)
-				      adr)
-				  (cons (byte-cell-name byte-cell)
-					(table-ref register-table adr '()))))
+				 (if (not (string=? (byte-cell-name byte-cell)
+						    "__tmp"))
+				     (table-set!
+				      register-table
+				      (if (and (> adr #x5F) (< adr #xF60))
+					  ;; not in bank 0
+					  (+ adr #xa0)
+					  adr)
+				      (cons (byte-cell-name byte-cell)
+					    (table-ref register-table
+						       adr '())))))
 			  (let ((x (car lst)))
 			    (if (= adr (byte-cell-adr x))
 				(loop1 (+ adr 1))
