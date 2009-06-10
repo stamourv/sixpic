@@ -50,17 +50,21 @@
   id
   adr
   name ; to display in the listing
-  (interferes-with unprintable:) ; these 2 are stored as sets
-  (coalesceable-with unprintable:))
-(define (new-byte-cell #!optional (name #f))
+  bb   ; label of the basic in which this byte-cell is used
+  (interferes-with   unprintable:) ; these 3 are stored as sets
+  (coalesceable-with unprintable:)
+  (coalesced-with    unprintable:))
+(define (new-byte-cell #!optional (name #f) (bb #f))
   (let ((id (byte-cell-next-id)))
-    (make-byte-cell id (if allocate-registers? #f id)
-		    (if name (string-append name "$" (number->string id)) "__tmp")
-		    (new-empty-set) (new-empty-set))))
+    (make-byte-cell
+     id (if allocate-registers? #f id)
+     (if name (string-append name "$" (number->string id)) "__tmp") bb
+     (new-empty-set) (new-empty-set) (new-empty-set))))
 (define (get-register n)
-  (make-byte-cell (byte-cell-next-id) n
-		  (symbol->string (cdr (assv n file-reg-names)))
-		  (new-empty-set) (new-empty-set)))
+  (make-byte-cell
+   (byte-cell-next-id) n
+   (symbol->string (cdr (assv n file-reg-names))) #f
+   (new-empty-set) (new-empty-set) (new-empty-set)))
 
 (define-type byte-lit
   val)
@@ -110,21 +114,7 @@
 	(loop (cdr bytes)
 	      (+ (* 256 n) (byte-lit-val (car bytes)))))))
 
-;; TODO instead of carrying types around, use the length instead, or even better, just pass the value-bytes, and calculate the length as needed
-(define (extend value type)
-  ;; literals must be extended with literal 0s, while variables must be
-  ;; extended with byte cells
-  (let* ((bytes (value-bytes value))
-	 (lit?  (byte-lit? (car bytes))))
-    (let loop ((rev-bytes (reverse bytes))
-	       (n         (max 0 (- (type->bytes type) (length bytes)))))
-      (if (= n 0)
-	  (new-value (reverse rev-bytes))
-	  (loop (cons (if lit? (new-byte-lit 0) (new-byte-cell))
-		      rev-bytes)
-		(- n 1))))))
-
-(define (alloc-value type #!optional (name #f))
+(define (alloc-value type #!optional (name #f) (bb #f))
   (let ((len (type->bytes type)))
     (let loop ((len len) (rev-bytes '()))
       (if (= len 0)
@@ -135,7 +125,8 @@
 			   ;; the lsb is 0, and so on
 			   (string-append (symbol->string name)
 					  (number->string (- len 1)))
-			   #f))
+			   #f)
+		       bb)
                       rev-bytes))))))
 
 (define-type-of-def def-variable

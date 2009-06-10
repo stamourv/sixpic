@@ -1,8 +1,10 @@
 (define (predefine-var id type addresses)
   (let* ((value
 	  ;; adrs is the list of addresses this variable is stored at
-          (new-value (map (lambda (x) (make-byte-cell (byte-cell-next-id) x "dummy"
-						      (new-empty-set) (new-empty-set)))
+          (new-value (map (lambda (x)
+			    (make-byte-cell
+			     (byte-cell-next-id) x "dummy" #f
+			     (new-empty-set) (new-empty-set) (new-empty-set)))
 			  addresses)))
          (ast
           (new-def-variable '() id '() type value '())))
@@ -11,9 +13,9 @@
 (define (predefine-fun id type param-defs adr)
   (let* ((value
           (cond ((eq? type 'byte) ;; TODO have the other types, or make this generic (this is not actually used anyway)
-                 (new-value (list (make-byte-cell (byte-cell-next-id)
-						  WREG
-						  "dummy"
+                 (new-value (list (make-byte-cell (byte-cell-next-id) WREG
+						  "dummy" #f
+						  (new-empty-set)
 						  (new-empty-set)
 						  (new-empty-set)))))
                 ((eq? type 'void)

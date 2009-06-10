@@ -91,9 +91,16 @@
       (set! current-def-proc-bb-id (+ current-def-proc-bb-id 1))
       bb))
 
+  (define (bb-name bb)
+    (asm-label-id (bb-label bb)))
+
   (define (emit instr) (add-instr bb instr))
 
   (define current-def-proc #f)
+  (define (current-def-proc-id)
+    (if current-def-proc
+	(def-id current-def-proc)
+	#f))
   (define current-def-proc-bb-id 0)
   (define break-stack '())
   (define continue-stack '())
@@ -113,10 +120,26 @@
       (if (not (ref? x))
 	  (error "assignment target must be a variable")
 	  (let* ((def-var (ref-def-var x))
-		 (result  (alloc-value (def-variable-type def-var))))
+		 (result  (alloc-value (def-variable-type def-var) #f (bb-name bb))))
 	    (move-value (def-variable-value def-var) result)
 	    result))))
-
+  
+  ;; TODO instead of carrying types around, use the length instead, or even better, just pass the value-bytes, and calculate the length as needed
+  (define (extend value type)
+    ;; literals must be extended with literal 0s, while variables must be
+    ;; extended with byte cells
+    (let* ((bytes (value-bytes value))
+	   (lit?  (byte-lit? (car bytes))))
+      (let loop ((rev-bytes (reverse bytes))
+		 (n         (max 0 (- (type->bytes type) (length bytes)))))
+	(if (= n 0)
+	    (new-value (reverse rev-bytes))
+	    (loop (cons (if lit?
+			    (new-byte-lit 0)
+			    (new-byte-cell #f (bb-name bb)))
+			rev-bytes)
+		  (- n 1))))))
+  
   (define (program ast)
     (let loop ((asts (ast-subasts ast)))
       (if (not (null? asts))
@@ -136,7 +159,7 @@
           (else
            (statement ast))))
 
-  (define (def-variable ast)
+  (define (def-variable ast) ;; FOO set the fun for each byte-cell
     (let ((subasts (ast-subasts ast)))
       (if (not (null? subasts)) ; if needed, set the variable
           (let ((value (expression (subast1 ast))))
@@ -163,7 +186,7 @@
 			     (loop x visited))
 			   (bb-succs start))))))
   
-  (define (def-procedure ast)
+  (define (def-procedure ast) ;; FOO set the fun for the parameters, and maybe also return value
     (set! current-def-proc-bb-id 0)
     (set! current-def-proc ast)
     (let ((old-bb bb)
@@ -357,7 +380,7 @@
 		 (vector-set!
 		  (bb-label (car (bb-succs bb))) 2
 		  (string->symbol
-		   (string-append (symbol->string (asm-label-id (bb-label bb)))
+		   (string-append (symbol->string (bb-name bb))
 				  "$"
 				  (if (symbol? case)
 				      ;; default
@@ -413,7 +436,8 @@
 					  op)))
 			       (expr-type-set! ast ((op-type-rule op) ast))
 			       ast)))))
-		  (new-byte-cell) ; working space to calculate addresses
+		  ;; working space to calculate addresses
+		  (new-byte-cell #f (bb-name bb))
 		  #f))))))
       (in exit-bb)
       (pop-break)))
@@ -559,7 +583,7 @@
 				   bb-true bb-false)
 			;; more than one byte, we subtract, then see if we had
 			;; to borrow
-			(let ((scratch (new-byte-cell)))
+			(let ((scratch (new-byte-cell #f (bb-name bb))))
 			  
 			  ;; our values might contain literal bytes and sub and
 			  ;; subb can't have literals in their first argument,
@@ -569,7 +593,8 @@
 					  #f padded2)
 				   (eq? id 'x>y))
 			      (let ((tmp (alloc-value
-					  (bytes->type (length padded2)))))
+					  (bytes->type (length padded2))
+					  #f (bb-name bb))))
 				(move-value (new-value padded2) tmp)
 				(set! padded2 (value-bytes tmp))))
 			  (if (and (foldl (lambda (acc new) ;; TODO abstract both cases
@@ -577,7 +602,8 @@
 					  #f padded1)
 				   (eq? id 'x<y))
 			      (let ((tmp (alloc-value
-					  (bytes->type (length padded1)))))
+					  (bytes->type (length padded1))
+					  #f (bb-name bb))))
 				(move-value (new-value padded1) tmp)
 				(set! padded1 (value-bytes tmp))))
 			  
@@ -737,7 +763,8 @@
 	  (case (byte-lit-val (car bytes-y))
 	    ((2) (add-sub 'x+y value-x value-x result)) ; simple addition
 	    ((4) (let ((tmp (alloc-value (bytes->type
-					  (length (value-bytes result))))))
+					  (length (value-bytes result)))
+					 #f (bb-name bb))))
 		   (add-sub 'x+y value-x value-x tmp)
 		   (add-sub 'x+y tmp tmp result))))
 	  ;; if not, we have to do it the long way
@@ -779,7 +806,7 @@
 		   (= (floor x) x)))
 	    ;; bitwise and with y - 1
 	    (begin (let* ((l   (bytes->type (length bytes2)))
-			  (tmp (alloc-value l)))
+			  (tmp (alloc-value l #f (bb-name bb))))
 		     (move-value (int->value (- (value->int y) 1)
 					     (bytes->type (length bytes2)))
 				 tmp)
@@ -916,10 +943,10 @@
 		  (set! value-y tmp))
 		;; the operator is not commutative, we have to
 		;; allocate the first argument somewhere
-		(let ((dest (alloc-value (expr-type x))))
+		(let ((dest (alloc-value (expr-type x) #f (bb-name bb))))
 		  (move-value value-x dest)
 		  (set! value-x dest))))
-	(let ((result (alloc-value type)))
+	(let ((result (alloc-value type #f (bb-name bb))))
 	  (case id
 	    ((x+y x-y)        (add-sub id value-x value-y result))
 	    ((x*y)            (mul x y type result))
@@ -935,7 +962,7 @@
 	  ((-x ~x)
 	   (let ((x (extend (expression (subast1 ast))
 			    type))
-		 (result (alloc-value type)))
+		 (result (alloc-value type #f (bb-name bb))))
 	     (case id
 	       ((-x) (add-sub 'x-y
 			      (int->value 0 type)
@@ -1040,7 +1067,7 @@
 		 (bb-true  (new-bb))
 		 (bb-false (new-bb))
 		 (bb-join  (new-bb))
-		 (result   (alloc-value type)))
+		 (result   (alloc-value type #f (bb-name bb))))
 	     (in bb-true)
 	     (move-value (int->value 1 type) result)
 	     (gen-goto bb-join)
@@ -1059,7 +1086,7 @@
 	      (bb-true  (new-bb))
 	      (bb-false (new-bb))
 	      (bb-join  (new-bb))
-	      (result   (alloc-value type)))
+	      (result   (alloc-value type #f (bb-name bb))))
 	  (in bb-true)
 	  (move-value (expression (subast2 ast)) result)
 	  (gen-goto bb-join)
@@ -1247,7 +1274,8 @@
                 parameters)
       (emit (new-call-instr def-proc))
       (let ((value (def-procedure-value def-proc)))
-        (let ((result (alloc-value (def-procedure-type def-proc))))
+        (let ((result
+	       (alloc-value (def-procedure-type def-proc) #f (bb-name bb))))
           (move-value value result)
           result))))
 
