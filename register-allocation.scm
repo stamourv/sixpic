@@ -147,7 +147,7 @@
 			    byte-cell1))
 		neighbours))
 
-(define (coalesce graph) ;; FOO pc gets clobbered, it seems... (everything gets clobbered)
+(define (coalesce graph)
   (if coalesce?
       (keep
        (lambda (byte-cell)
@@ -159,34 +159,33 @@
 		   (set-empty? coalesce-candidates))
 	       #t ;; keep it
 	       ;; coalesce byte-cell with another cell
-	       (let ((c (let loop ((l (set->list coalesce-candidates)))
-			  (if (null? l)
-			      #f
-			      (let ((c (car l)))
-				(if (byte-cell-adr c)
-				    (loop (cdr l))
-				    c))))))
-		 (if (not c)
-		     #t
-		     (let ((c-neighbours   (byte-cell-interferes-with c)))
-		       ;; remove all references to byte-cell and add references
-		       ;; to c instead
-		       (set-union! c-neighbours old-neighbours)
-		       (undelete   c            old-neighbours)
-		       (delete     byte-cell    old-neighbours)
-		       (set-for-each
-			(lambda (cell)
-			  (let ((s (byte-cell-coalesceable-with cell)))
-			    (set-remove! s byte-cell)
-			    ;; (if (not (eq? cell c)) (set-add! s c)) ;; FOO disabled for now
-			    ))
-			coalesceable-with)
-		       (byte-cell-interferes-with-set!   byte-cell
-							 (new-empty-set))
-		       (byte-cell-coalesceable-with-set! byte-cell
-							 (new-empty-set))
-		       (set-add! (byte-cell-coalesced-with c) byte-cell)
-		       #f))))))
+	       (let loop ((l (set->list coalesce-candidates)))
+		 (if (null? l)
+		     #t ; can't coalesce, keep
+		     (let ((c (car l)))
+		       ;; don't coalesce with a special register
+		       (if (byte-cell-adr c)
+			   (loop (cdr l))
+			   (let ((c-neighbours (byte-cell-interferes-with c))
+				 (c-coalesced  (byte-cell-coalesced-with  c)))
+			     ;; remove all references to byte-cell and replace
+			     ;; them with references to c
+			     (set-union! c-neighbours old-neighbours)
+			     (undelete   c            old-neighbours)
+			     (delete     byte-cell    old-neighbours)
+			     (set-union! c-coalesced
+					 (byte-cell-coalesced-with byte-cell))
+			     (set-for-each
+			      (lambda (cell)
+				(let ((s (byte-cell-coalesceable-with cell)))
+				  (set-remove! s byte-cell)))
+			      coalesceable-with)
+			     (byte-cell-coalesceable-with-set! byte-cell
+							       (new-empty-set))
+			     (byte-cell-interferes-with-set!   byte-cell
+							       (new-empty-set))
+			     (set-add! c-coalesced byte-cell)
+			     #f))))))))
        graph)
       graph))
 
@@ -247,28 +246,6 @@
               (undelete byte-cell neighbours))
             (if (not (byte-cell-adr byte-cell))
                 (color byte-cell)))))
-
-    (let loop ((l all-live)) ;; FOO DEBUG might be nice to know which bb these temporaries come from, really have a way to know where each byte cell is used
-      (if (not (null? l))
-	  (let ((head (car l)))
-	    (if (or (string=? (byte-cell-name head) "env0$86")
-		    (string=? (byte-cell-name head) "env1$85"))
-		(begin (pp (byte-cell-name head))
-		       (for-each (lambda (x) (pp (list (byte-cell-name x) (byte-cell-bb x)))) ;; FOO does it report the right one ?
-				 (set->list (byte-cell-coalesced-with head)))
-;; 		       (let loop ((l all-live))
-;; 			 (if (not (null? l))
-;; 			     (let ((h (car l)))
-;; 			       (if (not (set-member? (byte-cell-interferes-with head) h))
-;; 				   (pp (list N-I: (byte-cell-name h) (byte-cell-bb h)))) ;; FOO commit all changes but register-allocation.scm ALSO, I don't think it reports the right conflicts, since the reportes coalesced cells do not seem to be allocated in the same place
-;; 			       (loop (cdr l)))))
-		       ))
-;; 	    (if (not (set-empty? (set-filter (lambda (cell)
-;; 					       (or (string=? (byte-cell-name cell) "env0$86")
-;; 						   (string=? (byte-cell-name cell) "env1$85")))
-;; 					     (byte-cell-coalesced-with head))))
-;; 		(pp (list OPP: (byte-cell-name head) I: (map (lambda (x) (byte-cell-name x)) (set->list (byte-cell-coalesced-with head))))))
-	    (loop (cdr l)))))
 
     (pp register-allocation:)
     (time (alloc-reg all-live)) ;; TODO convert find-min-neighbours and alloc-reg to use tables, not urgent since it's not a bottleneck

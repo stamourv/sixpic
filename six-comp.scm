@@ -4,7 +4,7 @@
 
 (define allocate-registers? #t) ; can be turned off to reduce compilation time
 (define fold-constants?     #t)
-(define coalesce?           #f) ;; FOO doesn't work
+(define coalesce?           #t)
 
 ;; ;; to use when interpreting
 ;; (include "asm.scm")
