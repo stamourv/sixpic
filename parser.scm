@@ -305,7 +305,7 @@
   (define (operation op source cte cont)
     (define (continue ast cte)
       (expr-type-set! ast ((op-type-rule op) ast))
-      (cont ((op-constant-fold op) ast)
+      (cont (if fold-constants? ((op-constant-fold op) ast) ast)
 	    cte))
     (cond ((op1? op)
 	   (expression

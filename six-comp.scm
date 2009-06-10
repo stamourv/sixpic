@@ -3,7 +3,8 @@
 (declare (standard-bindings))
 
 (define allocate-registers? #t) ; can be turned off to reduce compilation time
-(define fold-constants? #t)
+(define fold-constants?     #t)
+(define coalesce?           #f) ;; FOO doesn't work
 
 ;; ;; to use when interpreting
 ;; (include "asm.scm")
