@@ -134,9 +134,7 @@
 		 (n         (max 0 (- (type->bytes type) (length bytes)))))
 	(if (= n 0)
 	    (new-value (reverse rev-bytes))
-	    (loop (cons (if lit?
-			    (new-byte-lit 0)
-			    (new-byte-cell #f (bb-name bb)))
+	    (loop (cons (new-byte-lit 0) ;; TODO used to extend with empty byte cells when it expanded a variable. caused weird bugs.
 			rev-bytes)
 		  (- n 1))))))
   
@@ -745,7 +743,8 @@
 				     (case id ((x+y) 'add)  ((x-y) 'sub))
 				     (case id ((x+y) 'addc) ((x-y) 'subb)))
 				 b1 b2 b3)))
-	    (loop (cdr bytes1) (cdr bytes2) (cdr bytes3) #f)))))
+	    (loop (cdr bytes1) (cdr bytes2) (cdr bytes3) #f))
+	  result)))
 
   (define (mul x y type result)
     (let* ((value-x (expression x))
@@ -792,27 +791,27 @@
 			     (number->string (* lx 8)) "_"
 			     (number->string (* ly 8))))
 	     (list x y)
-	     type
-	     result)))))
+	     type)))))
 
   (define (mod x y result)
-    (let ((bytes1 (value-bytes x))
-	  (bytes2 (value-bytes y))
-	  (bytes3 (value-bytes result)))
+    (let* ((bytes1 (value-bytes x))
+	   (bytes2 (value-bytes y))
+	   (bytes3 (value-bytes result))
+	   (y0     (car bytes2)))
       ;; if y is a literal and a power of 2, we can do a bitwise and
-      (let ((y0 (car bytes2)))
-	(if (and (byte-lit? y0)
-		 (let ((x (/ (log (value->int y)) (log 2))))
-		   (= (floor x) x)))
-	    ;; bitwise and with y - 1
-	    (begin (let* ((l   (bytes->type (length bytes2)))
-			  (tmp (alloc-value l #f (bb-name bb))))
-		     (move-value (int->value (- (value->int y) 1)
-					     (bytes->type (length bytes2)))
-				 tmp)
-		     (bitwise 'x&y x tmp result)))
-	    ;; TODO for the general case, try to optimise the case where division and modulo are used together, since they are calculated together
-	    (error "modulo is only supported for powers of 2")))))
+      (if (and (byte-lit? y0)
+	       (let ((x (/ (log (value->int y)) (log 2))))
+		 (= (floor x) x)))
+	  ;; bitwise and with y - 1
+	  (begin (let* ((l   (bytes->type (length bytes2)))
+			(tmp (alloc-value l #f (bb-name bb))))
+		   (move-value (int->value (- (value->int y) 1)
+					   (bytes->type (length bytes2)))
+			       tmp)
+		   (bitwise 'x&y x tmp result)))
+	  ;; TODO for the general case, try to optimise the case where division and modulo are used together, since they are calculated together
+	  (error "modulo is only supported for powers of 2"))
+      result))
 
   (define (shift id x y type result)
     (let ((bytes1 (value-bytes (extend (expression x) type)))
@@ -840,15 +839,15 @@
 				 (new-byte-lit 0)
 				 (list-ref x (+ i n)))
 			     (list-ref bytes3 i))
-		       (loop (+ i 1) x))))))
+		       (loop (+ i 1) x)))
+		    result)))
 	    (routine-call
 	     (string->symbol
 	      (string-append "__sh"
 			     (case id ((x<<y) "l") ((x>>y) "r"))
 			     (number->string (* 8 (length bytes1)))))
 	     (list x y)
-	     type
-	     result)))))
+	     type)))))
 
   ;; bitwise and, or, xor
   ;; TODO similar to add-sub and probably others, abstract multi-byte ops
@@ -861,7 +860,8 @@
 	  (begin
 	    (emit (new-instr (case id ((x&y) 'and) ((|x\|y|) 'ior) ((x^y) 'xor))
 			     (car bytes1) (car bytes2) (car bytes3)))
-	    (loop (cdr bytes1) (cdr bytes2) (cdr bytes3))))))
+	    (loop (cdr bytes1) (cdr bytes2) (cdr bytes3)))
+	  result)))
 
   (define (bitwise-negation x result)
     (let loop ((bytes1 (value-bytes x))
@@ -953,8 +953,7 @@
 	    ((x/y)            (error "division not implemented yet")) ;; TODO optimize for powers of 2
 	    ((x%y)            (mod value-x value-y result))
 	    ((x&y |x\|y| x^y) (bitwise id value-x value-y result))
-	    ((x>>y x<<y)      (shift id x y type result)))
-	  result))
+	    ((x>>y x<<y)      (shift id x y type result)))))
       
       (cond
        ((op1? op)
@@ -1230,17 +1229,17 @@
 	   (add-succ bb after-bb) ; true
 	   (emit (new-instr 'x==y y0 (new-byte-lit 0) #f))
 	   (in loop-bb)
+	   ;; clear the carry, to avoid reinserting it in the register
+	   (emit (new-instr 'clear
+			    (get-register STATUS)
+			    (new-byte-lit C)
+			    #f))
 	   ;; shift for each byte, since it's a rotation using the carry,
 	   ;; what goes out from the low bytes gets into the high bytes
 	   (for-each (lambda (b)
 		       (emit (new-instr (if left-shift? 'shl 'shr)
 					b #f b)))
 		     (if left-shift? bytes-z (reverse bytes-z)))
-	   ;; clear the carry, to avoid reinserting it in the register
-	   (emit (new-instr 'set
-			    (get-register STATUS)
-			    (new-byte-lit 0)
-			    #f))
 	   (emit (new-instr 'sub y0 (new-byte-lit 1) y0))
 	   (gen-goto start-bb)
 	   (in after-bb))))
@@ -1281,24 +1280,14 @@
 
   ;; call to a predefined routine, a simple wrapper to an ordinary call
   ;; name is a symbol, args is a list of the arguments
-  (define (routine-call name args type result)
+  (define (routine-call name args type)
     (cond ((memp (lambda (x) (eq? (def-id x) name))
 		 initial-cte)
-	   => (lambda (x) (move-value (call (new-call args type (car x)))
-				      result)))
+	   => (lambda (x) (call (new-call args type (car x)))))
 	  (else (error "unknown routine: " name))))
-
-  ;; remplaces empty bbs by bbs with a single goto, to have a valid CFG for
-  ;; optimizations
-  (define (fill-empty-bbs)
-    (for-each (lambda (x) (if (null? (bb-rev-instrs x))
-			       (begin (in x)
-				      (emit (new-instr 'goto #f #f #f)))))
-	      (cfg-bbs cfg)))
   
   (in (new-bb))
   (program ast)
-;;   (fill-empty-bbs) ; not sure it's legitimate or just a patch. disable for now
   cfg)
 
 (define (print-cfg-bbs cfg)

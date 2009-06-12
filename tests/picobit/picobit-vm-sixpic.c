@@ -2014,86 +2014,86 @@ void interpreter () {
 
     break;
 
-  case 5:
-    bytecode = rom_get (pc++);
+    /*   case 5: */ // TODO useless, they don't work in the regular PICOBIT
+/*     bytecode = rom_get (pc++); */
 
-    ;
-
-
-    entry = pc + bytecode + #x8000;
-    arg1 = 2;
-
-    na = rom_get (entry++);
-
-    build_env ();
-    save_cont ();
-
-    env = arg1;
-    pc = entry;
-
-    arg1 = 0;
-
-    break;
-
-  case 6:
-    bytecode = rom_get (pc++);
-
-    ;
+/*     ; */
 
 
-    entry = pc + bytecode + #x8000;
-    arg1 = 2;
+/*     entry = pc + bytecode + #x8000; */
+/*     arg1 = 2; */
 
-    na = rom_get (entry++);
+/*     na = rom_get (entry++); */
 
-    build_env ();
+/*     build_env (); */
+/*     save_cont (); */
 
-    env = arg1;
-    pc = entry;
+/*     env = arg1; */
+/*     pc = entry; */
 
-    arg1 = 0;
+/*     arg1 = 0; */
 
-    break;
+/*     break; */
 
-  case 7:
-    bytecode = rom_get (pc++);
+/*   case 6: */
+/*     bytecode = rom_get (pc++); */
 
-    ;
-
-    pc = pc + bytecode + #x8000;
-
-    break;
-
-  case 8:
-    bytecode = rom_get (pc++);
-
-    ;
+/*     ; */
 
 
-    if (pop() == 0)
-      pc = pc + bytecode + #x8000;
+/*     entry = pc + bytecode + #x8000; */
+/*     arg1 = 2; */
 
-    break;
+/*     na = rom_get (entry++); */
 
-  case 9:
-    bytecode = rom_get (pc++);
+/*     build_env (); */
 
-    ;
+/*     env = arg1; */
+/*     pc = entry; */
 
-    arg3 = pop();
+/*     arg1 = 0; */
 
-    entry = pc + bytecode;
+/*     break; */
 
-    arg1 = alloc_ram_cell_init (#x40 | (arg2 >> 3),
-    ((arg2 & #x07) << 5) | (bytecode >> 3),
-    ((bytecode &#x07) <<5) |((arg3 &#x1f00) >>8),
-    arg3 & #xff);
+/*   case 7: */
+/*     bytecode = rom_get (pc++); */
 
-    push_arg1 ();
+/*     ; */
 
-    arg3 = 0;
+/*     pc = pc + bytecode + #x8000; */
 
-    break;
+/*     break; */
+
+/*   case 8: */
+/*     bytecode = rom_get (pc++); */
+
+/*     ; */
+
+
+/*     if (pop() == 0) */
+/*       pc = pc + bytecode + #x8000; */
+
+/*     break; */
+
+/*   case 9: */
+/*     bytecode = rom_get (pc++); */
+
+/*     ; */
+
+/*     arg3 = pop(); */
+
+/*     entry = pc + bytecode; */
+
+/*     arg1 = alloc_ram_cell_init (#x40 | (arg2 >> 3), */
+/*     ((arg2 & #x07) << 5) | (bytecode >> 3), */
+/*     ((bytecode &#x07) <<5) |((arg3 &#x1f00) >>8), */
+/*     arg3 & #xff); */
+
+/*     push_arg1 (); */
+
+/*     arg3 = 0; */
+
+/*     break; */
   case 14:
     bytecode = rom_get (pc++);
 

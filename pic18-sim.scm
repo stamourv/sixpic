@@ -1050,12 +1050,20 @@
 (define (picobit-stack env0 env1)
   (define (obj->ram o field)
     (get-ram (+ 512 (arithmetic-shift (- o 512) 2) field)))
-  (define (get-car o) ;; TODO shouldn't end up seeing any rom objects
+  (define (ram-get-car o) ;; TODO shouldn't end up seeing any rom objects
     (bitwise-ior (arithmetic-shift (bitwise-and (obj->ram o 0) #x1f) 8)
 		 (obj->ram o 1)))
-  (define (get-cdr o)
+  (define (ram-get-cdr o)
     (bitwise-ior (arithmetic-shift (bitwise-and (obj->ram o 2) #x1f) 8)
 		 (obj->ram o 3)))
+
+  (define (show-pair ptr)
+    (let loop ((ptr ptr)
+	       (l   '()))
+      (if (= ptr 2) ; '()
+	  (reverse l)
+	  (loop (ram-get-cdr ptr) (cons (show-obj (ram-get-car ptr)) l)))))
+  
   (define (show-obj o)
     (cond ((= o 0) #f)
 	  ((= o 1) #t)
@@ -1065,10 +1073,23 @@
 	  ((< o 512) ; rom
 	   "rom") ;; TODO be more precise
 	  ((< o 1280)
-	   "ram")
+	   (let ((obj (bitwise-ior (arithmetic-shift (obj->ram o 0) 24)
+				   (arithmetic-shift (obj->ram o 1) 16)
+				   (arithmetic-shift (obj->ram o 2) 8)
+				   (obj->ram o 3))))
+	     (cond ((= (bitwise-and obj #xc0000000) 0)
+		    "ram bignum")
+		   ((= (bitwise-and obj #x80000000) #x80000000) ; ram composite
+		    (cond ((= (bitwise-and obj #x0000e000) 0) ; ram pair
+			   (show-pair o))
+			  ((= (bitwise-and obj #x0000e000) #x20)
+			   "ram symbol")
+			  ((= (bitwise-and obj #x0000e000) #x40)
+			   "ram string")
+			  ((= (bitwise-and obj #x0000e000) #x60)
+			   "ram vector")))
+		   (else
+		    "ram closure"))))
 	  (else "invalid")))
-  (let loop ((ptr (+ (* 256 (get-ram env1)) (get-ram env0)))
-	     (l   '()))
-    (if (= ptr 2) ;; '()
-	(pp (reverse l))
-	(loop (get-cdr ptr) (cons (show-obj (get-car ptr)) l)))))
+
+  (show-obj (+ (* 256 (get-ram env1)) (get-ram env0))))

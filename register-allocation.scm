@@ -198,15 +198,15 @@
 
     (define (color byte-cell)
       (define (set-register-table cell adr)
-	(if #f (not (string=? (byte-cell-name cell) "__tmp")) ;; TODO DEBUG
-	    (table-set! register-table
-			(if (and (> adr #x5F) (< adr #xF60))
-			    ;; not in bank 0
-			    (+ adr #xa0)
-			    adr)
-			(cons (cons (byte-cell-bb   cell)
-				    (byte-cell-name cell))
-			      (table-ref register-table adr '())))))
+	(if #f (not (string=? (byte-cell-name cell) "__tmp")) ;; FOO DEBUG
+	    (let ((adr (if (and (> adr #x5F) (< adr #xF60)) ; not in bank 0 ;; TODO have a function for that
+			   (+ adr #xa0)
+			   adr)))
+	      (table-set! register-table
+			  adr
+			  (cons (cons (byte-cell-bb   cell)
+				      (byte-cell-name cell))
+				(table-ref register-table adr '()))))))
       (let ((neighbours (byte-cell-interferes-with byte-cell)))
 	(let loop1 ((adr 0))
 	  (if (and memory-divide ; the user wants his own zone
