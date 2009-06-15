@@ -124,9 +124,10 @@
         (emit (list 'return))))
 
   (define (label lab)
-    (if (and #f (and (not (null? rev-code))
-                     (eq? (caar rev-code) 'bra-or-goto)
-                     (eq? (cadar rev-code) lab)))
+    (if (and (and (not (null? rev-code)) ;; TODO have a flag to disable this optimization
+		  (or (eq? (caar rev-code) 'bra-or-goto)
+		      (eq? (caar rev-code) 'goto))
+		  (eq? (cadar rev-code) lab)))
         (begin
           (set! rev-code (cdr rev-code))
           (label lab))
@@ -360,8 +361,8 @@
                               (bra-or-goto (bb-label dest-false))
                               (bra-or-goto (bb-label dest-true))
                               (add-todo dest-false)
-                              (add-todo dest-true))
-
+			      (add-todo dest-true))
+			    
                             (cond ((byte-lit? src1)
                                    (let ((n (byte-lit-val src1))
                                          (y (byte-cell-adr src2)))
@@ -402,7 +403,9 @@
 			    (addwfc scratch)
 			    (cpfsgt scratch)
 			    (bra-or-goto (bb-label dest-false))
-			    (bra-or-goto (bb-label dest-true))))
+			    (bra-or-goto (bb-label dest-true))
+			    (add-todo dest-false)
+			    (add-todo dest-true)))
 
 			 ((branch-table)
 			  (let ((off     (if (byte-lit? src1) ; branch no
@@ -448,8 +451,7 @@
         (begin
           (vector-set! bbs-vector label-num #f)
           (label (bb-label bb))
-          (for-each dump-instr (reverse (bb-rev-instrs bb)))
-          (for-each add-todo (bb-succs bb)))))))
+          (for-each dump-instr (reverse (bb-rev-instrs bb))))))))
 
 (let ((prog-label (asm-make-label 'PROG)))
   (rcall prog-label)

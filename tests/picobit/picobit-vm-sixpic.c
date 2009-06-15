@@ -575,31 +575,39 @@ int8 negp (int16 x) {
   return 1;
 }
 
-int8 cmp (int16 x, int16 y) {
+int8 cmp (int16 x, int16 y) { // TODO changed. used to return -1, 0 and 1, now is 0, 1, 2
 
 
-  int8 result = 0;
+  int8 result = 1; // in cmp.c : cell 3
   int16 xlo;
   int16 ylo;
 
-  for (;;) {
-    if (((x) == ((0 + (3 - -1)))) || ((x) == (((0 + (3 - -1))-1)))) {
-      if (!((x) == (y)))
- { if (negp (y)) result = 1; else result = -1; }
-      break;
+  for (;;) { // bb 2
+    if (((x) == ((0 + (3 - -1)))) // bbs 2 and 8
+	|| ((x) == (((0 + (3 - -1))-1)))) { // bbs 7 and 9
+      if (!((x) == (y))) // bbs 6 and 12
+	{ if (negp (y)) // bb 11
+	    result = 2; // bb 14
+	  else result = 0; } // bb 15
+      break; // bb 10
     }
 
-    if (((y) == ((0 + (3 - -1)))) || ((y) == (((0 + (3 - -1))-1)))) {
-      if (negp (x)) result = -1; else result = 1;
-      break;
+    if (((y) == ((0 + (3 - -1)))) // bbs 5 and 19
+	|| ((y) == (((0 + (3 - -1))-1)))) { // bbs 18 and 20
+      if (negp (x)) // bb 17
+	result = 0; // bb 22
+      else result = 2; // bb 23
+      break; // bb 21
     }
-
-    xlo = integer_lo (x);
+    
+    xlo = integer_lo (x); // bb 16
     ylo = integer_lo (y);
     x = integer_hi (x);
     y = integer_hi (y);
-    if (xlo != ylo)
-      { if (xlo < ylo) result = -1; else result = 1; }
+    if (xlo != ylo) // bb 16 and 26
+      { if (xlo < ylo) // bb 25
+	  result = 0; // bb 28
+	else result = 2; } // bb 29
   }
   return result;
 }
@@ -875,7 +883,7 @@ int16 divnonneg (int16 x, int16 y) {
 
     do {
       result = shl (result);
-      if (cmp (x, y) >= 0) {
+      if (cmp (x, y) >= 1) { // TODO cmp changed
 	x = sub (x, y);
 	result = add (((0 + (3 - -1))+1), result);
       }
@@ -1040,7 +1048,7 @@ void prim_neg () {
 
 void prim_eq () {
 
-  arg1 = ((cmp (arg1, arg2) == 0));
+  arg1 = ((cmp (arg1, arg2) == 1)); // TODO cmp changed
 
 
 
@@ -1050,7 +1058,7 @@ void prim_eq () {
 
 void prim_lt () {
 
-  arg1 = ((cmp (arg1, arg2) < 0));
+  arg1 = ((cmp (arg1, arg2) < 1)); // TODO cmp changed
 
 
 
@@ -1060,7 +1068,7 @@ void prim_lt () {
 
 void prim_gt () {
 
-  arg1 = ((cmp (arg1, arg2) > 0));
+  arg1 = ((cmp (arg1, arg2) > 1)); // TODO cmp changed
 
 
 
@@ -1070,7 +1078,7 @@ void prim_gt () {
 
 void prim_leq () {
 
-  arg1 = ((cmp (arg1, arg2) <= 0));
+  arg1 = ((cmp (arg1, arg2) <= 1)); // TODO cmp changed
 
 
 
@@ -1081,7 +1089,7 @@ void prim_leq () {
 
 void prim_geq () {
 
-  arg1 = ((cmp (arg1, arg2) >= 0));
+  arg1 = ((cmp (arg1, arg2) >= 1)); // TODO cmp changed
 
 
 

@@ -1058,38 +1058,47 @@
 		 (obj->ram o 3)))
 
   (define (show-pair ptr)
-    (let loop ((ptr ptr)
-	       (l   '()))
-      (if (= ptr 2) ; '()
-	  (reverse l)
-	  (loop (ram-get-cdr ptr) (cons (show-obj (ram-get-car ptr)) l)))))
+    (let ((obj  (ram-get-car ptr))
+	  (next (ram-get-cdr ptr)))
+      (show-obj obj)
+      (cond ((= next 2)) ; '()
+	    ((and (> next 511) (< next 1280)                    ; ram
+		  (= (bitwise-and (obj->ram next 0) #x80) #x80) ; composite
+		  (= (bitwise-and (obj->ram next 2) #xe0) 0))   ; pair
+	     (display " ")
+	     (show-pair next))
+	    (else (display " . ")
+		  (show-obj next)))))
   
   (define (show-obj o)
-    (cond ((= o 0) #f)
-	  ((= o 1) #t)
-	  ((= o 2) '())
+    (cond ((= o 0) (display #f))
+	  ((= o 1) (display #t))
+	  ((= o 2) (display '()))
 	  ((< o (+ 3 255 1 1)) ; fixnum
-	   (- o 4))
+	   (display (- o 4)))
 	  ((< o 512) ; rom
-	   "rom") ;; TODO be more precise
+	   (display "rom")) ;; TODO be more precise
 	  ((< o 1280)
 	   (let ((obj (bitwise-ior (arithmetic-shift (obj->ram o 0) 24)
 				   (arithmetic-shift (obj->ram o 1) 16)
 				   (arithmetic-shift (obj->ram o 2) 8)
 				   (obj->ram o 3))))
 	     (cond ((= (bitwise-and obj #xc0000000) 0)
-		    "ram bignum")
+		    (display "ram-bignum"))
 		   ((= (bitwise-and obj #x80000000) #x80000000) ; ram composite
 		    (cond ((= (bitwise-and obj #x0000e000) 0) ; ram pair
-			   (show-pair o))
+			   (display "(")
+			   (show-pair o)
+			   (display ")"))
 			  ((= (bitwise-and obj #x0000e000) #x20)
-			   "ram symbol")
+			   (display "ram-symbol"))
 			  ((= (bitwise-and obj #x0000e000) #x40)
-			   "ram string")
+			   (display "ram-string"))
 			  ((= (bitwise-and obj #x0000e000) #x60)
-			   "ram vector")))
+			   (display "ram-vector"))))
 		   (else
-		    "ram closure"))))
-	  (else "invalid")))
+		    (display "ram-closure")))))
+	  (else (display "invalid"))))
 
-  (show-obj (+ (* 256 (get-ram env1)) (get-ram env0))))
+  (show-obj (+ (* 256 (get-ram env1)) (get-ram env0)))
+  (display "\n"))
