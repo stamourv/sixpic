@@ -20,6 +20,9 @@
   succs
   live-before) ; stored as a set
 
+(define (bb-name bb)
+  (asm-label-id (bb-label bb)))
+
 (define-type instr
   extender: define-type-of-instr
   (live-before unprintable:) ; these 2 are stored as sets
@@ -90,9 +93,6 @@
 		      current-def-proc-bb-id)))
       (set! current-def-proc-bb-id (+ current-def-proc-bb-id 1))
       bb))
-
-  (define (bb-name bb)
-    (asm-label-id (bb-label bb)))
 
   (define (emit instr) (add-instr bb instr))
 
@@ -345,7 +345,8 @@
   (define (switch ast)
     (let* ((var      (subast1 ast))
 	   (entry-bb bb)
-	   (exit-bb  (begin (in (new-bb)) (push-break bb) bb)))
+	   (exit-bb  (new-bb)))
+      (push-break exit-bb)
       (let loop ((asts    (cdr (ast-subasts ast))) ; car is the tested variable
 		 (bbs     '())  ; first bb of each case
 		 (end-bbs '())  ; last bb of each case
@@ -505,8 +506,10 @@
     (emit (new-instr 'goto #f #f (subast1 ast))))
   
   (define (gen-goto dest)
-    (add-succ bb dest)
-    (emit (new-instr 'goto #f #f #f)))
+    (if (null? (bb-succs bb))
+	;; since this is an unconditional goto, we want only one
+	(begin (add-succ bb dest)
+	       (emit (new-instr 'goto #f #f #f)))))
 
   (define (test-expression ast bb-true bb-false)
 
@@ -1292,9 +1295,9 @@
 
 (define (print-cfg-bbs cfg)
   (for-each (lambda (bb)
-	      (pp (list "BB:" (bb-label-num bb)
-			"SUCCS" (map bb-label-num (bb-succs bb))
-			"PREDS" (map bb-label-num (bb-preds bb))
+	      (pp (list "BB:" (bb-name bb)
+			"SUCCS" (map bb-name (bb-succs bb))
+			"PREDS" (map bb-name (bb-preds bb))
 			(cond ((null? (bb-rev-instrs bb)) "EMPTY")
 			      ((and (null? (cdr (bb-rev-instrs bb)))
 				     (eq? (instr-id (car (bb-rev-instrs bb))) 'goto)) "SINGLE GOTO")

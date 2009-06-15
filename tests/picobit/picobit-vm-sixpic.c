@@ -578,7 +578,7 @@ int8 negp (int16 x) {
 int8 cmp (int16 x, int16 y) { // TODO changed. used to return -1, 0 and 1, now is 0, 1, 2
 
 
-  int8 result = 1; // in cmp.c : cell 3
+  int8 result = 1;
   int16 xlo;
   int16 ylo;
 
