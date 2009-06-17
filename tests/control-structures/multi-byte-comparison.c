@@ -1,14 +1,12 @@
 // test for < and > on multiple byte values
 
-int16 f(int16 x, int16 y){
-  while (x < 300){
+int16 f(int16 x){
+  while (x <= 300){
     x++;
-    y++;
   }
-  while (x > 260){
+  while (x >= 256){
     x--;
-    y--;
   }
-  return y;
+  return x;
 }
-f(0, 0);
+f(0);

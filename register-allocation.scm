@@ -191,7 +191,8 @@
 
 ;;-----------------------------------------------------------------------------
 
-(define register-table (make-table))
+(define register-table         (make-table))
+(define reverse-register-table (make-table))
 (define (allocate-registers cfg)
   (let ((all-live (coalesce (set->list (interference-graph cfg))))
 	(max-adr  0)) ; to know how much ram we need
@@ -206,7 +207,10 @@
 			  adr
 			  (cons (cons (byte-cell-bb   cell)
 				      (byte-cell-name cell))
-				(table-ref register-table adr '()))))))
+				(table-ref register-table adr '())))
+	      (table-set! reverse-register-table
+			  (byte-cell-name cell) ;; TODO add the bb ?
+			  adr))))
       (let ((neighbours (byte-cell-interferes-with byte-cell)))
 	(let loop1 ((adr 0))
 	  (if (and memory-divide ; the user wants his own zone

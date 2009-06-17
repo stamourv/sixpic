@@ -562,12 +562,11 @@
 		     (cons (if (null? bytes2) (new-byte-lit 0) (car bytes2))
 			   padded2))
 	       ;; now so the test itself, using the padded values
-	       ;; the comparisons are done msb-first, for < and >
 	       (let ((padded1 (reverse padded1))
 		     (padded2 (reverse padded2)))
 		 (case id
 		   ((x==y) ; unlike < and >, must check all bytes, so is simpler
-		    (let loop2 ((bytes1 padded1) ;; TODO ior the xors
+		    (let loop2 ((bytes1 padded1) ;; TODO ior the xors, but increases PICOBIT's size
 				(bytes2 padded2))
 		      (let ((byte1 (car bytes1))
 			    (byte2 (car bytes2)))
@@ -612,15 +611,21 @@
 				     (bytes2  padded2)
 				     (borrow? #f))
 			    (if (not (null? bytes1))
-				(begin ; subtract y from x
-				  (emit
-				   (case id
-				     ((x<y) (new-instr (if borrow? 'subb 'sub)
-						       (car bytes1) (car bytes2)
-						       scratch))
-				     ((x>y) (new-instr (if borrow? 'subb 'sub)
-						       (car bytes2) (car bytes1)
-						       scratch))))
+				(let ((b1 (car bytes1))
+				      (b2 (car bytes2)))
+				  (case id
+				    ((x<y)
+				     (if (not (and (byte-lit? b2)
+						   (= (byte-lit-val b2) 0)))
+					 (emit (new-instr
+						(if borrow? 'subb 'sub)
+						b1 b2 scratch))))
+				    ((x>y)
+				     (if (not (and (byte-lit? b1)
+						   (= (byte-lit-val b1) 0)))
+					 (emit (new-instr
+						(if borrow? 'subb 'sub)
+						b2 b1 scratch)))))
 				  (loop (cdr bytes1) (cdr bytes2) #t))))
 			  
 			  (add-succ bb bb-false)

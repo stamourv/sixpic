@@ -128,13 +128,19 @@
 (define (simulate hexs map-file reg-file asm-file)
   (set! symbol-table   (with-input-from-file map-file
 			 (lambda () (list->table (read)))))
-  (set! register-table
-	(with-input-from-file reg-file
-	  (lambda () (list->table
-		      (map (lambda (x)
-			     ;; read from hex
-			     (cons (string->number (car x) 16) (cdr x)))
-			   (read))))))
+  (let ((regs (with-input-from-file reg-file read)))
+    (set! register-table
+	  (list->table
+	   (map (lambda (x) (cons (string->number (car x) 16) (cdr x)))
+		regs)))
+    (set! reverse-register-table (make-table))
+    (for-each (lambda (x)
+		(for-each (lambda (y)
+			    (table-set! reverse-register-table
+					(cdr y)
+					(string->number (car x) 16)))
+			  (cdr x)))
+	      regs))
   (set! asm-filename asm-file)
   (apply execute-hex-files hexs))
 

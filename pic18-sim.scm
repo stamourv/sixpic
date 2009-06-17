@@ -1044,10 +1044,11 @@
 (define (add-break-point adr) (set! break-points (cons adr break-points)))
 (define (continue) (set! single-stepping-mode? #f)) ;; TODO + the equivalent of ,c
 
-;; takes the regiter number for env0 and env1 and shows the picobit stack
-;; TODO can actually be used to show any list, if given a pointer to it (free list ?)
-;; TODO find the register by doing a reverse lookup on the register table
-(define (picobit-stack env0 env1)
+(define (picobit-stack)
+  (picobit-object (table-ref reverse-register-table "env0$86")
+		  (table-ref reverse-register-table "env1$85")))
+
+(define (picobit-object o0 o1)
   (define (obj->ram o field)
     (get-ram (+ 512 (arithmetic-shift (- o 512) 2) field)))
   (define (ram-get-car o) ;; TODO shouldn't end up seeing any rom objects
@@ -1056,6 +1057,10 @@
   (define (ram-get-cdr o)
     (bitwise-ior (arithmetic-shift (bitwise-and (obj->ram o 2) #x1f) 8)
 		 (obj->ram o 3)))
+  (define (ram-get-entry o)
+    (bitwise-ior (arithmetic-shift (bitwise-and (obj->ram o 0) #x1f) 11)
+		 (arithmetic-shift (obj->ram o 1) 3)
+		 (arithmetic-shift (obj->ram o 2) -5)))
 
   (define (show-pair ptr)
     (let ((obj  (ram-get-car ptr))
@@ -1097,8 +1102,20 @@
 			  ((= (bitwise-and obj #x0000e000) #x60)
 			   (display "ram-vector"))))
 		   (else
-		    (display "ram-closure")))))
+		    (display (string-append "{0x"
+					    (number->string (ram-get-entry o)
+							    16)
+					    " "))
+		    (show-obj (ram-get-cdr o))
+		    (display "}")))))
 	  (else (display "invalid"))))
 
-  (show-obj (+ (* 256 (get-ram env1)) (get-ram env0)))
+  (show-obj (+ (* 256 (get-ram o1)) (get-ram o0)))
   (display "\n"))
+
+(define (picobit-pc)
+  (number->string (+ (* 256 (get-ram (table-ref reverse-register-table
+						"pc1$88")))
+		     (get-ram (table-ref reverse-register-table
+					 "pc0$89")))
+		  16))
