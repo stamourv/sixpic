@@ -74,7 +74,7 @@
 (define types-bytes
   '((void  . 0)
     (bool  . 1)
-    (int   . 1)
+    (int   . 2)
     (byte  . 1)
     (int8  . 1)
     (int16 . 2)

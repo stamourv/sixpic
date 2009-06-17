@@ -1100,7 +1100,8 @@
 			  ((= (bitwise-and obj #x0000e000) #x40)
 			   (display "ram-string"))
 			  ((= (bitwise-and obj #x0000e000) #x60)
-			   (display "ram-vector"))))
+			   (display "ram-vector"))
+			  (else (display "unknown?")))) ;; FOO we end up having to show a rom object
 		   (else
 		    (display (string-append "{0x"
 					    (number->string (ram-get-entry o)

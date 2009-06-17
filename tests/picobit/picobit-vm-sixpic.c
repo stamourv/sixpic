@@ -150,9 +150,10 @@ void ram_set_cdr (int16 o, int16 val) {
 
 
 int16 ram_get_entry (int16 o) {
-  int16 tmp = (ram_get_field0 (o) & #x1f);
+  int16 tmp  = (ram_get_field0 (o) & #x1f);
+  int16 tmp2 = ram_get_field1 (o); // TODO this cast is necessary because literals are of the smallest type possible in SIXPIC, not always int (not standard)
   return ((tmp << 11)
-	  | (ram_get_field1 (o) << 3)
+	  | (tmp2 << 3)
 	  | (ram_get_field2 (o) >> 5));
 }
 int16 rom_get_entry (int16 o){

@@ -368,6 +368,11 @@
 
   (define (literal source cte cont)
     (let ((n (cadr source)))
+      ;; note: literals have the smallest type they can fit in.
+      ;; this is not standard, so more casts than usual might be needed to
+      ;; avoid unfortunate truncations
+      ;; this helps generate shorter code, and can be considered a domain
+      ;; specific optimization
       (cont (new-literal (val->type n) n)
 	    cte)))
 
