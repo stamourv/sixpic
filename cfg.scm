@@ -754,13 +754,16 @@
 	    (loop (cdr bytes1) (cdr bytes2) (cdr bytes3) #f))
 	  result)))
 
-  (define (mul x y type result)
-    (let* ((value-x (expression x))
-	   (value-y (expression y))
-	   (bytes-x (value-bytes value-x))
+  (define (mul value-x value-y type result)
+    (let* ((bytes-x (value-bytes value-x))
 	   (bytes-y (value-bytes value-y))
-	   (lx (length bytes-x))
-	   (ly (length bytes-y)))
+	   ;; to determine the length of the operands, we ignore the padding
+	   (lx (length (keep (lambda (x) (not (and (byte-lit? x)
+						   (= (byte-lit-val x) 0))))
+			     bytes-x)))
+	   (ly (length (keep (lambda (x) (not (and (byte-lit? x)
+						   (= (byte-lit-val x) 0))))
+			     bytes-y))))
       ;; if this a multiplication by 2 or 4, we use additions instead
       ;; at this point, only y (or both x and y) can contain a literal
       (if (and (= ly 1)
@@ -783,7 +786,7 @@
 	    ;; the type of the returned value, since these are what are
 	    ;; expected by the call function
 
-	    ;; to avoid code duplication (i.e. habing a routine for 8 by 16
+	    ;; to avoid code duplication (i.e. having a routine for 8 by 16
 	    ;; multplication and one for 16 by 8), the longest operand goes first
 	    (if (> ly lx)
 		(let ((tmp1 y)
@@ -798,7 +801,7 @@
 	      (string-append "__mul"
 			     (number->string (* lx 8)) "_"
 			     (number->string (* ly 8))))
-	     (list x y)
+	     (list value-x value-y)
 	     type)))))
 
   (define (mod x y result)
@@ -821,9 +824,9 @@
 	  (error "modulo is only supported for powers of 2"))
       result))
 
-  (define (shift id x y type result)
-    (let ((bytes1 (value-bytes (extend (expression x) type)))
-	  (bytes2 (value-bytes (extend (expression y) type)))
+  (define (shift id value-x value-y type result)
+    (let ((bytes1 (value-bytes value-x))
+	  (bytes2 (value-bytes value-y))
 	  (bytes3 (value-bytes result)))
       ;; if the second argument is a literal and a multiple of 8, we can simply
       ;; move the bytes around
@@ -854,7 +857,7 @@
 	      (string-append "__sh"
 			     (case id ((x<<y) "l") ((x>>y) "r"))
 			     (number->string (* 8 (length bytes1)))))
-	     (list x y)
+	     (list value-x value-y)
 	     type)))))
 
   ;; bitwise and, or, xor
@@ -957,11 +960,11 @@
 	(let ((result (alloc-value type #f (bb-name bb))))
 	  (case id
 	    ((x+y x-y)        (add-sub id value-x value-y result))
-	    ((x*y)            (mul x y type result))
+	    ((x*y)            (mul value-x value-y type result))
 	    ((x/y)            (error "division not implemented yet")) ;; TODO optimize for powers of 2
 	    ((x%y)            (mod value-x value-y result))
 	    ((x&y |x\|y| x^y) (bitwise id value-x value-y result))
-	    ((x>>y x<<y)      (shift id x y type result)))))
+	    ((x>>y x<<y)      (shift id value-x value-y type result)))))
       
       (cond
        ((op1? op)
@@ -1257,7 +1260,9 @@
       (resolve-all-gotos entry (list-named-bbs entry))
       (in old-bb)))
   
-  (define (call ast)
+  (define (call ast #!optional (evaluated-args #f))
+    ;; note: we might call this with an ast here the arguments are already
+    ;; evaluated (when doing a routine call)
     (let* ((def-proc   (call-def-proc ast))
 	   (arguments  (ast-subasts ast))
 	   (parameters (def-procedure-params def-proc)))
@@ -1267,17 +1272,18 @@
 	  ;; the corresponding cfg
 	  (include-predefined-routine def-proc))
       ;; argument number check
-      (if (not (= (length arguments) (length parameters))) ;; TODO check at parse time ?
+      (if (not (= (length (if evaluated-args evaluated-args arguments))
+		  (length parameters))) ;; TODO check at parse time ?
 	  (error (string-append "wrong number of arguments given to function "
 				(symbol->string (def-id def-proc)) ": "
 				(number->string (length arguments)) " given, "
 				(number->string (length parameters))
 				" expected")))
       (for-each (lambda (ast def-var)
-                  (let ((value (expression ast)))
+                  (let ((value (if evaluated-args ast (expression ast))))
                     (let ((ext-value (extend value (def-variable-type def-var))))
                       (move-value value (def-variable-value def-var)))))
-                arguments
+                (if evaluated-args evaluated-args arguments)
                 parameters)
       (emit (new-call-instr def-proc))
       (let ((value (def-procedure-value def-proc)))
@@ -1287,11 +1293,11 @@
           result))))
 
   ;; call to a predefined routine, a simple wrapper to an ordinary call
-  ;; name is a symbol, args is a list of the arguments
+  ;; name is a symbol, args is a list of the evaluated arguments
   (define (routine-call name args type)
     (cond ((memp (lambda (x) (eq? (def-id x) name))
 		 initial-cte)
-	   => (lambda (x) (call (new-call args type (car x)))))
+	   => (lambda (x) (call (new-call '() type (car x)) args)))
 	  (else (error "unknown routine: " name))))
   
   (in (new-bb))

@@ -152,8 +152,8 @@ void ram_set_cdr (int16 o, int16 val) {
 int16 ram_get_entry (int16 o) {
   int16 tmp = (ram_get_field0 (o) & #x1f);
   return ((tmp << 11)
-   | (ram_get_field1 (o) << 3)
-   | (ram_get_field2 (o) >> 5));
+	  | (ram_get_field1 (o) << 3)
+	  | (ram_get_field2 (o) >> 5));
 }
 int16 rom_get_entry (int16 o){
   int16 tmp = (rom_get_field0 (o) & #x1f);

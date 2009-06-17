@@ -116,7 +116,7 @@
 	(if (byte-cell? dst)
 	    (let ((src1 (instr-src1 instr))
 		  (src2 (instr-src2 instr)))
-	      (if (and (byte-cell? src1) (not (eq? dst src1))) ;; FOO not sure this fixes anything, but if I remove it, loops infinitely in shl16 (which does no shifting) problem is probably elsewhere, though
+	      (if (and (byte-cell? src1) (not (eq? dst src1)))
 		  (begin (set-add! (byte-cell-coalesceable-with dst) src1)
 			 (set-add! (byte-cell-coalesceable-with src1) dst)))
 	      (if (and (byte-cell? src2) (not (eq? dst src2)))
@@ -199,7 +199,7 @@
 
     (define (color byte-cell)
       (define (set-register-table cell adr)
-	(if #f (not (string=? (byte-cell-name cell) "__tmp")) ;; FOO DEBUG
+	(if #f (not (string=? (byte-cell-name cell) "__tmp"))
 	    (let ((adr (if (and (> adr #x5F) (< adr #xF60)) ; not in bank 0 ;; TODO have a function for that
 			   (+ adr #xa0)
 			   adr)))
