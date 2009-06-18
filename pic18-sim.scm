@@ -1044,10 +1044,6 @@
 (define (add-break-point adr) (set! break-points (cons adr break-points)))
 (define (continue) (set! single-stepping-mode? #f)) ;; TODO + the equivalent of ,c
 
-(define (picobit-stack)
-  (picobit-object (table-ref reverse-register-table "env0$86")
-		  (table-ref reverse-register-table "env1$85")))
-
 (define (picobit-object o0 o1)
   (define (obj->ram o field)
     (get-ram (+ 512 (arithmetic-shift (- o 512) 2) field)))
@@ -1095,13 +1091,19 @@
 			   (display "(")
 			   (show-pair o)
 			   (display ")"))
-			  ((= (bitwise-and obj #x0000e000) #x20)
-			   (display "ram-symbol"))
-			  ((= (bitwise-and obj #x0000e000) #x40)
-			   (display "ram-string"))
-			  ((= (bitwise-and obj #x0000e000) #x60)
-			   (display "ram-vector"))
-			  (else (display "unknown?")))) ;; FOO we end up having to show a rom object
+			  ((= (bitwise-and obj #x0000e000) #x2000)
+			   (display "#<symbol>"))
+			  ((= (bitwise-and obj #x0000e000) #x4000)
+			   (display "#<string>"))
+			  ((= (bitwise-and obj #x0000e000) #x6000)
+			   (display "#<vector>"))
+			  ((= (bitwise-and obj #x0000e000) #x8000)
+			   (display "#<cont: ")
+			   (show-obj (ram-get-cdr o))
+			   (display " ")
+			   (show-obj (ram-get-car o))
+			   (display ">"))
+			  (else (display "unknown?"))))
 		   (else
 		    (display (string-append "{0x"
 					    (number->string (ram-get-entry o)
@@ -1120,3 +1122,9 @@
 		     (get-ram (table-ref reverse-register-table
 					 "pc0$89")))
 		  16))
+(define (picobit-stack)
+  (picobit-object (table-ref reverse-register-table "env0$86")
+		  (table-ref reverse-register-table "env1$85")))
+(define (picobit-continuation)
+  (picobit-object (table-ref reverse-register-table "cont0$84")
+		  (table-ref reverse-register-table "cont1$83")))

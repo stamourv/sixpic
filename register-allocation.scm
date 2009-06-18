@@ -30,10 +30,12 @@
 				 (list->set
 				  (value-bytes (def-variable-value def-var))))
 			       (def-procedure-params def-proc)))
-			 (set-diff
-			  live-after
-			  (list->set
-			   (value-bytes (def-procedure-value def-proc)))))))
+			 (set-union
+			  (set-diff
+			   live-after
+			   (list->set
+			    (value-bytes (def-procedure-value def-proc))))
+			  (bb-live-before (def-procedure-entry def-proc)))))) ;; FOO now the liveness analysis takes a whole minute
 		   (if (bb? (def-procedure-entry def-proc))
 		       (set-intersection ;; TODO disabling this branch saves around 12 bytes
 			(bb-live-before (def-procedure-entry def-proc))
@@ -41,13 +43,13 @@
 		       live))))
 	      
 	      ((return-instr? instr)
-	       (let ((def-proc (return-instr-def-proc instr)))
-		 (let ((live
-			(if (def-procedure? def-proc)
-			    (def-procedure-live-after-calls def-proc)
-			    (list->set (value-bytes def-proc)))))
-		   (set! live-after live)
-		   live)))
+	       (let* ((def-proc (return-instr-def-proc instr))
+		      (live
+		       (if (def-procedure? def-proc)
+			   (def-procedure-live-after-calls def-proc)
+			   (list->set (value-bytes def-proc)))))
+		 (set! live-after live)
+		 live))
 	      
 	      (else
 	       (let* ((src1 (instr-src1 instr))
@@ -103,7 +105,7 @@
 	  (begin (set-add!  (byte-cell-interferes-with x) y)
 		 (set-add!  (byte-cell-interferes-with y) x))))
     
-    (define (interfere-pairwise live)
+    (define (interfere-pairwise live) ;; FOO now takes 10 minutes, find a better way
       (set-union! all-live live)
       (set-for-each (lambda (x)
 		      (set-for-each (lambda (y)
@@ -124,6 +126,7 @@
 			 (set-add! (byte-cell-coalesceable-with src2) dst)))
 	      (interfere-pairwise (set-add (instr-live-after instr) dst)))))
       (interfere-pairwise (instr-live-before instr)))
+    
     (for-each instr-interference-graph (bb-rev-instrs bb)))
 
   (pp analyse-liveness:)
