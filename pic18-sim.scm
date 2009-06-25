@@ -1078,7 +1078,7 @@
 	  ((< o (+ 3 255 1 1)) ; fixnum
 	   (display (- o 4)))
 	  ((< o 512) ; rom
-	   (display "rom")) ;; TODO be more precise
+	   (display "rom")) ;; TODO be more precise, since we should end up with a rom object, the quoted list
 	  ((< o 1280)
 	   (let ((obj (bitwise-ior (arithmetic-shift (obj->ram o 0) 24)
 				   (arithmetic-shift (obj->ram o 1) 16)

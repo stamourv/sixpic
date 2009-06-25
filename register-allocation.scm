@@ -101,31 +101,43 @@
   (define (bb-interference-graph bb)
     
     (define (interfere x y)
-      (if (not (set-member? (byte-cell-interferes-with y) x)) ;; TODO is this check worth it ?
+      ;; this seemingly useless check halves the generation time, so keep it
+      (if (not (set-member? (byte-cell-interferes-with y) x))
 	  (begin (set-add!  (byte-cell-interferes-with x) y)
 		 (set-add!  (byte-cell-interferes-with y) x))))
+    (define (make-coalesceable-with x y)
+      (set-add! (byte-cell-coalesceable-with x) y)
+      (set-add! (byte-cell-coalesceable-with y) x))
     
-    (define (interfere-pairwise live) ;; FOO now takes 10 minutes, find a better way
+    (define (interfere-pairwise live)
       (set-union! all-live live)
-      (set-for-each (lambda (x)
-		      (set-for-each (lambda (y)
-				      (if (not (eq? x y)) (interfere x y)))
-				    live))
-		    live))
+      (set-for-each
+       (lambda (x)
+	 (set-for-each
+	  (lambda (y)
+	    (if (not (eq? x y)) (set-add! (byte-cell-interferes-with x) y)))
+	  live))
+       live))
     
     (define (instr-interference-graph instr)
-      (let ((dst (instr-dst instr)))
+      (let ((dst  (instr-dst  instr))
+	    (src1 (instr-src1 instr))
+	    (src2 (instr-src2 instr)))
 	(if (byte-cell? dst)
-	    (let ((src1 (instr-src1 instr))
-		  (src2 (instr-src2 instr)))
+	    (begin
 	      (if (and (byte-cell? src1) (not (eq? dst src1)))
-		  (begin (set-add! (byte-cell-coalesceable-with dst) src1)
-			 (set-add! (byte-cell-coalesceable-with src1) dst)))
+		  (make-coalesceable-with src1 dst))
 	      (if (and (byte-cell? src2) (not (eq? dst src2)))
-		  (begin (set-add! (byte-cell-coalesceable-with dst) src2)
-			 (set-add! (byte-cell-coalesceable-with src2) dst)))
-	      (interfere-pairwise (set-add (instr-live-after instr) dst)))))
-      (interfere-pairwise (instr-live-before instr)))
+		  (make-coalesceable-with src2 dst))))
+	(if (call-instr? instr)
+	    (interfere-pairwise (instr-live-after instr)) ;; FOO we can do better than that, only interfere with the difference
+	    (if (byte-cell? dst)
+		(begin (set-add! all-live dst)
+		       (set-for-each (lambda (x)
+				       (set-add! all-live x)
+				       (if (not (eq? dst x))
+					   (interfere dst x)))
+				     (instr-live-after instr)))))))
     
     (for-each instr-interference-graph (bb-rev-instrs bb)))
 
@@ -134,7 +146,7 @@
 
   (pp interference-graph:)
   (time (for-each bb-interference-graph (cfg-bbs cfg)))
-
+  
   all-live)
 
 ;;-----------------------------------------------------------------------------
@@ -181,7 +193,8 @@
 			     (set-for-each
 			      (lambda (cell)
 				(let ((s (byte-cell-coalesceable-with cell)))
-				  (set-remove! s byte-cell)))
+				  (set-remove! s byte-cell)
+				  #;(set-add!    s c))) ;; FOO attempt (failed)
 			      coalesceable-with)
 			     (byte-cell-coalesceable-with-set! byte-cell
 							       (new-empty-set))
@@ -245,7 +258,7 @@
 
     (define (alloc-reg graph)
       (if (not (null? graph))
-          (let* ((byte-cell (find-min-neighbours graph))
+          (let* ((byte-cell  (find-min-neighbours graph))
                  (neighbours (byte-cell-interferes-with byte-cell)))
             (let ((new-graph (remove byte-cell graph)))
               (delete byte-cell neighbours)

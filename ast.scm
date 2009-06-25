@@ -46,6 +46,7 @@
 (define (byte-cell-next-id) (let ((id byte-cell-counter))
 			      (set! byte-cell-counter (+ id 1))
 			      id))
+(define all-byte-cells (make-table)) ;; TODO does not contain those defined (using make-byte-cell) in cte.scm
 (define-type byte-cell
   id
   adr
@@ -55,11 +56,13 @@
   (coalesceable-with unprintable:)
   (coalesced-with    unprintable:))
 (define (new-byte-cell #!optional (name #f) (bb #f))
-  (let ((id (byte-cell-next-id)))
-    (make-byte-cell
-     id (if allocate-registers? #f id)
-     (if name (string-append name "$" (number->string id)) "__tmp") bb
-     (new-empty-set) (new-empty-set) (new-empty-set))))
+  (let* ((id   (byte-cell-next-id))
+	 (cell (make-byte-cell
+		id (if allocate-registers? #f id)
+		(if name (string-append name "$" (number->string id)) "__tmp")
+		bb (new-empty-set) (new-empty-set) (new-empty-set))))
+    (table-set! all-byte-cells id cell)
+    cell))
 (define (get-register n)
   (make-byte-cell
    (byte-cell-next-id) n
