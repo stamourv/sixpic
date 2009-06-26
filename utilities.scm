@@ -136,3 +136,100 @@
 	   (loop (cdr s)
 		 (cons (car s) acc)
 		 res)))))
+
+
+(declare
+  (standard-bindings)
+  (block)
+  (fixnum)
+;;   (not safe)
+)
+
+(define (make-bitset n)
+   (let ((len (fxarithmetic-shift-right (+ n 7) 3)))
+     (make-u8vector len)))
+
+(define (bitset-add! bs i)
+   (let* ((j (fxarithmetic-shift-right i 3))
+          (k (fxand i 7)))
+     (u8vector-set! bs
+                    j
+                    (fxior (u8vector-ref bs j)
+                           (fxarithmetic-shift-left 1 k)))))
+(define (bitset-remove! bs i)
+  (let* ((j (fxarithmetic-shift-right i 3))
+	 (k (fxand i 7)))
+    (u8vector-set! bs
+		   j
+		   (fxand (u8vector-ref bs j)
+			  (fxnot (fxarithmetic-shift-left 1 k))))))
+
+(define (bitset-member? bs i)
+   (let* ((j (fxarithmetic-shift-right i 3))
+          (k (fxand i 7)))
+     (not (fx= 0 (fxand (u8vector-ref bs j)
+                        (fxarithmetic-shift-left 1 k))))))
+
+(define (bitset-diff b1 b2)
+  (let* ((l  (u8vector-length b1)) ; both should have the same length
+	 (b3 (make-u8vector l 0)))
+    (let loop ((l (- l 1)))
+      (if (>= l 0)
+	  (begin (u8vector-set! b3 l (fxand (u8vector-ref b1 l)
+					    (fxnot (u8vector-ref b2 l))))
+		 (loop (- l 1)))
+	  b3))))
+
+(define (bitset-union! b1 b2)
+  (let* ((l (u8vector-length b1))) ; both should have the same length
+    (let loop ((l (- l 1)))
+      (if (>= l 0)
+	  (begin (u8vector-set! b1 l (fxior (u8vector-ref b1 l)
+					    (u8vector-ref b2 l)))
+		 (loop (- l 1)))
+	  b1))))
+
+(define (bitset-empty? bs)
+  (let loop ((l (- (u8vector-length bs) 1)))
+    (cond ((< l 0)
+	   #t)
+	  ((= (u8vector-ref bs l) 0)
+	   (loop (- l 1)))
+	  (else #f))))
+
+(define (bitset-length bs)
+  (let loop ((l (- (u8vector-length bs) 1))
+	     (n 0))
+    (if (< l 0)
+	n
+	(loop
+	 (- l 1)
+	 (+ n
+	    (let ((b (u8vector-ref bs l)))
+	      (let loop2 ((i 0) (n 0)) ;; TODO is there a better way ?
+		(if (> i 7)
+		    n
+		    (loop2 (+ i 1)
+			   (+ n
+			      (if (= (fxand (fxarithmetic-shift-left 1 i) b) 0)
+				  0
+				  1)))))))))))
+
+(define (list->bitset n lst)
+   (let ((bs (make-bitset n)))
+     (let loop ((lst lst))
+       (if (pair? lst)
+           (let ((i (car lst)))
+             (bitset-add! bs i)
+             (loop (cdr lst)))
+           bs))))
+
+(define (bitset->list bs)
+   (let ((n (fxarithmetic-shift-left (u8vector-length bs) 3)))
+     (let loop ((i (- n 1)) (lst '()))
+       (if (>= i 0)
+           (loop (- i 1)
+                 (if (bitset-member? bs i)
+                     (cons i lst)
+                     lst))
+           lst))))

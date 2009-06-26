@@ -52,22 +52,24 @@
   adr
   name ; to display in the listing
   bb   ; label of the basic in which this byte-cell is used
-  (interferes-with   unprintable:) ; these 3 are stored as sets
-  (coalesceable-with unprintable:)
-  (coalesced-with    unprintable:))
+  (interferes-with   unprintable:)  ; bitset
+  (coalesceable-with unprintable:)  ; set
+  (coalesced-with    unprintable:)) ; set
 (define (new-byte-cell #!optional (name #f) (bb #f))
   (let* ((id   (byte-cell-next-id))
 	 (cell (make-byte-cell
 		id (if allocate-registers? #f id)
 		(if name (string-append name "$" (number->string id)) "__tmp")
-		bb (new-empty-set) (new-empty-set) (new-empty-set))))
+		bb #f (new-empty-set) (new-empty-set))))
     (table-set! all-byte-cells id cell)
     cell))
 (define (get-register n)
-  (make-byte-cell
-   (byte-cell-next-id) n
-   (symbol->string (cdr (assv n file-reg-names))) #f
-   (new-empty-set) (new-empty-set) (new-empty-set)))
+  (let* ((id   (byte-cell-next-id))
+	 (cell (make-byte-cell
+		id n (symbol->string (cdr (assv n file-reg-names))) #f
+		#f (new-empty-set) (new-empty-set))))
+    (table-set! all-byte-cells id cell)
+    cell))
 
 (define-type byte-lit
   val)

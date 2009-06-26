@@ -4,37 +4,36 @@
           (new-value (map (lambda (x)
 			    (make-byte-cell
 			     (byte-cell-next-id) x "dummy" #f
-			     (new-empty-set) (new-empty-set) (new-empty-set)))
+			     #f (new-empty-set) (new-empty-set)))
 			  addresses)))
          (ast
           (new-def-variable '() id '() type value '())))
     ast))
 
-(define (predefine-fun id type param-defs adr)
-  (let* ((value
-          (cond ((eq? type 'byte) ;; TODO have the other types, or make this generic (this is not actually used anyway)
-                 (new-value (list (make-byte-cell (byte-cell-next-id) WREG
-						  "dummy" #f
-						  (new-empty-set)
-						  (new-empty-set)
-						  (new-empty-set)))))
-                ((eq? type 'void)
-                 (new-value '()))
-                (else
-                 (error "unknown return type"))))
-         (params
-          (map (lambda (x)
-		 ;; parameters don't need names here
-		 ;; TODO support other types
-                 (predefine-var 'foo (car x) (list (cdr x))))
-               param-defs))
-         (ast
-          (new-def-procedure '() id '() type value params))
-         (entry
-          (asm-make-label id adr)))
-    (multi-link-parent! params ast)
-    (def-procedure-entry-set! ast entry)
-    ast))
+;; (define (predefine-fun id type param-defs adr) ;; DEPRECATED, might not work with the current version
+;;   (let* ((value
+;;           (cond ((eq? type 'byte) ;; TODO have the other types, or make this generic (this is not actually used anyway)
+;;                  (new-value (list (make-byte-cell (byte-cell-next-id) WREG
+;; 						  "dummy" #f #f
+;; 						  (new-empty-set)
+;; 						  (new-empty-set)))))
+;;                 ((eq? type 'void)
+;;                  (new-value '()))
+;;                 (else
+;;                  (error "unknown return type"))))
+;;          (params
+;;           (map (lambda (x)
+;; 		 ;; parameters don't need names here
+;; 		 ;; TODO support other types
+;;                  (predefine-var 'foo (car x) (list (cdr x))))
+;;                param-defs))
+;;          (ast
+;;           (new-def-procedure '() id '() type value params))
+;;          (entry
+;;           (asm-make-label id adr)))
+;;     (multi-link-parent! params ast)
+;;     (def-procedure-entry-set! ast entry)
+;;     ast))
 
 (define predefined-routines '())
 
@@ -53,18 +52,18 @@
 
 (define initial-cte
   (list
-   (predefine-var 'X 'byte '(5))
-   (predefine-var 'Y 'byte '(6))
-   (predefine-var 'Z 'byte '(7))
+;;    (predefine-var 'X 'byte '(5)) ;; DEPRECATED
+;;    (predefine-var 'Y 'byte '(6))
+;;    (predefine-var 'Z 'byte '(7))
    
-   (predefine-fun 'FLASH_execute_erase 'void '() #x1EE)
-   (predefine-fun 'FLASH_execute_write 'void '() #x1F0)
-   (predefine-fun 'led_set 'void (list (cons 'byte WREG)) #x1F2)
-   (predefine-fun 'irda_tx_wake_up 'void '() #x1F4)
-   (predefine-fun 'irda_tx_raw 'void (list (cons 'byte WREG)) #x1F6)
-   (predefine-fun 'irda_rx_raw 'byte '() #x1F8)
-   (predefine-fun 'sleep_mode 'void '() #x1FA)
-   (predefine-fun 'exec_client 'void '() #x1FC)
+;;    (predefine-fun 'FLASH_execute_erase 'void '() #x1EE)
+;;    (predefine-fun 'FLASH_execute_write 'void '() #x1F0)
+;;    (predefine-fun 'led_set 'void (list (cons 'byte WREG)) #x1F2)
+;;    (predefine-fun 'irda_tx_wake_up 'void '() #x1F4)
+;;    (predefine-fun 'irda_tx_raw 'void (list (cons 'byte WREG)) #x1F6)
+;;    (predefine-fun 'irda_rx_raw 'byte '() #x1F8)
+;;    (predefine-fun 'sleep_mode 'void '() #x1FA)
+;;    (predefine-fun 'exec_client 'void '() #x1FC)
    
    ;; special variables
    (predefine-var 'SIXPIC_FSR0 'int16 (list FSR0L FSR0H))

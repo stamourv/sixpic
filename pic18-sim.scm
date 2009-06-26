@@ -1118,13 +1118,13 @@
 
 (define (picobit-pc)
   (number->string (+ (* 256 (get-ram (table-ref reverse-register-table
-						"pc1$88")))
+						"pc1$82")))
 		     (get-ram (table-ref reverse-register-table
-					 "pc0$89")))
+					 "pc0$83")))
 		  16))
 (define (picobit-stack)
-  (picobit-object (table-ref reverse-register-table "env0$86")
-		  (table-ref reverse-register-table "env1$85")))
+  (picobit-object (table-ref reverse-register-table "env0$80")
+		  (table-ref reverse-register-table "env1$79")))
 (define (picobit-continuation)
-  (picobit-object (table-ref reverse-register-table "cont0$84")
-		  (table-ref reverse-register-table "cont1$83")))
+  (picobit-object (table-ref reverse-register-table "cont0$78")
+		  (table-ref reverse-register-table "cont1$77")))

@@ -7,7 +7,7 @@
 (define coalesce?           #t)
 
 ;; to use when interpreting
-'(begin (include "asm.scm")
+(begin (include "asm.scm")
        (include "pic18.scm")
        (include "pic18-sim.scm")
        (include "utilities.scm")
@@ -21,7 +21,7 @@
        (include "register-allocation.scm")
        (include "profiler.scm"))
 ;; to use with compiled code
-(begin (load "asm")
+'(begin (load "asm")
        (load "pic18")
        (load "pic18-sim")
        (load "utilities")
@@ -143,16 +143,16 @@
   (set! asm-filename asm-file)
   (apply execute-hex-files hexs))
 
-(include "../statprof/statprof.scm")
-(define (profile) ; profile using picobit
-  (time (begin (with-exception-catcher
-		;; to have the profiling results even it the compilation fails
-		(lambda (x)
-		  (profile-stop!)
-		  (write-profile-report "profiling-picobit"))
-		(lambda ()
-		  (profile-start!)
-		  (main "tests/picobit/picobit-vm-sixpic.c")
-		  (profile-stop!)
-		  (write-profile-report "profiling-picobit")))
-	       (pp TOTAL:))))
+;; (include "../statprof/statprof.scm")
+;; (define (profile) ; profile using picobit
+;;   (time (begin (with-exception-catcher
+;; 		;; to have the profiling results even it the compilation fails
+;; 		(lambda (x)
+;; 		  (profile-stop!)
+;; 		  (write-profile-report "profiling-picobit"))
+;; 		(lambda ()
+;; 		  (profile-start!)
+;; 		  (main "tests/picobit/picobit-vm-sixpic.c")
+;; 		  (profile-stop!)
+;; 		  (write-profile-report "profiling-picobit")))
+;; 	       (pp TOTAL:))))

@@ -157,7 +157,7 @@
           (else
            (statement ast))))
 
-  (define (def-variable ast) ;; FOO set the fun for each byte-cell
+  (define (def-variable ast) ;; TODO set the fun for each byte-cell
     (let ((subasts (ast-subasts ast)))
       (if (not (null? subasts)) ; if needed, set the variable
           (let ((value (expression (subast1 ast))))
@@ -184,7 +184,7 @@
 			     (loop x visited))
 			   (bb-succs start))))))
   
-  (define (def-procedure ast) ;; FOO set the fun for the parameters, and maybe also return value
+  (define (def-procedure ast) ;; TODO set the fun for the parameters, and maybe also return value
     (set! current-def-proc-bb-id 0)
     (set! current-def-proc ast)
     (let ((old-bb bb)

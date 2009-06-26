@@ -3,6 +3,9 @@
 ;; in programs, located in the SIXPIC_MEMORY_DIVIDE variable
 (define memory-divide #f)
 
+;; the vector equivalent to all-byte-cells
+(define byte-cells #f)
+
 (define (interference-graph cfg)
 
   (define (analyze-liveness cfg)
@@ -99,12 +102,10 @@
   (define all-live (new-empty-set))
   
   (define (bb-interference-graph bb)
-    
+    ;; TODO maybe building them asymetric, and then having a pass to make them symetric could be faster. I tried, but it didn't work
     (define (interfere x y)
-      ;; this seemingly useless check halves the generation time, so keep it
-      (if (not (set-member? (byte-cell-interferes-with y) x))
-	  (begin (set-add!  (byte-cell-interferes-with x) y)
-		 (set-add!  (byte-cell-interferes-with y) x))))
+      (bitset-add! (byte-cell-interferes-with x) (byte-cell-id y))
+      (bitset-add! (byte-cell-interferes-with y) (byte-cell-id x)))
     (define (make-coalesceable-with x y)
       (set-add! (byte-cell-coalesceable-with x) y)
       (set-add! (byte-cell-coalesceable-with y) x))
@@ -115,7 +116,8 @@
        (lambda (x)
 	 (set-for-each
 	  (lambda (y)
-	    (if (not (eq? x y)) (set-add! (byte-cell-interferes-with x) y)))
+	    (if (not (eq? x y))
+		(bitset-add! (byte-cell-interferes-with x) (byte-cell-id y))))
 	  live))
        live))
     
@@ -130,7 +132,19 @@
 	      (if (and (byte-cell? src2) (not (eq? dst src2)))
 		  (make-coalesceable-with src2 dst))))
 	(if (call-instr? instr)
-	    (interfere-pairwise (instr-live-after instr)) ;; FOO we can do better than that, only interfere with the difference
+	    (let* ((before (instr-live-before instr))
+		   (after  (instr-live-after  instr))
+		   (diff   (set-diff before after))
+		   (diff2  (set-diff after  before)))
+	      (interfere-pairwise diff)
+	      (set-for-each
+	       (lambda (x)
+		 (set-for-each
+		  (lambda (y)
+		    (if (and (not (eq? x y)) (not (set-member? diff2 y)))
+			(interfere x y)))
+		  after))
+	       diff))
 	    (if (byte-cell? dst)
 		(begin (set-add! all-live dst)
 		       (set-for-each (lambda (x)
@@ -138,14 +152,42 @@
 				       (if (not (eq? dst x))
 					   (interfere dst x)))
 				     (instr-live-after instr)))))))
-    
+
     (for-each instr-interference-graph (bb-rev-instrs bb)))
 
+  ;; build a vector with all the byte-cells and initialise the bit fields
+  (set! byte-cells (make-vector byte-cell-counter #f))
+  (table-for-each (lambda (id cell)
+		    (byte-cell-interferes-with-set!
+		     cell (make-bitset byte-cell-counter))
+		    (vector-set! byte-cells id cell))
+		  all-byte-cells)
+    
   (pp analyse-liveness:)
   (time (analyze-liveness cfg))
 
   (pp interference-graph:)
   (time (for-each bb-interference-graph (cfg-bbs cfg)))
+
+  ;; change the bitsets to sets, to speed up graph coloring
+  (let loop ((l (- (vector-length byte-cells) 1)))
+    (define (cells-bitset->set bs)
+      (let ((n   (fxarithmetic-shift-left (u8vector-length bs) 3))
+	    (set (new-empty-set)))
+	(let loop ((i (- n 1)))
+	  (if (>= i 0)
+	      (begin (if (bitset-member? bs i)
+			 (set-add! set (vector-ref byte-cells i)))
+		     (loop (- i 1)))
+	      set))))
+    (if (not (< l 0))
+	(let* ((cell (vector-ref byte-cells l)))
+	  (if cell
+	      (begin
+		(byte-cell-interferes-with-set!
+		 cell
+		 (cells-bitset->set (byte-cell-interferes-with cell)))))
+	  (loop (- l 1)))))
   
   all-live)
 
@@ -155,12 +197,12 @@
   (set-for-each (lambda (byte-cell2)
 		  (set-remove! (byte-cell-interferes-with byte-cell2)
 			       byte-cell1))
-		neighbours))
+ 		neighbours))
 (define (undelete byte-cell1 neighbours)
   (set-for-each (lambda (byte-cell2)
-		  (set-add! (byte-cell-interferes-with byte-cell2)
-			    byte-cell1))
-		neighbours))
+ 		  (set-add! (byte-cell-interferes-with byte-cell2)
+ 			    byte-cell1))
+ 		neighbours))
 
 (define (coalesce graph)
   (if coalesce?
