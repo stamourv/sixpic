@@ -269,12 +269,12 @@
 	      (table-set! reverse-register-table
 			  (byte-cell-name cell) ;; TODO add the bb ?
 			  adr))))
-      (let ((neighbours (byte-cell-interferes-with byte-cell)))
+      (let ((neighbours (set->list (byte-cell-interferes-with byte-cell))))
 	(let loop1 ((adr 0))
 	  (if (and memory-divide ; the user wants his own zone
 		   (>= adr memory-divide)) ; and we'd use it
 	      (error "register allocation would cross the memory divide") ;; TODO fallback ?
-	      (let loop2 ((lst (set->list neighbours))) ;; TODO keep using sets, but not urgent, it's not a bottleneck
+	      (let loop2 ((lst neighbours)) ;; TODO keep using sets, but not urgent, it's not a bottleneck
 		(if (null? lst)
 		    (begin (byte-cell-adr-set! byte-cell adr)
 			   (set-register-table byte-cell adr)
@@ -310,5 +310,5 @@
                 (color byte-cell)))))
 
     (pp register-allocation:)
-    (time (alloc-reg all-live)) ;; TODO convert find-min-neighbours and alloc-reg to use tables, not urgent since it's not a bottleneck
+    (time (alloc-reg all-live))
     (display (string-append (number->string (+ max-adr 1)) " RAM bytes\n"))))

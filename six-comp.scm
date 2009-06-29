@@ -7,7 +7,7 @@
 (define coalesce?           #t)
 
 ;; to use when interpreting
-(begin (include "asm.scm")
+'(begin (include "asm.scm")
        (include "pic18.scm")
        (include "pic18-sim.scm")
        (include "utilities.scm")
@@ -21,7 +21,7 @@
        (include "register-allocation.scm")
        (include "profiler.scm"))
 ;; to use with compiled code
-'(begin (load "asm")
+(begin (load "asm")
        (load "pic18")
        (load "pic18-sim")
        (load "utilities")
