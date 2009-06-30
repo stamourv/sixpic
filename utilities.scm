@@ -47,7 +47,20 @@
       (table-merge s1 s2)
       (table-merge s2 s1)))
 (define (set-union! s1 s2) (table-merge! s1 s2)) ; side-effects s1
-(define (set-union-multi sets) (foldl set-union (new-empty-set) sets))
+(define (set-union-multi sets)
+  (if (null? sets)
+      (new-empty-set)
+      (let loop ((l (cdr sets))
+		 (s (set-copy (car sets))))
+	(if (null? l)
+	    s
+	    (let ((s2 (car l)))
+	      (if (> (set-length s) (set-length s2))
+		  (begin (set-union! s s2)
+			 (loop (cdr l) s))
+		  (let ((s2 (set-copy s2)))
+		    (set-union! s2 s)
+		    (loop (cdr l) s2))))))))
 (define (set-add s1 x)
   (let ((s2 (table-copy s1)))
     (table-set! s2 x #t)
@@ -65,6 +78,17 @@
 		    s1)
     s2))
 (define (set-for-each f s) (table-for-each (lambda (x dummy) (f x)) s))
+(define (set-subset? s1 s2) ; is s2 a subset of s1 ?
+  (if (> (set-length s2) (set-length s1))
+      #f
+      (let loop ((l (set->list s2)))
+	(cond ((null? l)
+	       #t)
+	      ((set-member? s1 (car l))
+	       (loop (cdr l)))
+	      (else
+	       #f)))))
+(define set-copy table-copy)
 
 (define (foldl f base lst)
   (if (null? lst)

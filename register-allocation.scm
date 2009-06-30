@@ -14,31 +14,30 @@
       (let ((live-before
 	     (cond
 
-	      ((call-instr? instr)
+	      ((call-instr? instr) ;; TODO have bitsets for all that
 	       (let ((def-proc (call-instr-def-proc instr)))
 		 (if (and (not (set-empty? live-after))
-			  (not (set-equal?
-				(set-intersection
-				 (def-procedure-live-after-calls def-proc)
-				 live-after)
+			  (not (set-subset?
+				(def-procedure-live-after-calls def-proc)
 				live-after)))
 		     (begin
 		       (set! changed? #t)
 		       (set-union! (def-procedure-live-after-calls def-proc)
 				   live-after)))
 		 (let ((live
-			(set-union
-			 (set-union-multi
-			  (map (lambda (def-var)
-				 (list->set
-				  (value-bytes (def-variable-value def-var))))
-			       (def-procedure-params def-proc)))
-			 (set-union
-			  (set-diff
-			   live-after
-			   (list->set
-			    (value-bytes (def-procedure-value def-proc))))
-			  (bb-live-before (def-procedure-entry def-proc)))))) ;; FOO now the liveness analysis takes a whole minute
+			(set-union-multi
+			 (cons (let ((s (set-copy live-after)))
+				 (for-each (lambda (x) (set-remove! s x))
+					   (value-bytes
+					    (def-procedure-value def-proc)))
+				 s)
+			       (cons (bb-live-before
+				      (def-procedure-entry def-proc))
+				     (map (lambda (def-var)
+					    (list->set
+					     (value-bytes
+					      (def-variable-value def-var))))
+					  (def-procedure-params def-proc)))))))
 		   (if (bb? (def-procedure-entry def-proc))
 		       (set-intersection ;; TODO disabling this branch saves around 12 bytes
 			(bb-live-before (def-procedure-entry def-proc))
@@ -58,23 +57,17 @@
 	       (let* ((src1 (instr-src1 instr))
 		      (src2 (instr-src2 instr))
 		      (dst  (instr-dst instr))
-		      (use  (if (byte-cell? src1)
-				(if (byte-cell? src2)
-				    (set-add (new-set src1) src2)
-				    (new-set src1))
-				(if (byte-cell? src2)
-				    (new-set src2)
-				    (new-empty-set))))
-		      (def  (if (byte-cell? dst)
-				(new-set dst)
-				(new-empty-set))))
-		 (if #f
-		     ;; (and (byte-cell? dst) ; dead instruction?
-		     ;;      (not (set-member? live-after dst))
-		     ;;      (not (and (byte-cell? dst) (byte-cell-adr dst))))
-		     live-after
-		     (set-union use
-				(set-diff live-after def))))))))
+		      (s    (set-copy live-after)))
+		 (define (add-if-byte-cell c)
+		   (if (byte-cell? c)
+		       (set-add! s c)))
+		 (define (remove-if-byte-cell c)
+		   (if (byte-cell? c)
+		       (set-remove! s c)))
+		 (add-if-byte-cell src1)
+		 (add-if-byte-cell src2)
+		 (remove-if-byte-cell dst)
+		 s)))))
 	
 	(instr-live-before-set! instr live-before)
 	(instr-live-after-set!  instr live-after)
