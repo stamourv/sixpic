@@ -52,11 +52,7 @@
 
 (define initial-cte
   (list
-;;    (predefine-var 'X 'byte '(5)) ;; DEPRECATED
-;;    (predefine-var 'Y 'byte '(6))
-;;    (predefine-var 'Z 'byte '(7))
-   
-;;    (predefine-fun 'FLASH_execute_erase 'void '() #x1EE)
+;;    (predefine-fun 'FLASH_execute_erase 'void '() #x1EE) ;; DEPRECATED
 ;;    (predefine-fun 'FLASH_execute_write 'void '() #x1F0)
 ;;    (predefine-fun 'led_set 'void (list (cons 'byte WREG)) #x1F2)
 ;;    (predefine-fun 'irda_tx_wake_up 'void '() #x1F4)

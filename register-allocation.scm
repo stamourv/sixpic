@@ -170,22 +170,24 @@
   (time (for-each bb-interference-graph (cfg-bbs cfg)))
 
   ;; change the bitsets to sets, to speed up graph coloring
-  (let loop ((l (- (vector-length byte-cells) 1)))
-    (if (not (< l 0))
-	(let* ((cell (vector-ref byte-cells l)))
-	  (if cell
-	      (byte-cell-interferes-with-set!
-	       cell
-	       (let* ((bs  (byte-cell-interferes-with cell))
-		      (n   (fxarithmetic-shift-left (u8vector-length bs) 3))
-		      (set (new-empty-set)))
-		 (let loop ((i (- n 1)))
-		   (if (>= i 0)
-		       (begin (if (bitset-member? bs i)
-				  (set-add! set (vector-ref byte-cells i)))
-			      (loop (- i 1)))
-		       set)))))
-	  (loop (- l 1)))))
+  (pp bitsets->sets:)
+  (time
+   (let loop ((l (- (vector-length byte-cells) 1)))
+     (if (not (< l 0))
+	 (let* ((cell (vector-ref byte-cells l)))
+	   (if cell
+	       (byte-cell-interferes-with-set!
+		cell
+		(let* ((bs  (byte-cell-interferes-with cell))
+		       (n   (fxarithmetic-shift-left (u8vector-length bs) 3))
+		       (set (new-empty-set)))
+		  (let loop ((i (- n 1)))
+		    (if (>= i 0)
+			(begin (if (bitset-member? bs i)
+				   (set-add! set (vector-ref byte-cells i)))
+			       (loop (- i 1)))
+			set)))))
+	   (loop (- l 1))))))
   
   all-live)
 
@@ -207,47 +209,55 @@
  		neighbours))
 
 (define (coalesce graph)
-  (if coalesce?
-      (keep
-       (lambda (byte-cell)
-	 (let* ((coalesceable-with   (byte-cell-coalesceable-with byte-cell))
-		(old-neighbours      (byte-cell-interferes-with   byte-cell))
-		(coalesce-candidates (set-diff coalesceable-with
-					       old-neighbours)))
-	   (if (or (byte-cell-adr byte-cell) ; in a special register
-		   (set-empty? coalesce-candidates))
-	       #t ;; keep it
-	       ;; coalesce byte-cell with another cell
-	       (let loop ((l (set->list coalesce-candidates)))
-		 (if (null? l)
-		     #t ; can't coalesce, keep
-		     (let ((c (car l)))
-		       ;; don't coalesce with a special register
-		       (if (byte-cell-adr c)
-			   (loop (cdr l))
-			   (let ((c-neighbours (byte-cell-interferes-with c))
-				 (c-coalesced  (byte-cell-coalesced-with  c)))
-			     ;; remove all references to byte-cell and replace
-			     ;; them with references to c
-			     (set-union! c-neighbours old-neighbours)
-			     (undelete   c            old-neighbours)
-			     (delete     byte-cell    old-neighbours)
-			     (set-union! c-coalesced
-					 (byte-cell-coalesced-with byte-cell))
-			     (set-for-each
-			      (lambda (cell)
-				(let ((s (byte-cell-coalesceable-with cell)))
-				  (set-remove! s byte-cell)
-				  #;(set-add!    s c))) ;; FOO attempt (failed)
-			      coalesceable-with)
-			     (byte-cell-coalesceable-with-set! byte-cell
-							       (new-empty-set))
-			     (byte-cell-interferes-with-set!   byte-cell
-							       (new-empty-set))
-			     (set-add! c-coalesced byte-cell)
-			     #f))))))))
-       graph)
-      graph))
+  (pp coalesce:)
+  (time
+   (if coalesce?
+       (keep
+	(lambda (byte-cell)
+	  (let* ((coalesceable-with   (byte-cell-coalesceable-with byte-cell))
+		 (neighbours      (byte-cell-interferes-with   byte-cell))
+		 (coalesce-candidates (set-diff coalesceable-with
+						neighbours)))
+	    (if (or (byte-cell-adr byte-cell) ; in a special register
+		    (set-empty? coalesce-candidates))
+		#t ;; keep it
+		;; coalesce byte-cell with another cell
+		(let loop ((l (set->list coalesce-candidates)))
+		  (if (null? l)
+		      #t ; can't coalesce, keep
+		      (let ((c (car l)))
+			;; don't coalesce with a special register
+			(if (byte-cell-adr c)
+			    (loop (cdr l))
+			    (let ((c-neighbours
+				   (byte-cell-interferes-with c))
+				  (c-coalesceable-with
+				   (byte-cell-coalesceable-with c))
+				  (c-coalesced
+				   (byte-cell-coalesced-with  c)))
+			      ;; remove all references to byte-cell and replace
+			      ;; them with references to c
+			      (set-union! c-neighbours neighbours)
+			      (undelete   c            neighbours)
+			      (delete     byte-cell    neighbours)
+			      (set-union! c-coalesced
+					  (byte-cell-coalesced-with byte-cell))
+			      (set-for-each
+			       (lambda (cell)
+				 (let ((s (byte-cell-coalesceable-with cell)))
+				   (set-remove! s                   byte-cell)
+				   #;(set-add!    s                   c) ;; FOO attempt (failed)
+				   #;(set-add!    c-coalesceable-with cell)
+				   ))
+			       coalesceable-with)
+			      (byte-cell-coalesceable-with-set! byte-cell
+								(new-empty-set))
+			      (byte-cell-interferes-with-set!   byte-cell
+								(new-empty-set))
+			      (set-add! c-coalesced byte-cell)
+			      #f))))))))
+	graph)
+       graph)))
 
 ;;-----------------------------------------------------------------------------
 
