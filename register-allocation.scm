@@ -5,6 +5,7 @@
 
 ;; the vector equivalent to all-byte-cells
 (define byte-cells #f)
+(define (id->byte-cell id) (vector-ref byte-cells id))
 
 (define (interference-graph cfg)
 
@@ -14,32 +15,36 @@
       (let ((live-before
 	     (cond
 
-	      ((call-instr? instr) ;; TODO have bitsets for all that
+	      ((call-instr? instr)
 	       (let ((def-proc (call-instr-def-proc instr)))
-		 (if (and (not (set-empty? live-after))
-			  (not (set-subset?
+		 (if (and (not (bitset-empty? live-after))
+			  (not (bitset-subset?
 				(def-procedure-live-after-calls def-proc)
 				live-after)))
 		     (begin
 		       (set! changed? #t)
-		       (set-union! (def-procedure-live-after-calls def-proc)
-				   live-after)))
+		       (bitset-union! (def-procedure-live-after-calls def-proc)
+				      live-after)))
 		 (let ((live
-			(set-union-multi
-			 (cons (let ((s (set-copy live-after)))
-				 (for-each (lambda (x) (set-remove! s x))
-					   (value-bytes
-					    (def-procedure-value def-proc)))
-				 s)
-			       (cons (bb-live-before
-				      (def-procedure-entry def-proc))
-				     (map (lambda (def-var)
-					    (list->set
-					     (value-bytes
-					      (def-variable-value def-var))))
-					  (def-procedure-params def-proc)))))))
+			(bitset-union-multi
+			 byte-cell-counter
+			 `(,(bitset-diff
+			     live-after
+			     (list->bitset
+			      byte-cell-counter
+			      (map (lambda (x) (byte-cell-id x))
+				   (value-bytes
+				    (def-procedure-value def-proc)))))
+			   ,(bb-live-before (def-procedure-entry def-proc))
+			   ,@(map (lambda (def-var)
+				    (list->bitset
+				     byte-cell-counter
+				     (map (lambda (x) (byte-cell-id x))
+					  (value-bytes
+					   (def-variable-value def-var)))))
+				  (def-procedure-params def-proc))))))
 		   (if (bb? (def-procedure-entry def-proc))
-		       (set-intersection ;; TODO disabling this branch saves around 12 bytes
+		       (bitset-intersection
 			(bb-live-before (def-procedure-entry def-proc))
 			live)
 		       live))))
@@ -49,7 +54,9 @@
 		      (live
 		       (if (def-procedure? def-proc)
 			   (def-procedure-live-after-calls def-proc)
-			   (list->set (value-bytes def-proc)))))
+			   (list->bitset byte-cell-counter
+					 (map (lambda (x) (byte-cell-id x))
+					      (value-bytes def-proc))))))
 		 (set! live-after live)
 		 live))
 	      
@@ -57,13 +64,13 @@
 	       (let* ((src1 (instr-src1 instr))
 		      (src2 (instr-src2 instr))
 		      (dst  (instr-dst instr))
-		      (s    (set-copy live-after)))
+		      (s    (bitset-copy live-after)))
 		 (define (add-if-byte-cell c)
 		   (if (byte-cell? c)
-		       (set-add! s c)))
+		       (bitset-add! s (byte-cell-id c))))
 		 (define (remove-if-byte-cell c)
 		   (if (byte-cell? c)
-		       (set-remove! s c)))
+		       (bitset-remove! s (byte-cell-id c))))
 		 (add-if-byte-cell src1)
 		 (add-if-byte-cell src2)
 		 (remove-if-byte-cell dst)
@@ -74,16 +81,39 @@
 	live-before))
     (define (bb-analyze-liveness bb)
       (let loop ((rev-instrs (bb-rev-instrs bb))
-		 (live-after (set-union-multi
+		 (live-after (bitset-union-multi
+			      byte-cell-counter
 			      (map bb-live-before (bb-succs bb)))))
 	(if (null? rev-instrs)
-	    (if (not (set-equal? live-after (bb-live-before bb)))
+	    (if (not (equal? live-after (bb-live-before bb)))
 		(begin (set! changed? #t)
 		       (bb-live-before-set! bb live-after)))
 	    (let* ((instr (car rev-instrs))
 		   (live-before (instr-analyze-liveness instr live-after)))
 	      (loop (cdr rev-instrs)
 		    live-before)))))
+
+    ;; build a vector with all the byte-cells and initialise the bitsets
+    (set! byte-cells (make-vector byte-cell-counter #f))
+    (table-for-each (lambda (id cell)
+		      (byte-cell-interferes-with-set!
+		       cell (make-bitset byte-cell-counter))
+		      (vector-set! byte-cells id cell))
+		    all-byte-cells)
+    ;; create the bitsets for each bb, instr and def-procedure
+    (for-each (lambda (bb)
+		(bb-live-before-set! bb (make-bitset byte-cell-counter))
+		(for-each (lambda (instr)
+			    (instr-live-before-set!
+			     instr (make-bitset byte-cell-counter))
+			    (instr-live-after-set!
+			     instr (make-bitset byte-cell-counter)))
+			  (bb-rev-instrs bb)))
+	      (cfg-bbs cfg))
+    (table-for-each (lambda (key s) (def-procedure-live-after-calls-set!
+				      s (make-bitset byte-cell-counter)))
+		  all-def-procedures)
+    
     (let loop ()
       (if changed?
 	  (begin (set! changed? #f)
@@ -95,7 +125,6 @@
   (define all-live (new-empty-set))
   
   (define (bb-interference-graph bb)
-    ;; TODO maybe building them asymetric, and then having a pass to make them symetric could be faster. I tried, but it didn't work
     (define (interfere x y)
       (bitset-add! (byte-cell-interferes-with x) (byte-cell-id y))
       (bitset-add! (byte-cell-interferes-with y) (byte-cell-id x)))
@@ -104,10 +133,10 @@
       (set-add! (byte-cell-coalesceable-with y) x))
     
     (define (interfere-pairwise live)
-      (set-union! all-live live)
-      (set-for-each
+      (set-union! all-live (list->set live))
+      (for-each
        (lambda (x)
-	 (set-for-each
+	 (for-each
 	  (lambda (y)
 	    (if (not (eq? x y))
 		(bitset-add! (byte-cell-interferes-with x) (byte-cell-id y))))
@@ -115,6 +144,7 @@
        live))
     
     (define (instr-interference-graph instr)
+      (define (bitset->cells bs) (map id->byte-cell (bitset->list bs)))
       (let ((dst  (instr-dst  instr))
 	    (src1 (instr-src1 instr))
 	    (src2 (instr-src2 instr)))
@@ -127,34 +157,27 @@
 	(if (call-instr? instr)
 	    (let* ((before (instr-live-before instr))
 		   (after  (instr-live-after  instr))
-		   (diff   (set-diff before after))
-		   (diff2  (set-diff after  before)))
+		   (diff   (bitset->cells (bitset-diff before after)))
+		   (diff2  (bitset-diff after before)))
 	      (interfere-pairwise diff)
-	      (set-for-each
+	      (for-each
 	       (lambda (x)
-		 (set-for-each
+		 (for-each
 		  (lambda (y)
-		    (if (and (not (eq? x y)) (not (set-member? diff2 y)))
+		    (if (and (not (eq? x y))
+			     (not (bitset-member? diff2 (byte-cell-id y))))
 			(interfere x y)))
-		  after))
+		  (bitset->cells after)))
 	       diff))
 	    (if (byte-cell? dst)
 		(begin (set-add! all-live dst)
-		       (set-for-each (lambda (x)
-				       (set-add! all-live x)
-				       (if (not (eq? dst x))
-					   (interfere dst x)))
-				     (instr-live-after instr)))))))
+		       (for-each (lambda (x)
+				   (set-add! all-live x)
+				   (if (not (eq? dst x))
+				       (interfere dst x)))
+				 (bitset->cells (instr-live-after instr))))))))
 
     (for-each instr-interference-graph (bb-rev-instrs bb)))
-
-  ;; build a vector with all the byte-cells and initialise the bit fields
-  (set! byte-cells (make-vector byte-cell-counter #f))
-  (table-for-each (lambda (id cell)
-		    (byte-cell-interferes-with-set!
-		     cell (make-bitset byte-cell-counter))
-		    (vector-set! byte-cells id cell))
-		  all-byte-cells)
     
   (pp analyse-liveness:)
   (time (analyze-liveness cfg))
@@ -167,7 +190,7 @@
   (time
    (let loop ((l (- (vector-length byte-cells) 1)))
      (if (not (< l 0))
-	 (let* ((cell (vector-ref byte-cells l)))
+	 (let* ((cell (id->byte-cell l)))
 	   (if cell
 	       (byte-cell-interferes-with-set!
 		cell
@@ -177,7 +200,7 @@
 		  (let loop ((i (- n 1)))
 		    (if (>= i 0)
 			(begin (if (bitset-member? bs i)
-				   (set-add! set (vector-ref byte-cells i)))
+				   (set-add! set (id->byte-cell i)))
 			       (loop (- i 1)))
 			set)))))
 	   (loop (- l 1))))))

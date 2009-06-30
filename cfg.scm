@@ -18,15 +18,15 @@
   unprintable:
   preds
   succs
-  live-before) ; stored as a set
+  live-before) ; bitset
 
 (define (bb-name bb)
   (asm-label-id (bb-label bb)))
 
 (define-type instr
   extender: define-type-of-instr
-  (live-before unprintable:) ; these 2 are stored as sets
-  (live-after unprintable:)
+  (live-before unprintable:) ; bitset
+  (live-after unprintable:)  ; bitset
   (hash unprintable:)
   id
   src1
@@ -42,7 +42,7 @@
   def-proc)
 
 (define (new-instr id src1 src2 dst)
-  (make-instr (new-empty-set) (new-empty-set) #f id src1 src2 dst))
+  (make-instr #f #f #f id src1 src2 dst))
 
 ;; list of all conditional branching generic instructions
 (define conditional-instrs ;; TODO add as we add specialized instructions
@@ -56,7 +56,7 @@
 
 (define (add-bb cfg proc id) ;; TODO maybe have the name in the label for named-bbs ? would help debugging
   (let* ((label-num (cfg-next-label-num cfg))
-         (bb (make-bb label-num #f #f '() '() '() (new-empty-set))))
+         (bb (make-bb label-num #f #f '() '() '() #f)))
     (bb-label-set!
      bb
      (asm-make-label
@@ -1109,7 +1109,7 @@
 	  result)))))
   
   ;; generates the cfg for a predefined routine and adds it to the current cfg
-  (define (include-predefined-routine proc)
+  (define (include-predefined-routine proc) ;; FOO check in all-def-procedures
     (define (get-bytes var)
       (value-bytes (def-variable-value var)))
     (let ((old-proc current-def-proc) ; if we were already defining a procedure, save it

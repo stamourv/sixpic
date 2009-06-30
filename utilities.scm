@@ -194,6 +194,16 @@
      (not (fx= 0 (fxand (u8vector-ref bs j)
                         (fxarithmetic-shift-left 1 k))))))
 
+(define (bitset-intersection b1 b2)
+  (let* ((l  (u8vector-length b1)) ; both should have the same length
+	 (b3 (make-u8vector l 0))) ;; TODO abstract with diff and union!
+    (let loop ((l (- l 1)))
+      (if (>= l 0)
+	  (begin (u8vector-set! b3 l (fxand (u8vector-ref b1 l)
+					    (u8vector-ref b2 l)))
+		 (loop (- l 1)))
+	  b3))))
+
 (define (bitset-diff b1 b2)
   (let* ((l  (u8vector-length b1)) ; both should have the same length
 	 (b3 (make-u8vector l 0)))
@@ -257,3 +267,16 @@
                      (cons i lst)
                      lst))
            lst))))
+
+(define bitset-copy u8vector-copy)
+
+(define (bitset-union-multi n bitsets) ; n is necessary is bitsets is null
+  (let ((bs (make-bitset n)))
+    (let loop ((l bitsets))
+      (if (null? l)
+	  bs
+	  (begin (bitset-union! bs (car l))
+		 (loop (cdr l)))))))
+
+(define (bitset-subset? b1 b2) ; is b2 a subset of b1 ?
+  (equal? (bitset-intersection b1 b2) b2))

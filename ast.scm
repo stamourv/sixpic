@@ -150,11 +150,14 @@
   value
   params
   entry
-  live-after-calls) ; stored as a set
+  live-after-calls) ; bitset
+(define all-def-procedures (make-table))
 (define (new-def-procedure subasts id refs type value params)
   (multi-link-parent!
    subasts
-   (make-def-procedure #f subasts id refs type value params #f (new-empty-set))))
+   (let ((d (make-def-procedure #f subasts id refs type value params #f #f)))
+     (table-set! all-def-procedures id d)
+     d)))
 
 
 (define-type-of-ast expr
