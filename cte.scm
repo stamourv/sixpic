@@ -3,8 +3,8 @@
 	  ;; adrs is the list of addresses this variable is stored at
           (new-value (map (lambda (x)
 			    (make-byte-cell
-			     (byte-cell-next-id) x "dummy" #f
-			     #f (new-empty-set) (new-empty-set)))
+			     (byte-cell-next-id) x "dummy" #f #f 0
+			     (new-empty-set) (new-empty-set)))
 			  addresses)))
          (ast
           (new-def-variable '() id '() type value '())))
@@ -14,7 +14,7 @@
 ;;   (let* ((value
 ;;           (cond ((eq? type 'byte) ;; TODO have the other types, or make this generic (this is not actually used anyway)
 ;;                  (new-value (list (make-byte-cell (byte-cell-next-id) WREG
-;; 						  "dummy" #f #f
+;; 						  "dummy" #f #f 0
 ;; 						  (new-empty-set)
 ;; 						  (new-empty-set)))))
 ;;                 ((eq? type 'void)

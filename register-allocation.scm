@@ -171,22 +171,20 @@
 
   ;; change the bitsets to sets, to speed up graph coloring
   (let loop ((l (- (vector-length byte-cells) 1)))
-    (define (cells-bitset->set bs)
-      (let ((n   (fxarithmetic-shift-left (u8vector-length bs) 3))
-	    (set (new-empty-set)))
-	(let loop ((i (- n 1)))
-	  (if (>= i 0)
-	      (begin (if (bitset-member? bs i)
-			 (set-add! set (vector-ref byte-cells i)))
-		     (loop (- i 1)))
-	      set))))
     (if (not (< l 0))
 	(let* ((cell (vector-ref byte-cells l)))
 	  (if cell
-	      (begin
-		(byte-cell-interferes-with-set!
-		 cell
-		 (cells-bitset->set (byte-cell-interferes-with cell)))))
+	      (byte-cell-interferes-with-set!
+	       cell
+	       (let* ((bs  (byte-cell-interferes-with cell))
+		      (n   (fxarithmetic-shift-left (u8vector-length bs) 3))
+		      (set (new-empty-set)))
+		 (let loop ((i (- n 1)))
+		   (if (>= i 0)
+		       (begin (if (bitset-member? bs i)
+				  (set-add! set (vector-ref byte-cells i)))
+			      (loop (- i 1)))
+		       set)))))
 	  (loop (- l 1)))))
   
   all-live)
@@ -196,12 +194,16 @@
 (define (delete byte-cell1 neighbours)
   (set-for-each (lambda (byte-cell2)
 		  (set-remove! (byte-cell-interferes-with byte-cell2)
-			       byte-cell1))
+			       byte-cell1)
+		  (byte-cell-nb-neighbours-set!
+		   byte-cell2 (- (byte-cell-nb-neighbours byte-cell2) 1)))
  		neighbours))
 (define (undelete byte-cell1 neighbours)
   (set-for-each (lambda (byte-cell2)
  		  (set-add! (byte-cell-interferes-with byte-cell2)
- 			    byte-cell1))
+ 			    byte-cell1)
+		  (byte-cell-nb-neighbours-set!
+		   byte-cell2 (+ (byte-cell-nb-neighbours byte-cell2) 1)))
  		neighbours))
 
 (define (coalesce graph)
@@ -293,7 +295,7 @@
         (if (null? lst)
             byte-cell
             (let* ((x (car lst))
-                   (n (set-length (byte-cell-interferes-with x))))
+                   (n (byte-cell-nb-neighbours x)))
               (if (or (not m) (< n m))
                   (loop (cdr lst) n x)
                   (loop (cdr lst) m byte-cell))))))
@@ -309,6 +311,12 @@
             (if (not (byte-cell-adr byte-cell))
                 (color byte-cell)))))
 
+    ;; cache the number of neighbours
+    (for-each (lambda (cell)
+		(byte-cell-nb-neighbours-set!
+		 cell (set-length (byte-cell-interferes-with cell))))
+	      all-live)
+    
     (pp register-allocation:)
     (time (alloc-reg all-live))
     (display (string-append (number->string (+ max-adr 1)) " RAM bytes\n"))))

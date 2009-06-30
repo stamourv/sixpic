@@ -53,6 +53,7 @@
   name ; to display in the listing
   bb   ; label of the basic in which this byte-cell is used
   (interferes-with   unprintable:)  ; bitset
+  nb-neighbours                     ; cached length of interferes-with
   (coalesceable-with unprintable:)  ; set
   (coalesced-with    unprintable:)) ; set
 (define (new-byte-cell #!optional (name #f) (bb #f))
@@ -60,14 +61,14 @@
 	 (cell (make-byte-cell
 		id (if allocate-registers? #f id)
 		(if name (string-append name "$" (number->string id)) "__tmp")
-		bb #f (new-empty-set) (new-empty-set))))
+		bb #f 0 (new-empty-set) (new-empty-set))))
     (table-set! all-byte-cells id cell)
     cell))
 (define (get-register n)
   (let* ((id   (byte-cell-next-id))
 	 (cell (make-byte-cell
 		id n (symbol->string (cdr (assv n file-reg-names))) #f
-		#f (new-empty-set) (new-empty-set))))
+		#f 0 (new-empty-set) (new-empty-set))))
     (table-set! all-byte-cells id cell)
     cell))
 
