@@ -68,6 +68,9 @@
 
    ;; TODO have the equivalent of FSR variabes pour TBLPTR
    (predefine-routine 'rom_get  'int8  '(int16)) ;; TODO actually, 21 bits of address
+
+   (predefine-routine 'uart_write 'void '(int8))
+   (predefine-routine 'uart_read  'int8 '())
 	
    (predefine-routine '__mul8_8   'int8  '(int8  int8))
    (predefine-routine '__mul16_8  'int16 '(int16 int8)) ;; TODO since multiplication arguments are not padded, these asymetric operations are used, they are more efficient, but padding would mean fewer necessary routines

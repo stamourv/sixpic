@@ -286,17 +286,21 @@
     (define (color byte-cell)
       (define (set-register-table cell adr)
 	(if #f (not (string=? (byte-cell-name cell) "__tmp"))
-	    (let ((adr (if (and (> adr #x5F) (< adr #xF60)) ; not in bank 0 ;; TODO have a function for that
-			   (+ adr #xa0)
-			   adr)))
+	    (let* ((adr       (if (and (> adr #x5F) (< adr #xF60)) ; not in bank 0 ;; TODO have a function for that
+				  (+ adr #xa0)
+				  adr))
+		   (name      (byte-cell-name cell))
+		   (full-name (if name
+				  (string-append
+				   name "$"
+				   (number->string (byte-cell-id cell)))
+				  "__tmp")))
 	      (table-set! register-table
 			  adr
 			  (cons (cons (byte-cell-bb   cell)
-				      (byte-cell-name cell))
+				      full-name)
 				(table-ref register-table adr '())))
-	      (table-set! reverse-register-table
-			  (byte-cell-name cell) ;; TODO add the bb ?
-			  adr))))
+	      (table-set! reverse-register-table name adr))))
       (let ((neighbours (set->list (byte-cell-interferes-with byte-cell))))
 	(let loop1 ((adr 0))
 	  (if (and memory-divide ; the user wants his own zone

@@ -252,7 +252,7 @@ void mark (int16 temp) {
       }
       else
  ;
-      int tmp = 1;
+      int16 tmp = 1;
       ram_set_gc_tag0 (visit, (tmp<<5));
     }
 
@@ -316,7 +316,7 @@ void sweep () {
 
   while (visit >= (512 + ((glovars + 1) >> 1))) {
 
-    int tmp = 1;
+    int16 tmp = 1;
     if ((((ram_get_field0 (visit) & #x80) == #x80)
   && (ram_get_gc_tags (visit) == (0<<5)))
  || !(ram_get_gc_tags (visit) & (tmp<<5))) {
@@ -482,11 +482,14 @@ int16 integer_hi (int16 x) {
 }
 
 int16 integer_lo (int16 x) {
-  int16 t = ram_get_field2 (x);
-  if ((!((x) >= 1280) && ((x) >= 512)))
+  if ((!((x) >= 1280) && ((x) >= 512))) {
+    int16 t = ram_get_field2 (x);
     return (t << 8) + ram_get_field3 (x);
-  else if ((!((x) >= 1280) && !(!((x) >= 1280) && ((x) >= 512)) && ((x) >= (3 +255 - -1 +1))))
+  }
+  else if ((!((x) >= 1280) && !(!((x) >= 1280) && ((x) >= 512)) && ((x) >= (3 +255 - -1 +1)))) {
+    int16 t = rom_get_field2 (x);
     return (t << 8) + rom_get_field3 (x);
+  }
   else
     return x - (3 - -1);
 }
@@ -537,32 +540,32 @@ int16 norm (int16 prefix, int16 n) {
 
 
 
-  while (prefix != 0) {
-    int16 d = integer_lo (prefix);
+  while (prefix != 0) { // bbs 1 and 4
+    int16 d = integer_lo (prefix); // bb 3
     int16 temp = prefix;
 
     prefix = integer_hi (temp);
 
-    if (((n) == ((0 + (3 - -1))))) {
-      if (d <= 255) {
-	n = (d + (3 - -1));
+    if (((n) == ((0 + (3 - -1))))) { // bb 3 and 8
+      if (d <= 255) { // bb 6
+	n = (d + (3 - -1)); // bb 10
 	continue;
       }
     }
-    else if (((n) == (((0 + (3 - -1))-1)))) {
-      int tmp = 1;
-      if (d >= (tmp<<16) + -1) {
-	int16 t = d - (tmp << 16);
+    else if (((n) == (((0 + (3 - -1))-1)))) { // bbs 7 and 13
+      int16 tmp = 1; // bb 12
+      if (d >= (tmp<<16) - 1) { // bb 12 // TODO was + MIN_FIXNUM, but -1 is not a valid literal
+	int16 t = d - (tmp << 16); // bb 15
 	n = (t + (3 - -1));
 	continue;
       }
     }
 
-    ram_set_car (temp, n);
+    ram_set_car (temp, n); // bb 5
     n = temp;
   }
 
-  return n;
+  return n; // bb 2
 }
 
 int8 negp (int16 x) {
@@ -650,7 +653,7 @@ int16 shr (int16 x) {
 
     d = integer_lo (x);
     x = integer_hi (x);
-    int tmp = 1;
+    int16 tmp = 1;
     result = make_integer ((d >> 1) |
 			   ((integer_lo (x) & 1) ? (tmp<<15) : 0), // TODO only shifting by literals is permitted, so had to change the 16 -1 to 15
 			   result);
@@ -683,7 +686,7 @@ int16 shl (int16 x) {
     d = integer_lo (x);
     x = integer_hi (x);
     temp = negc;
-    int tmp = 1;
+    int16 tmp = 1;
     negc = negative_carry (d & (tmp<<15));
     result = make_integer ((d << 1) | ((temp) == (3)), result); // TODO was ((0 + (3 - -1))-1)
   }
@@ -718,35 +721,35 @@ int16 add (int16 x, int16 y) {
   int16 dx;
   int16 dy;
 
-  for (;;) {
-    if (((x) == (negc))) {
-      result = norm (result, y);
+  for (;;) { // bb 2
+    if (((x) == (negc))) { // bbs 2 and 7
+      result = norm (result, y); // bb 6
       break;
     }
 
-    if (((y) == (negc))) {
-      result = norm (result, x);
+    if (((y) == (negc))) { // bbs 5 and 10
+      result = norm (result, x); // bb 9
       break;
     }
 
-    dx = integer_lo (x);
+    dx = integer_lo (x); // bb 8
     dy = integer_lo (y);
     dx = dx + dy;
 
-    if (((negc) == ((0 + (3 - -1)))))
-      negc = negative_carry (dx < dy);
-    else {
+    if (((negc) == ((0 + (3 - -1))))) // bbs 8 and 14
+      negc = negative_carry (dx < dy); // bbs 12, 15, 16, 17
+    else { // bb 13
       dx++;
-      negc = negative_carry (dx <= dy);
+      negc = negative_carry (dx <= dy); // bbs 13, 18, 19, 20
     }
 
-    x = integer_hi (x);
+    x = integer_hi (x); // bb 11
     y = integer_hi (y);
 
     result = make_integer (dx, result);
   }
 
-  return result;
+  return result; // bb 4
 }
 
 int16 invert (int16 x) {
@@ -827,8 +830,8 @@ int16 scale (int16 n, int16 x) {
 
     if (((x) == (((0 + (3 - -1))-1)))) {
       carry = carry - n;
-      int tmp = 1;
-      if (carry >= ((tmp<<16) + -1))
+      int16 tmp = 1;
+      if (carry >= ((tmp<<16) - 1)) // TODO -1 not a good literal
 	result = norm (result, ((carry & #xff) + (3 - -1)));
       else
 	result = norm (result, make_integer (carry, ((0 + (3 - -1))-1)));
@@ -1049,7 +1052,7 @@ void prim_neg () {
 
 void prim_eq () {
 
-  arg1 = ((cmp (arg1, arg2) == 1)); // TODO cmp changed
+  arg1 = ((cmp (arg1, arg2) == 1));
 
 
 
@@ -1059,7 +1062,7 @@ void prim_eq () {
 
 void prim_lt () {
 
-  arg1 = ((cmp (arg1, arg2) < 1)); // TODO cmp changed
+  arg1 = ((cmp (arg1, arg2) < 1));
 
 
 
@@ -1069,7 +1072,7 @@ void prim_lt () {
 
 void prim_gt () {
 
-  arg1 = ((cmp (arg1, arg2) > 1)); // TODO cmp changed
+  arg1 = ((cmp (arg1, arg2) > 1));
 
 
 
@@ -1079,7 +1082,7 @@ void prim_gt () {
 
 void prim_leq () {
 
-  arg1 = ((cmp (arg1, arg2) <= 1)); // TODO cmp changed
+  arg1 = ((cmp (arg1, arg2) <= 1));
 
 
 
@@ -1090,7 +1093,7 @@ void prim_leq () {
 
 void prim_geq () {
 
-  arg1 = ((cmp (arg1, arg2) >= 1)); // TODO cmp changed
+  arg1 = ((cmp (arg1, arg2) >= 1));
 
 
 
@@ -1465,7 +1468,7 @@ int32 read_clock () {
   int32 now = 0;
 
 
-  /* now = from_now( 0 ); */
+  /* now = from_now( 0 ); */ // TODO
   return now;
 }
 
@@ -1480,7 +1483,7 @@ void prim_motor () {
     halt_with_error();
 
 
-  /*   MOTOR_set( a1, a2 ); */
+  /*   MOTOR_set( a1, a2 ); */ // TODO
 
 
 
@@ -1501,7 +1504,7 @@ void prim_led () {
     halt_with_error();
 
 
-/*   LED_set( a1, a2, a3 ); */
+  /*   LED_set( a1, a2, a3 ); */ // TODO
 
 
 
@@ -1522,7 +1525,7 @@ void prim_led2_color () {
     halt_with_error();
 
 
-/*   LED2_color_set( a1 ); */
+  /*   LED2_color_set( a1 ); */ // TODO
 
 
 
@@ -1543,7 +1546,7 @@ void prim_getchar_wait () {
 
 
   arg1 = 0;
-/*   { */
+  /*   { */ // TODO
 /*     serial_port_set ports; */
 /*     ports = serial_rx_wait_with_timeout( a2, a1 ); */
 /*     if (ports != 0) */
@@ -1559,8 +1562,8 @@ void prim_putchar () {
     halt_with_error();
 
 
-/*   serial_tx_write( a2, a1 ); */
-
+  /*   serial_tx_write( a2, a1 ); */ // TODO
+  uart_write(a1);
 
 
 
@@ -2135,7 +2138,8 @@ void interpreter () {
 
   ;
 
-  arg1 = (bytecode_lo4 << 8) | bytecode;
+  int16 tmp = bytecode_lo4; // TODO ugly patch. not needed with gcc since the 8 is an int, and would make all the other operands ints, whereas we keep using int8, and truncate the value
+  arg1 = (tmp << 8) | bytecode;
   push_arg1 ();
 
   ; goto dispatch;;

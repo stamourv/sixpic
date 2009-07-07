@@ -60,7 +60,7 @@
   (let* ((id   (byte-cell-next-id))
 	 (cell (make-byte-cell
 		id (if allocate-registers? #f id)
-		(if name (string-append name "$" (number->string id)) "__tmp")
+		name
 		bb #f 0 (new-empty-set) (new-empty-set))))
     (table-set! all-byte-cells id cell)
     cell))

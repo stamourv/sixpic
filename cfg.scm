@@ -1109,7 +1109,7 @@
 	  result)))))
   
   ;; generates the cfg for a predefined routine and adds it to the current cfg
-  (define (include-predefined-routine proc) ;; FOO check in all-def-procedures
+  (define (include-predefined-routine proc)
     (define (get-bytes var)
       (value-bytes (def-variable-value var)))
     (let ((old-proc current-def-proc) ; if we were already defining a procedure, save it
@@ -1133,6 +1133,13 @@
 	   ;; TODO use postinc/dec and co
 	   (emit (new-instr 'tblrd x0 x1 #f))
 	   (move (get-register TABLAT) z0)))
+
+	((uart_write) ; writes a byte ;; TODO should configure the uart
+	 (let* ((x (car (get-bytes (car params)))))
+	   (move x (get-register TXREG)))) ;; TODO this is mostly for debugging purposes, won't work on the chip
+	((uart_read) ; reads a byr
+	 (let ((z (car (value-bytes value))))
+	   (move (get-register RCREG) z)))
 	
 	((__mul8_8)
 	 (let ((x (car params))
