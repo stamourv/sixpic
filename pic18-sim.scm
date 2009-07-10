@@ -423,7 +423,8 @@
 			 (pp (picobit-pc)))
 		     (if (= pc #x72) ; later on in the dispatch
 			 (begin (picobit-instruction)
-				(picobit-stack)
+				(picobit-stack) ;; FOO now shows garbage, even though the rest seems valid, is env invalid at this point ? it's the same as at #x48
+				(picobit-continuation)
 				(display "\n")))))
 	  (if (member pc break-points)
 	      (begin (pp (list "break point at: " (number->string pc 16)))
@@ -1051,9 +1052,9 @@
 
 ;; debugging procedures
 (define (add-break-point adr) (set! break-points (cons adr break-points)))
-(define (continue) (set! single-stepping-mode? #f)) ;; TODO + the equivalent of ,c
+(define (continue) (set! trace-instr #f) (set! single-stepping-mode? #f)) ;; TODO + the equivalent of ,c
 
-(define (picobit-object o0 o1)
+(define (picobit-object o)
 
   (define (get-car f o)
     (bitwise-ior (arithmetic-shift (bitwise-and (f o 0) #x1f) 8)
@@ -1068,7 +1069,7 @@
 
   (define (fixed?  o) (< o 260))
   (define (in-rom? o) (and (>= o 260) (< o 512)))
-  (define (in-ram? o) (> o 512))
+  (define (in-ram? o) (and (>= o 512) (< o 4096)))
   
   (define (obj->ram o field)
     (get-ram (+ 512 (arithmetic-shift (- o 512) 2) field)))
@@ -1140,7 +1141,27 @@
 			  ((= (bitwise-and obj #x0000e000) #x4000)
 			   (display "#<string>"))
 			  ((= (bitwise-and obj #x0000e000) #x6000)
-			   (display "#<vector>"))
+			   (display "#<vector")
+			   (display (string-append
+				     "@" (number->string (get-cdr f o)) " "))
+			   (if (in-rom? o)
+			       (let loop ((n   (- (rom-get-car o) 1))
+					  (adr (rom-get-cdr o)))
+				 (show-obj (rom-get-car adr))
+					(if (not (= n 0))
+					    (begin (display " ")
+						   (loop (- n 1)
+							 (rom-get-cdr adr)))))
+			       (let loop ((n   (- (get-car f o) 1))
+					  (adr (+ 512
+						  (arithmetic-shift
+						   (- (get-cdr f o) 512) 2))))
+				 (display (number->string (get-ram adr)))
+				 (if (not (= n 0))
+				     (begin (display " ")
+					    (loop (- n 1)
+						  (+ adr 1))))))
+			   (display ">"))
 			  ((= (bitwise-and obj #x0000e000) #x8000)
 			   (display "#<cont: ")
 			   (show-obj (get-cdr f o))
@@ -1157,30 +1178,32 @@
 		    (display "}")))))
 	  (else (display "invalid"))))
 
-  (show-obj (+ (* 256 (get-ram o1)) (get-ram o0)))
+  (show-obj o)
   (display "\n"))
 
-(define picobit-trace? #f)
+(define picobit-trace? #t)
 (define (picobit-pc)
   (number->string (+ (* 256 (get-ram (table-ref reverse-register-table
-						"pc1")))
+						"pc$1")))
 		     (get-ram (table-ref reverse-register-table
-					 "pc0")))
+					 "pc$0")))
 		  16))
 (define (picobit-stack)
-  (picobit-object (table-ref reverse-register-table "env0")
-		  (table-ref reverse-register-table "env1")))
+  (picobit-object
+   (+ (* 256 (get-ram (table-ref reverse-register-table "env$1")))
+      (get-ram (table-ref reverse-register-table "env$0")))))
 (define (picobit-continuation)
-  (picobit-object (table-ref reverse-register-table "cont0")
-		  (table-ref reverse-register-table "cont1")))
+  (picobit-object
+   (+ (* 256 (get-ram (table-ref reverse-register-table "cont$1")))
+      (get-ram (table-ref reverse-register-table "cont$0")))))
 (define (picobit-instruction)
   (let* ((opcode (get-ram (table-ref reverse-register-table
-				     "bytecode0")))
+				     "bytecode$0")))
 	 (bytecode-hi4 (arithmetic-shift (bitwise-and opcode #xf0) -4))
 	 (bytecode-lo4 (bitwise-and opcode #x0f)))
     (pp (number->string opcode 16))
     (pp (case bytecode-hi4
-	  ((0)  (list 'push-constant bytecode-lo4))
+	  ((0)  (list 'push-constant bytecode-lo4)) ;; TODO use picobit-object
 	  ((1)  (list 'push-constant (+ bytecode-lo4 16)))
 	  ((2)  (list 'push-stack bytecode-lo4))
 	  ((3)  (list 'push-stack (+ bytecode-lo4 16)))

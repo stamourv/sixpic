@@ -87,7 +87,7 @@
     (int24 . 3)
     (int32 . 4)))
 
-(define (val->type n)
+(define (val->type n) ;; TODO negative literals won't work
   (cond ((and (>= n 0) (< n 256))   'int8)
 	((and (>= n 0) (< n 65536)) 'int16)
 	(else                       'int32)))
@@ -129,7 +129,7 @@
                 (cons (new-byte-cell
 		       (if name
 			   ;; the lsb is 0, and so on
-			   (string-append (symbol->string name)
+			   (string-append (symbol->string name) "$"
 					  (number->string (- len 1)))
 			   #f)
 		       bb)

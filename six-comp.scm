@@ -104,11 +104,15 @@
 	(with-output-to-file (string-append filename ".map")
 	  (lambda () (write (table->list symbol-table))))
 	(with-output-to-file (string-append filename ".reg")
-	  (lambda () (write (map (lambda (x)
-				   ;; write it in hex, for easier
-				   ;; cross-reference with the simulation
-				   (cons (number->string (car x) 16) (cdr x)))
-				 (table->list register-table)))))
+	  (lambda ()
+	    (display "(")
+	    (for-each (lambda (x)
+			;; write it in hex, for easier cross-reference with the
+			;; simulation
+			(write (cons (number->string (car x) 16) (cdr x)))
+			(display "\n"))
+		    (table->list register-table))
+	  (display ")")))
 	(asm-write-hex-file (string-append filename ".hex"))
 	(asm-end!)
 	;; data contains a list of additional hex files
@@ -136,7 +140,7 @@
     (for-each (lambda (x)
 		(for-each (lambda (y)
 			    (table-set! reverse-register-table
-					(cdr y)
+					(cadr y)
 					(string->number (car x) 16)))
 			  (cdr x)))
 	      regs))

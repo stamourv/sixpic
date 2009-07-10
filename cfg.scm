@@ -79,6 +79,14 @@
   (bb-succs-set! bb (cons succ (bb-succs bb)))
   (bb-preds-set! succ (cons bb (bb-preds succ))))
 
+;; for statistics
+(define virtual-instructions-counts  (make-table))
+(define concrete-instructions-counts (make-table))
+(define byte-cell-src1-counts        (make-table))
+(define byte-cell-src2-counts        (make-table))
+(define byte-cell-dst-counts         (make-table))
+(define byte-cell-all-counts         (make-table))
+
 (define (generate-cfg ast)
 
   (define cfg (new-cfg))
@@ -94,8 +102,34 @@
       (set! current-def-proc-bb-id (+ current-def-proc-bb-id 1))
       bb))
 
-  (define (emit instr) (add-instr bb instr))
-
+  (define (emit instr)
+    ;; keep statistics
+    (let ((id   (instr-id   instr)))
+      (table-set! virtual-instructions-counts id
+		  (+ (table-ref virtual-instructions-counts id 0) 1)))
+    (let ((src1 (instr-src1 instr))) ;; TODO have a macro for that
+      (if (byte-cell? src1)
+	  (let ((src1 (byte-cell-name src1))) ;; TODO also include the id, in the case of multiple vars with the same name, or maybe the bb (though it is not defined everywhere
+	    (table-set! byte-cell-src1-counts src1
+			(+ (table-ref byte-cell-src1-counts src1 0) 1))
+	    (table-set! byte-cell-all-counts src1
+			(+ (table-ref byte-cell-all-counts src1 0) 1)))))
+    (let ((src2 (instr-src2 instr)))
+      (if (byte-cell? src2)
+	  (let ((src2 (byte-cell-name src2)))
+	    (table-set! byte-cell-src2-counts src2
+			(+ (table-ref byte-cell-src2-counts src2 0) 1))
+	    (table-set! byte-cell-all-counts src2
+			(+ (table-ref byte-cell-all-counts src2 0) 1)))))
+    (let ((dst (instr-dst instr)))
+      (if (byte-cell? dst)
+	  (let ((dst (byte-cell-name dst)))
+	    (table-set! byte-cell-dst-counts dst
+			(+ (table-ref byte-cell-dst-counts dst 0) 1))
+	    (table-set! byte-cell-all-counts dst
+			(+ (table-ref byte-cell-all-counts dst 0) 1)))))
+    (add-instr bb instr)) ;; FOO count the number of each virtual instruction (later, each concrete too), and how many times each byte cell is used as arg1, 2, and dest
+  
   (define current-def-proc #f)
   (define (current-def-proc-id)
     (if current-def-proc
@@ -583,7 +617,7 @@
 				   bb-true bb-false)
 			;; more than one byte, we subtract, then see if we had
 			;; to borrow
-			(let ((scratch (new-byte-cell #f (bb-name bb))))
+			(let ((scratch (new-byte-cell "cmp-scratch" (bb-name bb))))
 			  
 			  ;; our values might contain literal bytes and sub and
 			  ;; subb can't have literals in their first argument,
@@ -626,7 +660,7 @@
 					 (emit (new-instr
 						(if borrow? 'subb 'sub)
 						b2 b1 scratch)))))
-				  (loop (cdr bytes1) (cdr bytes2) #t))))
+				  (loop (cdr bytes1) (cdr bytes2) #t)))) ;; FOO in norm$12, there is a weird subtraction without borrow
 			  
 			  (add-succ bb bb-false)
 			  (add-succ bb bb-true)
@@ -1133,6 +1167,9 @@
 	   ;; TODO use postinc/dec and co
 	   (emit (new-instr 'tblrd x0 x1 #f))
 	   (move (get-register TABLAT) z0)))
+
+	((exit)
+	 (emit (new-instr 'sleep #f #f #f)))
 
 	((uart_write) ; writes a byte ;; TODO should configure the uart
 	 (let* ((x (car (get-bytes (car params)))))

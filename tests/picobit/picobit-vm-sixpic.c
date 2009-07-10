@@ -38,14 +38,16 @@ int16 a2;
 int16 a3;
 
 void halt_with_error (){
-  return; // TODO
+  uart_write(101); // e
+  uart_write(114); // r
+  uart_write(114); // r
+  uart_write(13);
+  uart_write(10);
+  exit();
 }
 
 
-/* typedef int16 obj; */ // TODO actually has 21 bits
-/* int8 rom_get (int16 a){ */
-/*   return /\* *(int8*) *\/a; // TODO had rom, but caused problems */
-/* } */ // TODO now a predefined routine
+/* typedef int16 obj; */
 /* int8 ram_get_gc_tags (int16 o); */
 /* int8 ram_get_gc_tag0 (int16 o); */
 /* int8 ram_get_gc_tag1 (int16 o); */
@@ -214,7 +216,7 @@ void mark (int16 temp) {
 
  if ((!((temp) >= 1280) && ((temp) >= 512))) {
    ;
-   int16 tmp = 2; // TODO literals should be int, but that's wasteful
+   int16 tmp = 2;
    ram_set_gc_tags (visit, (tmp<<5));
    ram_set_cdr (visit, stack);
    goto push;
@@ -347,6 +349,14 @@ void sweep () {
 }
 
 void gc () {
+
+  uart_write(10);
+  uart_write(13);
+  uart_write(103); // g FOO DEBUG
+  uart_write(99);  // c
+  uart_write(10);
+  uart_write(13);
+  
   int8 i;
 
   ;
@@ -444,13 +454,13 @@ int16 alloc_vec_cell (int16 n) {
 
 
   else {
-    int16 new_free = o + (n + 3) >> 2;
+    int16 new_free = o + ((n + 3) >> 2);
     if (prec)
       ram_set_car (prec, new_free);
     else
       free_list_vec = new_free;
     ram_set_car (new_free, ram_get_car (o));
-    ram_set_cdr (new_free, ram_get_cdr (o) - (n + 3) >> 2);
+    ram_set_cdr (new_free, ram_get_cdr (o) - ((n + 3) >> 2));
   }
 
   return o;
@@ -511,7 +521,7 @@ int16 integer_lo (int16 x) {
 /* int16 mulnonneg (int16 x, int16 y); */
 /* int16 divnonneg (int16 x, int16 y); */
 
-int32 decode_int (int16 o) {
+int16 decode_int (int16 o) {
   int8 result;
   if (o < 3)
     halt_with_error();
@@ -533,8 +543,8 @@ int32 decode_int (int16 o) {
     halt_with_error();
 }
 
-/* int32 decode_int (int16 o); */
-/* int16 encode_int (int32 n); */
+/* int16 decode_int (int16 o); */
+/* int16 encode_int (int16 n); */
 
 int16 norm (int16 prefix, int16 n) {
 
@@ -553,7 +563,7 @@ int16 norm (int16 prefix, int16 n) {
       }
     }
     else if (((n) == (((0 + (3 - -1))-1)))) { // bbs 7 and 13
-      int16 tmp = 1; // bb 12
+      int32 tmp = 1; // bb 12 // FOO had int16, which made the shift useless (maybe would give the same result anyway, since 0-1 = -1), actually, changes nothing
       if (d >= (tmp<<16) - 1) { // bb 12 // TODO was + MIN_FIXNUM, but -1 is not a valid literal
 	int16 t = d - (tmp << 16); // bb 15
 	n = (t + (3 - -1));
@@ -572,11 +582,12 @@ int8 negp (int16 x) {
 
 
   do {
-    x = integer_hi (x);
-    if (((x) == ((0 + (3 - -1))))) return 0;
-  } while (!((x) == (((0 + (3 - -1))-1))));
+    x = integer_hi (x); // bb 1
+    if (((x) == ((0 + (3 - -1))))) // bbs 1 and 6
+      return 0; // bb 5
+  } while (!((x) == (((0 + (3 - -1))-1)))); // bbs 2 and 8
 
-  return 1;
+  return 1; // bb 3
 }
 
 int8 cmp (int16 x, int16 y) { // TODO changed. used to return -1, 0 and 1, now is 0, 1, 2
@@ -655,7 +666,7 @@ int16 shr (int16 x) {
     x = integer_hi (x);
     int16 tmp = 1;
     result = make_integer ((d >> 1) |
-			   ((integer_lo (x) & 1) ? (tmp<<15) : 0), // TODO only shifting by literals is permitted, so had to change the 16 -1 to 15
+			   ((integer_lo (x) & 1) ? (tmp<<(16-1)) : 0),
 			   result);
   }
 
@@ -688,7 +699,7 @@ int16 shl (int16 x) {
     temp = negc;
     int16 tmp = 1;
     negc = negative_carry (d & (tmp<<15));
-    result = make_integer ((d << 1) | ((temp) == (3)), result); // TODO was ((0 + (3 - -1))-1)
+    result = make_integer ((d << 1) | ((temp) == ((0 + (3 - -1))-1)), result);
   }
 
   return result;
@@ -876,26 +887,26 @@ int16 divnonneg (int16 x, int16 y) {
 
 
 
-  int16 result = (0 + (3 - -1));
+  int16 result = (0 + (3 - -1)); // bb 0
   int16 lx = integer_length (x);
   int16 ly = integer_length (y);
 
-  if (lx >= ly) {
-    lx = lx - ly;
+  if (lx >= ly) { // bb 0
+    lx = lx - ly; // bb 2
 
     y = shift_left (y, lx);
 
     do {
-      result = shl (result);
-      if (cmp (x, y) >= 1) { // TODO cmp changed
-	x = sub (x, y);
+      result = shl (result); // bb 3
+      if (cmp (x, y) >= 1) {
+	x = sub (x, y); // bb 7
 	result = add (((0 + (3 - -1))+1), result);
       }
-      y = shr (y);
-    } while (lx-- != 0);
+      y = shr (y); // bb 6 ?
+    } while (lx-- != 0); // bbs 4 and 8
   }
 
-  return result;
+  return result; // bb 1
 }
 
 int16 bitwise_ior (int16 x, int16 y) {
@@ -934,12 +945,15 @@ int16 bitwise_xor (int16 x, int16 y) {
 
 
 
-int16 encode_int (int32 n) {
-  if (n >= -1 && n <= 255) {
-    int16 tmp = n;
-    return (tmp + (3 - -1));
+int16 encode_int (int16 n) {
+  if (/* n >= -1 && */ n <= 255) { // TODO should be n >= -1, but -1 as a literal is not good. since only primitives (i.e. not the bignum code) uses it, shouldn't be a problem
+    uart_write(65+n); // FOO
+    uart_write(13);
+    uart_write(10);
+    return (n + (3 - -1)); // FOO if we go in this branch, instead of returning #f, returns a disgusting weird object, actually, only when comparing 2 ram vectors
   }
 
+  uart_write(33);
   return alloc_ram_cell_init (0, (0 + (3 - -1)), n >> 8, n);
 }
 void decode_2_int_args () {
@@ -1807,7 +1821,7 @@ void interpreter () {
   switch (bytecode_hi4 >> 4) {;
 
 
-  case 0: // TODO used to be #x00 >> 4
+  case 0: // push-constant // TODO used to be #x00 >> 4
 
   ;
 
@@ -1818,7 +1832,7 @@ void interpreter () {
   ; goto dispatch;;
 
 
-  case 1:;;
+  case 1:;; // push-constant
 
   ;
   arg1 = bytecode_lo4+16;
@@ -1828,7 +1842,7 @@ void interpreter () {
   ; goto dispatch;;
 
 
-  case 2:;;
+  case 2:;; // push-stack
 
   ;
 
@@ -1846,7 +1860,7 @@ void interpreter () {
   ; goto dispatch;;
 
 
-  case 3:;;
+  case 3:;; // push-stack
 
   ;
 
@@ -1866,7 +1880,7 @@ void interpreter () {
   ; goto dispatch;;
 
 
-  case 4:;;
+  case 4:;; // push-global
 
   ;
 
@@ -1877,7 +1891,7 @@ void interpreter () {
   ; goto dispatch;;
 
 
-  case 5:;;
+  case 5:;; // set-global
 
   ;
 
@@ -1886,7 +1900,7 @@ void interpreter () {
   ; goto dispatch;;
 
 
-  case 6:;;
+  case 6:;; // call
 
   ;
 
@@ -1905,7 +1919,7 @@ void interpreter () {
   ; goto dispatch;;
 
 
-  case 7:;;
+  case 7:;; // jump
 
   ;
 
@@ -1926,7 +1940,7 @@ void interpreter () {
   case 8:;;
 
   switch (bytecode_lo4) {
-  case 0:
+  case 0: // call-toplevel
     bytecode = rom_get (pc++);
     arg2 = bytecode;
 
@@ -1951,7 +1965,7 @@ void interpreter () {
 
     break;
 
-  case 1:
+  case 1: // jump-toplevel
     bytecode = rom_get (pc++);
     arg2 = bytecode;
 
@@ -1975,7 +1989,7 @@ void interpreter () {
 
     break;
 
-  case 2:
+  case 2: // goto
     bytecode = rom_get (pc++);
     arg2 = bytecode;
 
@@ -1988,7 +2002,7 @@ void interpreter () {
 
     break;
 
-  case 3:
+  case 3: // goto-if-false
     bytecode = rom_get (pc++);
     arg2 = bytecode;
 
@@ -2002,7 +2016,7 @@ void interpreter () {
 
     break;
 
-  case 4:
+  case 4: // closure
     bytecode = rom_get (pc++);
     arg2 = bytecode;
 
@@ -2014,9 +2028,10 @@ void interpreter () {
 
     entry = (arg2 << 8) | bytecode;
 
+    int16 tmp = (bytecode & #x07);
     arg1 = alloc_ram_cell_init (#x40 | (arg2 >> 3),
-    ((arg2 & #x07) << 5) | (bytecode >> 3),
-    ((bytecode &#x07) << 5) |((arg3 &#x1f00) >>8),
+				((arg2 & #x07) << 5) | (bytecode >> 3),
+				(tmp << 5) |((arg3 &#x1f00) >>8),
     arg3 & #xff);
 
     push_arg1 ();
@@ -2106,7 +2121,7 @@ void interpreter () {
 /*     arg3 = 0; */
 
 /*     break; */
-  case 14:
+  case 14: // push-global [long]
     bytecode = rom_get (pc++);
 
     ;
@@ -2117,7 +2132,7 @@ void interpreter () {
 
     break;
 
-  case 15:
+  case 15: // set-global [long]
     bytecode = rom_get (pc++);
 
     ;
@@ -2130,7 +2145,7 @@ void interpreter () {
   ; goto dispatch;;
 
 
-  case 9:;;
+  case 9:;; // push-constant [long]
 
 
 
@@ -2145,7 +2160,7 @@ void interpreter () {
   ; goto dispatch;;
 
 
-  case 10:;;
+  case 10:;; 
 
   ; goto dispatch;;
 
@@ -2212,12 +2227,12 @@ void interpreter () {
     arg2 = pop(); arg1 = pop(); prim_eqp (); push_arg1 (); break;
   case 4:
     arg1 = pop(); prim_not (); push_arg1 (); break;
-  case 5:
+  case 5: // get-cont
 
     arg1 = cont;
     push_arg1 ();
     break;
-  case 6:
+  case 6: // graft-to-cont
 
 
     arg1 = pop();
@@ -2237,7 +2252,7 @@ void interpreter () {
     arg1 = 0;
 
     break;
-  case 7:
+  case 7: // return-to-cont
 
 
     arg1 = pop();
@@ -2254,7 +2269,7 @@ void interpreter () {
     arg2 = 0;
 
     break;
-  case 8:
+  case 8: // halt
 
     return;
   case 9:
@@ -2331,17 +2346,17 @@ void interpreter () {
     arg5 = pop(); arg4 = pop(); arg3 = pop(); arg2 = pop(); arg1 = pop();
     prim_u8vector_copy (); break;
     break;
-  case 13:
+  case 13: // shift
 
     arg1 = pop();
     pop();
     push_arg1 ();
     break;
-  case 14:
+  case 14: // pop
 
     pop();
     break;
-  case 15:
+  case 15: // return
 
     arg1 = pop();
     arg2 = ram_get_cdr (cont);

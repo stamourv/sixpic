@@ -290,11 +290,8 @@
 				  (+ adr #xa0)
 				  adr))
 		   (name      (byte-cell-name cell))
-		   (full-name (if name
-				  (string-append
-				   name "$"
-				   (number->string (byte-cell-id cell)))
-				  "__tmp")))
+		   (full-name (cons (if name name "__tmp")
+				    (byte-cell-id cell))))
 	      (table-set! register-table
 			  adr
 			  (cons (cons (byte-cell-bb   cell)

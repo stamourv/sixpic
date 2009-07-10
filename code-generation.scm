@@ -478,36 +478,41 @@
       ((eval (car instr)) (cadr instr) (caddr instr)))
     (define (gen-3-args)
       ((eval (car instr)) (cadr instr) (caddr instr) (cadddr instr)))
-    (case (car instr)
-      ((movlw mullw)
-       (gen-1-arg))
-      ((movff movwf clrf setf cpfseq cpfslt cpfsgt mulwf)
-       (gen-2-args))
-      ((incf decf addwf addwfc subwf subwfb andwf iorwf xorwf rlcf rrcf comf
-	bcf bsf btg movf)
-       (gen-3-args))
-      ((tblrd)
-       (tblrd*)) ;; TODO support the other modes
-      ((bc)
-       (bc (cadr instr)))
-      ((bra)
-       (bra (cadr instr)))
-      ((goto)
-       (goto (cadr instr)))
-      ((bra-or-goto)
-       (bra-or-goto (cadr instr)))
-      ((rcall)
-       (rcall-or-call (cadr instr)))
-      ((return)
-       (return))
-      ((label)
-       (asm-listing
-        (string-append (symbol->string (asm-label-id (cadr instr))) ":"))
-       (asm-label (cadr instr)))
-      ((sleep)
-       (sleep))
-      (else
-       (error "unknown instruction" instr))))
+
+    (let ((id (car instr)))
+      ;; count instructions by kind
+      (table-set! concrete-instructions-counts id
+		  (+ (table-ref concrete-instructions-counts id 0) 1))
+      (case id
+	((movlw mullw)
+	 (gen-1-arg))
+	((movff movwf clrf setf cpfseq cpfslt cpfsgt mulwf)
+	 (gen-2-args))
+	((incf decf addwf addwfc subwf subwfb andwf iorwf xorwf rlcf rrcf comf
+	       bcf bsf btg movf)
+	 (gen-3-args))
+	((tblrd)
+	 (tblrd*)) ;; TODO support the other modes
+	((bc)
+	 (bc (cadr instr)))
+	((bra)
+	 (bra (cadr instr)))
+	((goto)
+	 (goto (cadr instr)))
+	((bra-or-goto)
+	 (bra-or-goto (cadr instr)))
+	((rcall)
+	 (rcall-or-call (cadr instr)))
+	((return)
+	 (return))
+	((label)
+	 (asm-listing
+	  (string-append (symbol->string (asm-label-id (cadr instr))) ":"))
+	 (asm-label (cadr instr)))
+	((sleep)
+	 (sleep))
+	(else
+	 (error "unknown instruction" instr)))))
 
   (asm-begin! 0 #f)
 

@@ -69,6 +69,8 @@
    ;; TODO have the equivalent of FSR variabes pour TBLPTR
    (predefine-routine 'rom_get  'int8  '(int16)) ;; TODO actually, 21 bits of address
 
+   (predefine-routine 'exit 'void '())
+
    (predefine-routine 'uart_write 'void '(int8))
    (predefine-routine 'uart_read  'int8 '())
 	
