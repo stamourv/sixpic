@@ -350,12 +350,12 @@ void sweep () {
 
 void gc () {
 
-  uart_write(10);
-  uart_write(13);
-  uart_write(103); // g FOO DEBUG
-  uart_write(99);  // c
-  uart_write(10);
-  uart_write(13);
+  /*   uart_write(10); */ // TODO for debugging
+/*   uart_write(13); */
+/*   uart_write(103); // g */
+/*   uart_write(99);  // c */
+/*   uart_write(10); */
+/*   uart_write(13); */
   
   int8 i;
 
@@ -402,15 +402,15 @@ int16 alloc_ram_cell () {
   o = free_list;
 
   free_list = ram_get_car (o);
-  uart_write(65); // FOO All + free list
-  uart_write(108);
-  uart_write(108);
-  uart_write((free_list>>12)+65);
-  uart_write(((free_list>>8)&#xf)+65);
-  uart_write(((free_list>>4)&#xf)+65);
-  uart_write((free_list & #xf) + 65);
-  uart_write(10);
-  uart_write(13);
+  /*   uart_write(65); */ // TODO for debugging
+/*   uart_write(108); */
+/*   uart_write(108); */
+/*   uart_write((free_list>>12)+65); */
+/*   uart_write(((free_list>>8)&#xf)+65); */
+/*   uart_write(((free_list>>4)&#xf)+65); */
+/*   uart_write((free_list & #xf) + 65); */
+/*   uart_write(10); */
+/*   uart_write(13); */
   
 
   return o;
@@ -484,7 +484,7 @@ int16 alloc_vec_cell (int16 n) {
 /* int16 make_integer (int16 lo, int16 hi); */
 /* int16 integer_hi (int16 x); */
 /* int16 integer_lo (int16 x); */
-int16 make_integer (int16 lo_make_integer, int16 hi_make_integer) { // FOO changed name
+int16 make_integer (int16 lo_make_integer, int16 hi_make_integer) { // TODO changed name
   return alloc_ram_cell_init (0 | (hi_make_integer >> 8), hi_make_integer, lo_make_integer >> 8, lo_make_integer);
 }
 
@@ -556,7 +556,7 @@ int16 decode_int (int16 o) {
 /* int16 decode_int (int16 o); */
 /* int16 encode_int (int16 n); */
 
-int16 norm (int16 prefix, int16 n_norm) { // FOO arg changed
+int16 norm (int16 prefix, int16 n_norm) { // TODO arg changed
 
 
 
@@ -783,8 +783,8 @@ int16 invert (int16 x) {
 int16 sub (int16 x, int16 y) {
 
   int16 negc = ((0 + (3 - -1))-1);
-  int16 result_sub = 0; // FOO name changed
-  int16 dx_sub; // FOO changed
+  int16 result_sub = 0; // TODO name changed
+  int16 dx_sub; // TODO changed
   int16 dy_sub;
 
   for (;;) { // bb 2
@@ -796,7 +796,7 @@ int16 sub (int16 x, int16 y) {
     }
 
     if (((y) == (invert (negc)))) { // bbs 5 and 14
-      result_sub = norm (result_sub, x); // bb 13 // FOO loops here, result is -1 (3) and should be 1 (5)
+      result_sub = norm (result_sub, x); // bb 13
       break;
     }
 
@@ -959,13 +959,9 @@ int16 bitwise_xor (int16 x, int16 y) {
 
 int16 encode_int (int16 n) {
   if (/* n >= -1 && */ n <= 255) { // TODO should be n >= -1, but -1 as a literal is not good. since only primitives (i.e. not the bignum code) uses it, shouldn't be a problem
-    uart_write(65+n); // FOO
-    uart_write(13);
-    uart_write(10);
     return (n + (3 - -1)); // FOO if we go in this branch, instead of returning #f, returns a disgusting weird object, actually, only when comparing 2 ram vectors
   }
 
-  uart_write(33);
   return alloc_ram_cell_init (0, (0 + (3 - -1)), n >> 8, n);
 }
 void decode_2_int_args () {

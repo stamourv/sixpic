@@ -1181,7 +1181,7 @@
   (show-obj o)
   (display "\n"))
 
-(define picobit-trace? #t)
+(define picobit-trace? #f)
 (define (picobit-pc)
   (number->string (+ (* 256 (get-ram (table-ref reverse-register-table
 						"pc$1")))
