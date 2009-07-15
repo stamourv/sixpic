@@ -162,7 +162,12 @@
                  (movlw n)
                  (movwf adr))))
 
-        (define (dump-instr instr)
+	;; when eliminating additions/substractions, it is important that the
+	;; next one ignores the carry/borrow, to avoid using a leftover carry
+	;; from an earlier operation
+	(define ignore-carry-borrow? #f)
+
+	(define (dump-instr instr)
           (cond ((call-instr? instr)
                  (let* ((def-proc (call-instr-def-proc instr))
                         (entry (def-procedure-entry def-proc)))
@@ -204,20 +209,31 @@
 				(if (byte-lit? src1)
 				    (move-lit (byte-lit-val src1) z)
 				    (move-reg (byte-cell-adr src1) z))
-				(if (not (and (= n 0) ; nop
-					      (or (eq? id 'add)
-						  (eq? id 'sub))))
-				    (case id
-				      ((add)  (cond ((= n 1)    (incf z))
-						    ((= n #xff) (decf z)) ;; TODO set the carry if needed ?
-						    (else       (movlw n)
-								(addwf z))))
-				      ((addc) (movlw n) (addwfc z))
-				      ((sub)  (cond ((= n 1)    (decf z))
-						    ((= n #xff) (incf z)) ;; TODO same
-						    (else       (movlw n)
-								(subwf z))))
-				      ((subb) (movlw n) (subwfb z)))))
+				(if (and (= n 0) ; nop
+					 (or (eq? id 'add)
+					     (eq? id 'sub)))
+				    (set! ignore-carry-borrow? #t)
+				    (begin
+				      (case id
+					((add)  (cond ((= n 1)    (incf z))
+						      ((= n #xff) (decf z)) ;; TODO set the carry if needed ?
+						      (else       (movlw n)
+								  (addwf z))))
+					((addc)
+					 (movlw n)
+					 (if ignore-carry-borrow?
+					     (addwf  z)
+					     (addwfc z)))
+					((sub)  (cond ((= n 1)    (decf z))
+						      ((= n #xff) (incf z)) ;; TODO same
+						      (else       (movlw n)
+								  (subwf z))))
+					((subb)
+					 (movlw n)
+					 (if ignore-carry-borrow?
+					     (subwf  z)
+					     (subwfb z))))
+				      (set! ignore-carry-borrow? #f))))
                               (let ((x (byte-cell-adr src1))
                                     (y (byte-cell-adr src2))
                                     (z (byte-cell-adr dst)))
@@ -243,10 +259,15 @@
                                        (move-reg y WREG)))
                                 (case (instr-id instr)
                                   ((add)  (addwf z))
-                                  ((addc) (addwfc z))
+                                  ((addc) (if ignore-carry-borrow?
+					      (addwf  z)
+					      (addwfc z)))
                                   ((sub)  (subwf z))
-                                  ((subb) (subwfb z))
-                                  (else   (error "..."))))))
+                                  ((subb) (if ignore-carry-borrow?
+					      (subwf  z)
+					      (subwfb z)))
+                                  (else   (error "...")))
+				(set! ignore-carry-borrow? #f))))
 
                          ((mul) ; 8 by 8 multiplication
                           (if (byte-lit? src2)

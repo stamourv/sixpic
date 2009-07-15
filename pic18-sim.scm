@@ -1054,6 +1054,22 @@
 (define (add-break-point adr) (set! break-points (cons adr break-points)))
 (define (continue) (set! trace-instr #f) (set! single-stepping-mode? #f)) ;; TODO + the equivalent of ,c
 
+(define (fixed?  o) (< o 260))
+(define (in-rom? o) (and (>= o 260) (< o 512)))
+(define (in-ram? o) (and (>= o 512) (< o 4096)))
+
+(define (obj->ram o field)
+  (get-ram (+ 512 (arithmetic-shift (- o 512) 2) field)))
+(define (ram-get-car   o) (get-car   obj->ram o))
+(define (ram-get-cdr   o) (get-cdr   obj->ram o))
+(define (ram-get-entry o) (get-entry obj->ram o))
+
+(define (obj->rom o field)
+  (get-rom (+ #x8000 (arithmetic-shift (- o 260) 2) 4 field)))
+(define (rom-get-car   o) (get-car   obj->rom o))
+(define (rom-get-cdr   o) (get-cdr   obj->rom o))
+(define (rom-get-entry o) (get-entry obj->rom o))
+
 (define (picobit-object o)
 
   (define (get-car f o)
@@ -1066,22 +1082,6 @@
     (bitwise-ior (arithmetic-shift (bitwise-and (f o 0) #x1f) 11)
 		 (arithmetic-shift (f o 1) 3)
 		 (arithmetic-shift (f o 2) -5)))
-
-  (define (fixed?  o) (< o 260))
-  (define (in-rom? o) (and (>= o 260) (< o 512)))
-  (define (in-ram? o) (and (>= o 512) (< o 4096)))
-  
-  (define (obj->ram o field)
-    (get-ram (+ 512 (arithmetic-shift (- o 512) 2) field)))
-  (define (ram-get-car   o) (get-car   obj->ram o))
-  (define (ram-get-cdr   o) (get-cdr   obj->ram o))
-  (define (ram-get-entry o) (get-entry obj->ram o))
-
-  (define (obj->rom o field)
-    (get-rom (+ #x8000 (arithmetic-shift (- o 260) 2) 4 field)))
-  (define (rom-get-car   o) (get-car   obj->rom o))
-  (define (rom-get-cdr   o) (get-cdr   obj->rom o))
-  (define (rom-get-entry o) (get-entry obj->rom o))
 
   (define (show-pair f ptr)
     (let* ((obj  (get-car f ptr))
@@ -1188,14 +1188,12 @@
 		     (get-ram (table-ref reverse-register-table
 					 "pc$0")))
 		  16))
-(define (picobit-stack)
-  (picobit-object
-   (+ (* 256 (get-ram (table-ref reverse-register-table "env$1")))
-      (get-ram (table-ref reverse-register-table "env$0")))))
-(define (picobit-continuation)
-  (picobit-object
-   (+ (* 256 (get-ram (table-ref reverse-register-table "cont$1")))
-      (get-ram (table-ref reverse-register-table "cont$0")))))
+(define (picobit-var var)
+  (+ (* 256 (get-ram (table-ref reverse-register-table
+				(string-append var "$1"))))
+     (get-ram (table-ref reverse-register-table (string-append var "$0")))))
+(define (picobit-stack)        (picobit-object (picobit-var "env")))
+(define (picobit-continuation) (picobit-object (picobit-var "cont")))
 (define (picobit-instruction)
   (let* ((opcode (get-ram (table-ref reverse-register-table
 				     "bytecode$0")))

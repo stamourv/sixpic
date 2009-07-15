@@ -402,6 +402,16 @@ int16 alloc_ram_cell () {
   o = free_list;
 
   free_list = ram_get_car (o);
+  uart_write(65); // FOO All + free list
+  uart_write(108);
+  uart_write(108);
+  uart_write((free_list>>12)+65);
+  uart_write(((free_list>>8)&#xf)+65);
+  uart_write(((free_list>>4)&#xf)+65);
+  uart_write((free_list & #xf) + 65);
+  uart_write(10);
+  uart_write(13);
+  
 
   return o;
 }
@@ -474,8 +484,8 @@ int16 alloc_vec_cell (int16 n) {
 /* int16 make_integer (int16 lo, int16 hi); */
 /* int16 integer_hi (int16 x); */
 /* int16 integer_lo (int16 x); */
-int16 make_integer (int16 lo, int16 hi) {
-  return alloc_ram_cell_init (0 | (hi >> 8), hi, lo >> 8, lo);
+int16 make_integer (int16 lo_make_integer, int16 hi_make_integer) { // FOO changed name
+  return alloc_ram_cell_init (0 | (hi_make_integer >> 8), hi_make_integer, lo_make_integer >> 8, lo_make_integer);
 }
 
 int16 integer_hi (int16 x) {
@@ -546,7 +556,7 @@ int16 decode_int (int16 o) {
 /* int16 decode_int (int16 o); */
 /* int16 encode_int (int16 n); */
 
-int16 norm (int16 prefix, int16 n) {
+int16 norm (int16 prefix, int16 n_norm) { // FOO arg changed
 
 
 
@@ -556,26 +566,26 @@ int16 norm (int16 prefix, int16 n) {
 
     prefix = integer_hi (temp);
 
-    if (((n) == ((0 + (3 - -1))))) { // bb 3 and 8
+    if (((n_norm) == ((0 + (3 - -1))))) { // bb 3 and 8
       if (d <= 255) { // bb 6
-	n = (d + (3 - -1)); // bb 10
+	n_norm = (d + (3 - -1)); // bb 10
 	continue;
       }
     }
-    else if (((n) == (((0 + (3 - -1))-1)))) { // bbs 7 and 13
-      int32 tmp = 1; // bb 12 // FOO had int16, which made the shift useless (maybe would give the same result anyway, since 0-1 = -1), actually, changes nothing
+    else if (((n_norm) == (((0 + (3 - -1))-1)))) { // bbs 7 and 13
+      int16 tmp = 1; // bb 12 // FOO had int16, which made the shift useless (maybe would give the same result anyway, since 0-1 = -1), actually, changes nothing FOO having an int32 here causes compilation to fail
       if (d >= (tmp<<16) - 1) { // bb 12 // TODO was + MIN_FIXNUM, but -1 is not a valid literal
 	int16 t = d - (tmp << 16); // bb 15
-	n = (t + (3 - -1));
+	n_norm = (t + (3 - -1));
 	continue;
       }
     }
 
-    ram_set_car (temp, n); // bb 5
-    n = temp;
+    ram_set_car (temp, n_norm); // bb 5
+    n_norm = temp;
   }
 
-  return n; // bb 2
+  return n_norm; // bb 2
 }
 
 int8 negp (int16 x) {
@@ -773,39 +783,41 @@ int16 invert (int16 x) {
 int16 sub (int16 x, int16 y) {
 
   int16 negc = ((0 + (3 - -1))-1);
-  int16 result = 0;
-  int16 dx;
-  int16 dy;
+  int16 result_sub = 0; // FOO name changed
+  int16 dx_sub; // FOO changed
+  int16 dy_sub;
 
-  for (;;) {
-    if (((x) == (negc)) && (((y) == ((0 + (3 - -1)))) || ((y) == (((0 + (3 - -1))-1))))) {
-      result = norm (result, invert (y));
+  for (;;) { // bb 2
+    if (((x) == (negc)) // bbs 2 and 8
+	&& (((y) == ((0 + (3 - -1)))) // bbs 7 and 10
+	    || ((y) == (((0 + (3 - -1))-1))))) { // bbs 9 and 11
+      result_sub = norm (result_sub, invert (y)); // bb 6
       break;
     }
 
-    if (((y) == (invert (negc)))) {
-      result = norm (result, x);
+    if (((y) == (invert (negc)))) { // bbs 5 and 14
+      result_sub = norm (result_sub, x); // bb 13 // FOO loops here, result is -1 (3) and should be 1 (5)
       break;
     }
 
-    dx = integer_lo (x);
-    dy = ~integer_lo (y);
-    dx = dx + dy;
+    dx_sub = integer_lo (x); // bb 12
+    dy_sub = ~integer_lo (y);
+    dx_sub = dx_sub + dy_sub;
 
-    if (((negc) == ((0 + (3 - -1)))))
-      negc = negative_carry (dx < dy);
-    else {
-      dx++;
-      negc = negative_carry (dx <= dy);
+    if (((negc) == ((0 + (3 - -1))))) // bbs 12 and 18
+      negc = negative_carry (dx_sub < dy_sub); // bbs 16, 19, 20, 21
+    else { // bb 17, 22, 23, 24
+      dx_sub++;
+      negc = negative_carry (dx_sub <= dy_sub);
     }
 
-    x = integer_hi (x);
+    x = integer_hi (x); // bb 15
     y = integer_hi (y);
 
-    result = make_integer (dx, result);
+    result_sub = make_integer (dx_sub, result_sub);
   }
 
-  return result;
+  return result_sub; // bb 4
 }
 
 int16 neg (int16 x) {
@@ -1777,7 +1789,7 @@ void init_ram_heap () {
 
   free_list = 0;
 
-  int16 tmp = (512 + ((glovars + 1) >> 1)); // TODO optimization TODO parens added to solve a potential shift priority problem
+  int16 tmp = (512 + ((glovars + 1) >> 1)); // TODO optimization
   while (o > tmp) {
 
 

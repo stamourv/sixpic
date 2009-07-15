@@ -128,7 +128,7 @@
 			(+ (table-ref byte-cell-dst-counts dst 0) 1))
 	    (table-set! byte-cell-all-counts dst
 			(+ (table-ref byte-cell-all-counts dst 0) 1)))))
-    (add-instr bb instr)) ;; FOO count the number of each virtual instruction (later, each concrete too), and how many times each byte cell is used as arg1, 2, and dest
+    (add-instr bb instr))
   
   (define current-def-proc #f)
   (define (current-def-proc-id)
@@ -660,7 +660,7 @@
 					 (emit (new-instr
 						(if borrow? 'subb 'sub)
 						b2 b1 scratch)))))
-				  (loop (cdr bytes1) (cdr bytes2) #t)))) ;; FOO in norm$12, there is a weird subtraction without borrow
+				  (loop (cdr bytes1) (cdr bytes2) #t))))
 			  
 			  (add-succ bb bb-false)
 			  (add-succ bb bb-true)
@@ -780,12 +780,18 @@
 	    (if (and (byte-lit? b2)
 		     (= (byte-lit-val b2) 0)
 		     (or (eq? id 'add) (eq? id 'sub)))
-		(move b1 b3)
-		(emit (new-instr (if ignore-carry-borrow?
-				     (case id ((x+y) 'add)  ((x-y) 'sub))
-				     (case id ((x+y) 'addc) ((x-y) 'subb)))
-				 b1 b2 b3)))
-	    (loop (cdr bytes1) (cdr bytes2) (cdr bytes3) #f))
+		(begin (move b1 b3)
+		       ;; since this can only happen for the first byte, we
+		       ;; must ignore the carry/borrow for the next one or else
+		       ;; we might add/substract a leftover carry from another
+		       ;; operation
+		       (loop (cdr bytes1) (cdr bytes2) (cdr bytes3) #t))
+		(begin (emit (new-instr
+			      (if ignore-carry-borrow?
+				  (case id ((x+y) 'add)  ((x-y) 'sub))
+				  (case id ((x+y) 'addc) ((x-y) 'subb)))
+			      b1 b2 b3))
+		       (loop (cdr bytes1) (cdr bytes2) (cdr bytes3) #f))))
 	  result)))
 
   (define (mul value-x value-y type result)
