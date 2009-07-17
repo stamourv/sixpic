@@ -261,10 +261,9 @@
 			      (set-for-each
 			       (lambda (cell)
 				 (let ((s (byte-cell-coalesceable-with cell)))
-				   (set-remove! s                   byte-cell)
-				   #;(set-add!    s                   c) ;; FOO attempt (failed)
-				   #;(set-add!    c-coalesceable-with cell)
-				   ))
+				   (set-remove! s byte-cell)
+				   #;(set-add! s                   c) ;; FOO attempt (failed)
+				   #;(set-add! c-coalesceable-with cell)))
 			       coalesceable-with)
 			      (byte-cell-coalesceable-with-set! byte-cell
 								(new-empty-set))

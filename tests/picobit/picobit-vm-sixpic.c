@@ -489,15 +489,19 @@ int16 make_integer (int16 lo_make_integer, int16 hi_make_integer) { // TODO chan
 }
 
 int16 integer_hi (int16 x) {
-  if ((!((x) >= 1280) && ((x) >= 512)))
-    return ram_get_car (x);
-  else if ((!((x) >= 1280) && !(!((x) >= 1280) && ((x) >= 512)) && ((x) >= (3 +255 - -1 +1))))
-    return rom_get_car (x);
-  else if (x < (3 - -1)){
-    return ((0 + (3 - -1))-1);
+  if ((!((x) >= 1280) // bb 0
+       && ((x) >= 512))) // bb 4
+    return ram_get_car (x); // bb 2
+  else if ((!((x) >= 1280) // bb 3
+	    && !(!((x) >= 1280) // bb 10
+		 && ((x) >= 512)) // bb 11
+	    && ((x) >= (3 +255 - -1 +1)))) // bb 9
+    return rom_get_car (x); // bb 7
+  else if (x < (3 - -1)){ // bb 8
+    return ((0 + (3 - -1))-1); // bb 14
   }
-  else{
-    return (0 + (3 - -1));
+  else {
+    return (0 + (3 - -1)); // bb 15
   }
 }
 
@@ -573,7 +577,7 @@ int16 norm (int16 prefix, int16 n_norm) { // TODO arg changed
       }
     }
     else if (((n_norm) == (((0 + (3 - -1))-1)))) { // bbs 7 and 13
-      int16 tmp = 1; // bb 12 // FOO had int16, which made the shift useless (maybe would give the same result anyway, since 0-1 = -1), actually, changes nothing FOO having an int32 here causes compilation to fail
+      int16 tmp = 1; // bb 12
       if (d >= (tmp<<16) - 1) { // bb 12 // TODO was + MIN_FIXNUM, but -1 is not a valid literal
 	int16 t = d - (tmp << 16); // bb 15
 	n_norm = (t + (3 - -1));
@@ -588,19 +592,19 @@ int16 norm (int16 prefix, int16 n_norm) { // TODO arg changed
   return n_norm; // bb 2
 }
 
-int8 negp (int16 x) {
+int8 negp (int16 x_negp) {
 
 
   do {
-    x = integer_hi (x); // bb 1
-    if (((x) == ((0 + (3 - -1))))) // bbs 1 and 6
+    x_negp = integer_hi (x_negp); // bb 1
+    if (((x_negp) == ((0 + (3 - -1))))) // bbs 1 and 6
       return 0; // bb 5
-  } while (!((x) == (((0 + (3 - -1))-1)))); // bbs 2 and 8
+  } while (!((x_negp) == (((0 + (3 - -1))-1)))); // bbs 2 and 8
 
   return 1; // bb 3
 }
 
-int8 cmp (int16 x, int16 y) { // TODO changed. used to return -1, 0 and 1, now is 0, 1, 2
+int8 cmp (int16 x_cmp, int16 y_cmp) { // TODO changed. used to return -1, 0 and 1, now is 0, 1, 2
 
 
   int8 result = 1;
@@ -608,33 +612,33 @@ int8 cmp (int16 x, int16 y) { // TODO changed. used to return -1, 0 and 1, now i
   int16 ylo;
 
   for (;;) { // bb 2
-    if (((x) == ((0 + (3 - -1)))) // bbs 2 and 8
-	|| ((x) == (((0 + (3 - -1))-1)))) { // bbs 7 and 9
-      if (!((x) == (y))) // bbs 6 and 12
-	{ if (negp (y)) // bb 11
+    if (((x_cmp) == ((0 + (3 - -1)))) // bbs 2 and 8
+	|| ((x_cmp) == (((0 + (3 - -1))-1)))) { // bbs 7 and 9
+      if (!((x_cmp) == (y_cmp))) // bbs 6 and 12
+	{ if (negp (y_cmp)) // bb 11
 	    result = 2; // bb 14
 	  else result = 0; } // bb 15
       break; // bb 10
     }
 
-    if (((y) == ((0 + (3 - -1)))) // bbs 5 and 19
-	|| ((y) == (((0 + (3 - -1))-1)))) { // bbs 18 and 20
-      if (negp (x)) // bb 17
+    if (((y_cmp) == ((0 + (3 - -1)))) // bbs 5 and 19
+	|| ((y_cmp) == (((0 + (3 - -1))-1)))) { // bbs 18 and 20
+      if (negp (x_cmp)) // bb 17
 	result = 0; // bb 22
       else result = 2; // bb 23
       break; // bb 21
     }
     
-    xlo = integer_lo (x); // bb 16
-    ylo = integer_lo (y);
-    x = integer_hi (x);
-    y = integer_hi (y);
+    xlo = integer_lo (x_cmp); // bb 16
+    ylo = integer_lo (y_cmp);
+    x_cmp = integer_hi (x_cmp);
+    y_cmp = integer_hi (y_cmp);
     if (xlo != ylo) // bb 16 and 26
       { if (xlo < ylo) // bb 25
 	  result = 0; // bb 28
 	else result = 2; } // bb 29
   }
-  return result;
+  return result; // bb 4
 }
 
 int16 integer_length (int16 x) {
@@ -959,7 +963,7 @@ int16 bitwise_xor (int16 x, int16 y) {
 
 int16 encode_int (int16 n) {
   if (/* n >= -1 && */ n <= 255) { // TODO should be n >= -1, but -1 as a literal is not good. since only primitives (i.e. not the bignum code) uses it, shouldn't be a problem
-    return (n + (3 - -1)); // FOO if we go in this branch, instead of returning #f, returns a disgusting weird object, actually, only when comparing 2 ram vectors
+    return (n + (3 - -1));
   }
 
   return alloc_ram_cell_init (0, (0 + (3 - -1)), n >> 8, n);

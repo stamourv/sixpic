@@ -649,17 +649,13 @@
 				      (b2 (car bytes2)))
 				  (case id
 				    ((x<y)
-				     (if (not (and (byte-lit? b2)
-						   (= (byte-lit-val b2) 0)))
-					 (emit (new-instr
-						(if borrow? 'subb 'sub)
-						b1 b2 scratch))))
+				     (emit (new-instr
+					    (if borrow? 'subb 'sub)
+					    b1 b2 scratch)))
 				    ((x>y)
-				     (if (not (and (byte-lit? b1)
-						   (= (byte-lit-val b1) 0)))
-					 (emit (new-instr
-						(if borrow? 'subb 'sub)
-						b2 b1 scratch)))))
+				     (emit (new-instr
+					    (if borrow? 'subb 'sub)
+					    b2 b1 scratch))))
 				  (loop (cdr bytes1) (cdr bytes2) #t))))
 			  
 			  (add-succ bb bb-false)
@@ -777,21 +773,12 @@
 	  ;; if we would add or subtract 0 and not use the carry, just move
 	  ;; the value
 	  (let ((b1 (car bytes1)) (b2 (car bytes2)) (b3 (car bytes3)))
-	    (if (and (byte-lit? b2)
-		     (= (byte-lit-val b2) 0)
-		     (or (eq? id 'add) (eq? id 'sub)))
-		(begin (move b1 b3)
-		       ;; since this can only happen for the first byte, we
-		       ;; must ignore the carry/borrow for the next one or else
-		       ;; we might add/substract a leftover carry from another
-		       ;; operation
-		       (loop (cdr bytes1) (cdr bytes2) (cdr bytes3) #t))
-		(begin (emit (new-instr
-			      (if ignore-carry-borrow?
-				  (case id ((x+y) 'add)  ((x-y) 'sub))
-				  (case id ((x+y) 'addc) ((x-y) 'subb)))
-			      b1 b2 b3))
-		       (loop (cdr bytes1) (cdr bytes2) (cdr bytes3) #f))))
+	    (emit (new-instr
+		   (if ignore-carry-borrow?
+		       (case id ((x+y) 'add)  ((x-y) 'sub))
+		       (case id ((x+y) 'addc) ((x-y) 'subb)))
+		   b1 b2 b3))
+	    (loop (cdr bytes1) (cdr bytes2) (cdr bytes3) #f))
 	  result)))
 
   (define (mul value-x value-y type result)

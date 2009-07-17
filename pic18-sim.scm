@@ -1058,6 +1058,17 @@
 (define (in-rom? o) (and (>= o 260) (< o 512)))
 (define (in-ram? o) (and (>= o 512) (< o 4096)))
 
+(define (get-car f o)
+  (bitwise-ior (arithmetic-shift (bitwise-and (f o 0) #x1f) 8)
+	       (f o 1)))
+(define (get-cdr f o)
+  (bitwise-ior (arithmetic-shift (bitwise-and (f o 2) #x1f) 8)
+	       (f o 3)))
+(define (get-entry f o)
+  (bitwise-ior (arithmetic-shift (bitwise-and (f o 0) #x1f) 11)
+	       (arithmetic-shift (f o 1) 3)
+	       (arithmetic-shift (f o 2) -5)))
+
 (define (obj->ram o field)
   (get-ram (+ 512 (arithmetic-shift (- o 512) 2) field)))
 (define (ram-get-car   o) (get-car   obj->ram o))
@@ -1071,17 +1082,6 @@
 (define (rom-get-entry o) (get-entry obj->rom o))
 
 (define (picobit-object o)
-
-  (define (get-car f o)
-    (bitwise-ior (arithmetic-shift (bitwise-and (f o 0) #x1f) 8)
-		 (f o 1)))
-  (define (get-cdr f o)
-    (bitwise-ior (arithmetic-shift (bitwise-and (f o 2) #x1f) 8)
-		 (f o 3)))
-  (define (get-entry f o)
-    (bitwise-ior (arithmetic-shift (bitwise-and (f o 0) #x1f) 11)
-		 (arithmetic-shift (f o 1) 3)
-		 (arithmetic-shift (f o 2) -5)))
 
   (define (show-pair f ptr)
     (let* ((obj  (get-car f ptr))

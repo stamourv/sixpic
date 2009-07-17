@@ -216,7 +216,7 @@
 				    (begin
 				      (case id
 					((add)  (cond ((= n 1)    (incf z))
-						      ((= n #xff) (decf z)) ;; TODO set the carry if needed ?
+						      ;; ((= n #xff) (decf z)) ;; TODO set the carry
 						      (else       (movlw n)
 								  (addwf z))))
 					((addc)
@@ -225,7 +225,7 @@
 					     (addwf  z)
 					     (addwfc z)))
 					((sub)  (cond ((= n 1)    (decf z))
-						      ((= n #xff) (incf z)) ;; TODO same
+						      ;; ((= n #xff) (incf z)) ;; TODO same
 						      (else       (movlw n)
 								  (subwf z))))
 					((subb)
