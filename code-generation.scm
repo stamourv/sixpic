@@ -182,15 +182,28 @@
                 (else
                  (let ((src1 (instr-src1 instr))
                        (src2 (instr-src2 instr))
-                       (dst (instr-dst instr)))
+                       (dst  (instr-dst  instr))
+		       (id   (instr-id   instr)))
                    (if (and (or (not (byte-cell? dst))
-                                (byte-cell-adr dst))
+                                (and (byte-cell-adr dst)
+				     ;; must go in a special register, or in a
+				     ;; live variable, or else don't generate
+				     ;; the instruction
+				     #;(or (assq (byte-cell-adr dst) ;; FOO eliminating instructions does not work, too many are eliminated, it seems
+					       file-reg-names)
+					 ;; if the instruction affects the
+					 ;; carry, it must be generated
+					 (memq id carry-affecting-instrs)
+					 ;; destination is used
+					 (bitset-member?
+					  (instr-live-after instr)
+					  (byte-cell-id dst)))))
                             (or (not (byte-cell? src1))
                                 (byte-cell-adr src1))
                             (or (not (byte-cell? src2))
                                 (byte-cell-adr src2)))
 
-                       (case (instr-id instr)
+                       (case id
 
                          ((move)
                           (if (byte-lit? src1)
@@ -204,8 +217,7 @@
                          ((add addc sub subb)
                           (if (byte-lit? src2)
                               (let ((n  (byte-lit-val src2))
-                                    (z  (byte-cell-adr dst))
-				    (id (instr-id instr)))
+                                    (z  (byte-cell-adr dst)))
 				(if (byte-lit? src1)
 				    (move-lit (byte-lit-val src1) z)
 				    (move-reg (byte-cell-adr src1) z))
@@ -239,8 +251,7 @@
                                     (z (byte-cell-adr dst)))
                                 (cond ((and (not (= x y))
                                             (= y z)
-                                            (memq (instr-id instr)
-                                                  '(add addc)))
+                                            (memq id '(add addc)))
                                        ;; since this basically swaps the
                                        ;; arguments, it can't be used for
                                        ;; subtraction
@@ -257,7 +268,7 @@
                                       (else ;; TODO check if it could be merged with the previous case
                                        (move-reg x z)
                                        (move-reg y WREG)))
-                                (case (instr-id instr)
+                                (case id
                                   ((add)  (addwf z))
                                   ((addc) (if ignore-carry-borrow?
 					      (addwf  z)
@@ -294,28 +305,51 @@
 					 (byte-lit-val src2)
 					 (byte-cell-adr src2)))
 				 (z  (byte-cell-adr dst))
-				 (id (instr-id instr))
 				 (f  (case id
 				       ((and) andwf)
 				       ((ior) iorwf)
 				       ((xor) xorwf)
 				       (else (error "...")))))
 			    (if (byte-lit? src2)
-				(cond ((or (and (eq? id 'and) (= y #xff))
+				(cond ((byte-lit? src1)
+				       ;; low-level constant folding
+				       (move-lit ((case id
+						    ((and) bitwise-and)
+						    ((ior) bitwise-ior)
+						    ((xor) bitwise-xor))
+						  x y)
+						 z))
+				      ((or (and (eq? id 'and) (= y #xff))
 					   (and (eq? id 'ior) (= y #x00)))
 				       ;; nop, just move the value
-				       (if (byte-lit? src1)
-					   (move-lit x z)
-					   (move-reg x z)))
-				      ((and (eq? id 'and) (= y #x00))
+				       (move-reg x z))
+				      ((and (eq? id 'and)
+					    (= y #x00))
 				       (clrf z))
 				      ((and (eq? id 'ior) (= y #xff))
 				       (setf z))
-				      (else (if (byte-lit? src1)
-						(move-lit x z)
-						(move-reg x z))
-					    (movlw y)
-					    (f z)))
+				      ;; use bit-set or bit-toggle
+				      ((and (memq id '(ior xor))
+					    ;; a single bit is set
+					    (memq y '(#x01 #x02 #x04 #x08
+						      #x10 #x20 #x40 #x80))
+					    (eq? x z))
+				       ((if (eq? id 'ior) bsf btg)
+					z (inexact->exact
+					   (/ (log y) (log 2)))))
+				      ;; use bit-clear
+				      ((and (eq? id 'and)
+					    ;; a single bit is unset
+					    (memq y '(#x7f #xbf #xdf #xef
+						      #xf7 #xfb #xfd #xfe))
+					    (eq? x z))
+				       (bcf z (inexact->exact
+					       (/ (log (- #xff y))
+						  (log 2))))) ;; FOO since this requires x and z to be in the same place to be efficient, maybe coalesce theses cases in priority ? for now, this optimization does not save much
+				      (else
+				       (move-reg x z)
+				       (movlw y)
+				       (f z)))
 				(begin (if (and (not (= x y)) (= y z))
 					   (move-reg x WREG)
 					   (begin
@@ -330,7 +364,7 @@
                                 (z (byte-cell-adr dst)))
                             (cond ((byte-lit? src1) (move-lit x z))
                                   ((not (= x z))    (move-reg x z)))
-                            (case (instr-id instr)
+                            (case id
                               ((shl) (rlcf z))
                               ((shr) (rrcf z)))))
 
@@ -340,7 +374,7 @@
                               (error "bit offset must be a literal"))
                           (let ((x (byte-cell-adr src1))
                                 (y (byte-lit-val src2)))
-                            (case (instr-id instr)
+                            (case id
                               ((set)    (bsf x y))
                               ((clear)  (bcf x y))
                               ((toggle) (btg x y)))))
@@ -375,7 +409,7 @@
                                  (dest-false (cadr succs)))
 
                             (define (compare flip adr)
-                              (case (instr-id instr)
+                              (case id
                                 ((x<y) (if flip (cpfsgt adr) (cpfslt adr)))
                                 ((x>y) (if flip (cpfslt adr) (cpfsgt adr)))
                                 (else (cpfseq adr)))
@@ -388,7 +422,7 @@
                                    (let ((n (byte-lit-val src1))
                                          (y (byte-cell-adr src2)))
                                      (if #f #;(and (or (= n 0) (= n 1) (= n #xff))
-                                         (eq? (instr-id instr) 'x==y))
+                                         (eq? id 'x==y))
 					 (special-compare-eq-lit n x)
 					 (begin
 					   (movlw n)
@@ -397,7 +431,7 @@
 				   (let ((x (byte-cell-adr src1))
 					 (n (byte-lit-val src2)))
 				     (if #f #;(and (or (= n 0) (= n 1) (= n #xff))
-					 (eq? (instr-id instr) 'x==y))
+					 (eq? id 'x==y))
 					 (special-compare-eq-lit n x)
 					 (begin
 					   (movlw n)
@@ -464,9 +498,9 @@
 					(add-todo bb))
 				      (bb-succs bb))))
 			 
-                   (else
-		    ;; ...
-                    (emit (list (instr-id instr))))))))))
+			 (else
+			  ;; ...
+			  (emit (list id)))))))))
 
     (if bb
         (begin

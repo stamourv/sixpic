@@ -92,7 +92,7 @@
 	'(pretty-print cfg)
         (remove-branch-cascades-and-dead-code cfg)
 	(remove-converging-branches cfg) ;; TODO maybe make it possible to disable it, the one before, and the next one ?
-	(remove-dead-instructions cfg)
+	(remove-instructions-after-branchs cfg)
 	'(print-cfg-bbs cfg)
  	(if allocate-registers? (allocate-registers cfg))
 	(assembler-gen filename cfg)

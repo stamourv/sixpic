@@ -16,12 +16,12 @@
             (if (null? (cdr rev-instrs))
 
                 (cond ((eq? (instr-id last) 'goto)
-                       (let ((old-dest
-                              (car (bb-succs bb))))
-                         (let ((new-dest
-                                (chase-branch-cascade old-dest
-                                                      (cons bb seen))))
-                           new-dest)))
+		       ;; if we find an unconditional goto, we can jump to its
+		       ;; destination instead of this bb
+                       (let* ((old-dest (car (bb-succs bb)))
+			      (new-dest (chase-branch-cascade old-dest
+							      (cons bb seen))))
+                         new-dest))
                       (else
                        bb))
 
@@ -34,7 +34,7 @@
               (bb-succs bb))
              (new-succs
               (map (lambda (x) (chase-branch-cascade x seen)) old-succs)))
-          (for-each (lambda (old-dest new-dest)
+          (for-each (lambda (old-dest new-dest) ;; TODO does not seem to work with branch tables
                       (if (not (eq? old-dest new-dest))
                           (begin
 			    (bb-succs-set! bb (replace old-dest new-dest (bb-succs bb)))
@@ -66,10 +66,9 @@
 
 ;------------------------------------------------------------------------------
 
-;; removes dead instructions (instructions after a return or after all jumps)
-(define (remove-dead-instructions cfg)
-
-  (define (bb-process bb)
+;; remove instructions after a return or after all jumps
+(define (remove-instructions-after-branchs cfg)
+  (define (process-bb bb)
     ;; since instructions are in erverse order, loop until we find a jump,
     ;; and keep everything after
     (let loop ((instrs (reverse (bb-rev-instrs bb)))
@@ -83,5 +82,4 @@
 	    (bb-rev-instrs-set! bb (cons head new-instrs))
 	    (loop (cdr instrs)
 		  (cons head new-instrs))))))
-
-  (for-each bb-process (cfg-bbs cfg)))
+  (for-each process-bb (cfg-bbs cfg)))

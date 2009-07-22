@@ -70,7 +70,7 @@ void halt_with_error (){
 /* int8 rom_get_field3 (int16 o); */
 int8 ram_get_gc_tags (int16 o) {
   int16 t2 = o - 512;
-  return (*(((t2 << 2))+#x200) & #x60); // TODO not sure these shifts really save on code space, maybe multiplications (which would be 2 additions) would be better
+  return (*(((t2 << 2))+#x200) & #x60); // TODO having these as multiplications instead increases the size by ~10 bytes apiece
 }
 int8 ram_get_gc_tag0 (int16 o) {
   int16 t2 = o - 512;
@@ -82,7 +82,7 @@ int8 ram_get_gc_tag1 (int16 o) {
 }
 void ram_set_gc_tags (int16 o, int8 tags) {
   int16 t2 = (o - 512) << 2; // TODO optimized a couple of things
-  (*((t2)+#x200) = ((*((t2)+#x200) & #x9f) | (tags))); // TODO if we could use bst and bcf, would be better
+  *((t2)+#x200) = ((*((t2)+#x200) & #x9f) | (tags)); // TODO if we could use bst and bcf, would be better
 }
 void ram_set_gc_tag0 (int16 o, int8 tag) {
   int16 t2 = (o - 512) << 2; // TODO same here
@@ -578,8 +578,9 @@ int16 norm (int16 prefix, int16 n_norm) { // TODO arg changed
     }
     else if (((n_norm) == (((0 + (3 - -1))-1)))) { // bbs 7 and 13
       int16 tmp = 1; // bb 12
-      if (d >= (tmp<<16) - 1) { // bb 12 // TODO was + MIN_FIXNUM, but -1 is not a valid literal
-	int16 t = d - (tmp << 16); // bb 15
+/*       if (d >= (tmp<<16) - 1) { // bb 12 // TODO was + MIN_FIXNUM, but -1 is not a valid literal FOO would be better with just 0-1, but the constant folding will get it, and put -1. */
+      if (d >= #xffff) { // FOO this is what the above really meant, since d is a 16 bit value
+	int16 t = d/*  - (tmp << 16) */; // bb 15 // FOO that part was useless with 16 bit values
 	n_norm = (t + (3 - -1));
 	continue;
       }
@@ -1274,14 +1275,14 @@ void prim_u8vector_ref () {
   if ((!((arg1) >= 1280) && ((arg1) >= 512))) {
     if (!(((ram_get_field0 (arg1) & #x80) == #x80) && ((ram_get_field2 (arg1) & #xe0) == #x60)))
       halt_with_error();
-    if ((ram_get_car (arg1) <= a2) || (a2 < 0))
+    if ((ram_get_car (arg1) <= a2)/*  || (a2 < 0) */) // FOO makes no sens with unsigned values
       halt_with_error();
     arg1 = ram_get_cdr (arg1);
   }
   else if ((!((arg1) >= 1280) && !(!((arg1) >= 1280) && ((arg1) >= 512)) && ((arg1) >= (3 +255 - -1 +1)))) {
     if (!(((rom_get_field0 (arg1) & #x80) == #x80) && ((rom_get_field2 (arg1) & #xe0) == #x60)))
       halt_with_error();
-    if ((rom_get_car (arg1) <= a2) || (a2 < 0))
+    if ((rom_get_car (arg1) <= a2)/*  || (a2 < 0) */)
       halt_with_error();
     arg1 = rom_get_cdr (arg1);
   }
@@ -1317,7 +1318,7 @@ void prim_u8vector_set () {
   if ((!((arg1) >= 1280) && ((arg1) >= 512))) {
     if (!(((ram_get_field0 (arg1) & #x80) == #x80) && ((ram_get_field2 (arg1) & #xe0) == #x60)))
       halt_with_error();
-    if ((ram_get_car (arg1) <= a2) || (a2 < 0))
+    if ((ram_get_car (arg1) <= a2)/*  || (a2 < 0) */)
       halt_with_error();
     arg1 = ram_get_cdr (arg1);
   }
@@ -1361,8 +1362,8 @@ void prim_u8vector_copy () {
   if ((!((arg1) >= 1280) && ((arg1) >= 512)) && (!((arg3) >= 1280) && ((arg3) >= 512))) {
     if (!(((ram_get_field0 (arg1) & #x80) == #x80) && ((ram_get_field2 (arg1) & #xe0) == #x60)) || !(((ram_get_field0 (arg3) & #x80) == #x80) && ((ram_get_field2 (arg3) & #xe0) == #x60)))
       halt_with_error();
-    if ((ram_get_car (arg1) < (a1 + a3)) || (a1 < 0) ||
- (ram_get_car (arg3) < (a2 + a3)) || (a2 < 0))
+    if ((ram_get_car (arg1) < (a1 + a3)) /* || (a1 < 0) */ ||
+ (ram_get_car (arg3) < (a2 + a3)) /* || (a2 < 0) */)
       halt_with_error();
 
 
@@ -1389,8 +1390,8 @@ void prim_u8vector_copy () {
   else if ((!((arg1) >= 1280) && !(!((arg1) >= 1280) && ((arg1) >= 512)) && ((arg1) >= (3 +255 - -1 +1))) && (!((arg3) >= 1280) && ((arg3) >= 512))) {
     if (!(((rom_get_field0 (arg1) & #x80) == #x80) && ((rom_get_field2 (arg1) & #xe0) == #x60)) || !(((ram_get_field0 (arg3) & #x80) == #x80) && ((ram_get_field2 (arg3) & #xe0) == #x60)))
       halt_with_error();
-    if ((rom_get_car (arg1) < (a1 + a3)) || (a1 < 0) ||
- (ram_get_car (arg3) < (a2 + a3)) || (a2 < 0))
+    if ((rom_get_car (arg1) < (a1 + a3)) /* || (a1 < 0) */ ||
+ (ram_get_car (arg3) < (a2 + a3)) /* || (a2 < 0) */)
       halt_with_error();
 
     arg1 = rom_get_cdr (arg1);
@@ -1526,7 +1527,7 @@ void prim_led () {
   decode_2_int_args ();
   a3 = decode_int (arg3);
 
-  if (a1 < 1 || a1 > 3 || a2 < 0 || a3 < 0)
+  if (a1 < 1 || a1 > 3 /* || a2 < 0 || a3 < 0 */)
     halt_with_error();
 
 
@@ -1547,7 +1548,7 @@ void prim_led () {
 void prim_led2_color () {
   a1 = decode_int (arg1);
 
-  if (a1 < 0 || a1 > 1)
+  if (/* a1 < 0 || */ a1 > 1)
     halt_with_error();
 
 
@@ -1567,7 +1568,7 @@ void prim_getchar_wait () {
   decode_2_int_args();
   a1 = read_clock () + a1;
 
-  if (a1 < 0 || a2 < 1 || a2 > 3)
+  if (/* a1 < 0 || */ a2 < 1 || a2 > 3)
     halt_with_error();
 
 
@@ -1584,7 +1585,7 @@ void prim_getchar_wait () {
 void prim_putchar () {
   decode_2_int_args ();
 
-  if (a1 < 0 || a1 > 255 || a2 < 1 || a2 > 3)
+  if (/* a1 < 0 || */ a1 > 255 || a2 < 1 || a2 > 3)
     halt_with_error();
 
 
@@ -1604,7 +1605,7 @@ void prim_putchar () {
 void prim_beep () {
   decode_2_int_args ();
 
-  if (a1 < 1 || a1 > 255 || a2 < 0)
+  if (a1 < 1 || a1 > 255 /* || a2 < 0 */)
     halt_with_error();
 
 
@@ -1789,7 +1790,7 @@ void init_ram_heap () {
 
   free_list = 0;
 
-  int16 tmp = (512 + ((glovars + 1) >> 1)); // TODO optimization
+  int16 tmp = (512 + ((glovars + 1) >> 1)); // FOO having this here instead of in the while saves ~200 bytes
   while (o > tmp) {
 
 
@@ -2357,7 +2358,6 @@ void interpreter () {
 
     arg5 = pop(); arg4 = pop(); arg3 = pop(); arg2 = pop(); arg1 = pop();
     prim_u8vector_copy (); break;
-    break;
   case 13: // shift
 
     arg1 = pop();
@@ -2407,10 +2407,8 @@ void interpreter () {
     push_arg1 (); break;
   case 5:
     arg2 = pop(); arg1 = pop(); prim_ior (); push_arg1 (); break;
-    break;
   case 6:
     arg2 = pop(); arg1 = pop(); prim_xor (); push_arg1 (); break;
-    break;
   }
 
   ; goto dispatch;;

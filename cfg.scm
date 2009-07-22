@@ -1,7 +1,17 @@
 ;;; generation of control flow graph
 
+;; list of all conditional branching generic instructions
+(define conditional-instrs ;; TODO add as we add specialized instructions
+  '(x==y x!=y x<y x>y branch-if-carry))
+
+;; generic instructions that end up generating machine instructions that affect
+;; the carry flag
+(define carry-affecting-instrs
+  '(add addc sub subb rlcf rrcf))
+
 ;; special variables whose contents are located in the FSR registers
 (define fsr-variables '(SIXPIC_FSR0 SIXPIC_FSR1 SIXPIC_FSR2))
+
 
 (define-type cfg
   bbs
@@ -43,10 +53,6 @@
 
 (define (new-instr id src1 src2 dst)
   (make-instr #f #f #f id src1 src2 dst))
-
-;; list of all conditional branching generic instructions
-(define conditional-instrs ;; TODO add as we add specialized instructions
-  '(x==y x!=y x<y x>y x<=y x>=y))
 
 (define (new-call-instr def-proc)
   (make-call-instr '() '() #f 'call #f #f #f def-proc))
@@ -437,7 +443,7 @@
 	       (iota l))
 	      (let* ((default   (memq 'default cases)) ;; TODO if default, since we can't know the domain of possible values (at least, not with enough precision for it to be interesting), revert to naive switch
 		     ;; cases are lists (case n) and we want the numbers
-		     (cases     (map cadr (keep list? cases)))
+		     (cases     (map cadr (filter list? cases)))
 		     (case-max  (foldl max 0        cases))
 		     (case-min  (foldl min case-max cases))
 		     (n-entries (+ (- case-max case-min) 1)))
@@ -500,9 +506,9 @@
 ;; 	  (gen-goto exit-bb))
 ;;       (bb-succs-set! decision-bb (reverse (bb-succs decision-bb))) ; preserving the order is important in the absence of break
 ;;       (set! case-list (list-named-bbs decision-bb))
-;;       (set! default (keep (lambda (x) (eq? (car x) 'default))
+;;       (set! default (filter (lambda (x) (eq? (car x) 'default))
 ;; 			  (list-named-bbs decision-bb)))
-;;       (set! case-list (keep (lambda (x) (and (list? (car x))
+;;       (set! case-list (filter (lambda (x) (and (list? (car x))
 ;; 					     (eq? (caar x) 'case)))
 ;; 			    case-list))
 ;;       (bb-succs-set! decision-bb '()) ; now that we have the list of cases we don't need the successors anymore
@@ -785,11 +791,11 @@
     (let* ((bytes-x (value-bytes value-x))
 	   (bytes-y (value-bytes value-y))
 	   ;; to determine the length of the operands, we ignore the padding
-	   (lx (length (keep (lambda (x) (not (and (byte-lit? x)
-						   (= (byte-lit-val x) 0))))
+	   (lx (length (filter (lambda (x) (not (and (byte-lit? x)
+						     (= (byte-lit-val x) 0))))
 			     bytes-x)))
-	   (ly (length (keep (lambda (x) (not (and (byte-lit? x)
-						   (= (byte-lit-val x) 0))))
+	   (ly (length (filter (lambda (x) (not (and (byte-lit? x)
+						     (= (byte-lit-val x) 0))))
 			     bytes-y))))
       ;; if this a multiplication by 2 or 4, we use additions instead
       ;; at this point, only y (or both x and y) can contain a literal

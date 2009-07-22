@@ -10,10 +10,10 @@
 
 (define (iota n) (interval 0 (- n 1)))
 
-(define (keep f lst) ;; TODO call filter ?
+(define (filter f lst)
   (cond ((null? lst)   '())
-        ((f (car lst)) (cons (car lst) (keep f (cdr lst))))
-        (else          (keep f (cdr lst)))))
+        ((f (car lst)) (cons (car lst) (filter f (cdr lst))))
+        (else          (filter f (cdr lst)))))
 
 (define (identity x) x)
 

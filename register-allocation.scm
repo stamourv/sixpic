@@ -228,7 +228,7 @@
   (pp coalesce:)
   (time
    (if coalesce?
-       (keep
+       (filter
 	(lambda (byte-cell)
 	  (let* ((coalesceable-with   (byte-cell-coalesceable-with byte-cell))
 		 (neighbours      (byte-cell-interferes-with   byte-cell))
