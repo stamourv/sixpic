@@ -1,5 +1,7 @@
 (define (parse source)
 
+  (define current-def-proc-id #f)
+  
   (define (form? keyword source)
     (and (pair? source)
          (eq? (car source) keyword)))
@@ -32,9 +34,10 @@
 
       (define (def asts cte)
         (let* ((value
-                (alloc-value type id))
+                (alloc-value type current-def-proc-id id))
                (ast
-                (new-def-variable asts id '() type value '()))
+                (new-def-variable
+		 asts id '() type value '() current-def-proc-id))
                (cte
                 (cte-extend cte (list ast))))
           (cont ast
@@ -51,32 +54,35 @@
     (let* ((id (get-id (cadr source)))
            (proc (caddr source)))
       (expect-form 'six.procedure proc)
+      (set! current-def-proc-id id)
       (let* ((type
               (cadr proc))
              (params
               (map (lambda (x)
-                     (let* ((id    (get-id (car x)))
-			    (type  (cadr x))
-                            (value (alloc-value type id)))
-                       (new-def-variable '() id '() type value '())))
+                     (let* ((var-id (get-id (car x)))
+			    (type   (cadr x))
+                            (value  (alloc-value type id var-id)))
+                       (new-def-variable '() var-id '() type value '() id))) ;; TODO allocate the value inside new-def-variable ?
                    (caddr proc)))
              (body
               (cadddr proc)))
         (expect-form 'six.procedure-body body)
         (let* ((value
-                (alloc-value type id))
+                (alloc-value type id id))
                (ast
                 (new-def-procedure '() id '() type value params))
                (cte
                 (cte-extend cte (list ast))))
           (multi-link-parent! params ast)
-          (block body
-                 (cte-extend cte params)
-                 (lambda (body-ast body-cte)
-                   (ast-subasts-set! ast (list body-ast))
-                   (link-parent! body-ast ast)
-                   (cont ast
-                         cte)))))))
+          (let ((res (block body
+			    (cte-extend cte params)
+			    (lambda (body-ast body-cte)
+			      (ast-subasts-set! ast (list body-ast))
+			      (link-parent! body-ast ast)
+			      (cont ast
+				    cte)))))
+	    (set! current-def-proc-id #f)
+	    res)))))
 
   (define (block source cte cont)
     (define (b source cte cont)

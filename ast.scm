@@ -2,7 +2,7 @@
 
 (define-type ast
   extender: define-type-of-ast
-  (parent unprintable:)
+  (parent unprintable: equality-skip:)
   subasts)
 
 (define (link-parent! subast parent)
@@ -34,8 +34,7 @@
 (define-type-of-ast def
   extender: define-type-of-def
   id
-  unprintable:
-  refs)
+  (refs unprintable: equality-skip:))
 
 (define-type value
   bytes)
@@ -52,22 +51,22 @@
   adr
   name ; to display in the listing
   bb   ; label of the basic in which this byte-cell is used
-  (interferes-with   unprintable:)  ; bitset
-  nb-neighbours                     ; cached length of interferes-with
-  (coalesceable-with unprintable:)  ; set
-  (coalesced-with    unprintable:)) ; set
-(define (new-byte-cell #!optional (name #f) (bb #f))
+  def-proc-id ; id of the procedure it was defined in
+  (interferes-with   unprintable: equality-skip:)  ; bitset
+  nb-neighbours ; cached length of interferes-with
+  (coalesceable-with unprintable: equality-skip:)  ; set
+  (coalesced-with    unprintable: equality-skip:)) ; set
+(define (new-byte-cell def-proc-id #!optional (name #f) (bb #f))
   (let* ((id   (byte-cell-next-id))
 	 (cell (make-byte-cell
 		id (if allocate-registers? #f id)
-		name
-		bb #f 0 (new-empty-set) (new-empty-set))))
+		name bb def-proc-id #f 0 (new-empty-set) (new-empty-set))))
     (table-set! all-byte-cells id cell)
     cell))
 (define (get-register n)
   (let* ((id   (byte-cell-next-id))
 	 (cell (make-byte-cell
-		id n (symbol->string (cdr (assv n file-reg-names))) #f
+		id n (symbol->string (cdr (assv n file-reg-names))) #f #f
 		#f 0 (new-empty-set) (new-empty-set))))
     (table-set! all-byte-cells id cell)
     cell))
@@ -120,13 +119,14 @@
 	(loop (cdr bytes)
 	      (+ (* 256 n) (byte-lit-val (car bytes)))))))
 
-(define (alloc-value type #!optional (name #f) (bb #f))
+(define (alloc-value type def-proc-id #!optional (name #f) (bb #f))
   (let ((len (type->bytes type)))
     (let loop ((len len) (rev-bytes '()))
       (if (= len 0)
           (new-value rev-bytes)
           (loop (- len 1)
                 (cons (new-byte-cell
+		       def-proc-id
 		       (if name
 			   ;; the lsb is 0, and so on
 			   (string-append (symbol->string name) "$"
@@ -138,24 +138,28 @@
 (define-type-of-def def-variable
   type
   value
-  unprintable:
-  sets)
-(define (new-def-variable subasts id refs type value sets)
+  (sets unprintable: equality-skip:)
+  def-proc-id) ; name of the procedure it was defined in, #f if global
+(define (new-def-variable subasts id refs type value sets def-proc-id)
   (multi-link-parent!
    subasts
-   (make-def-variable #f subasts id refs type value sets)))
+   (make-def-variable #f subasts id refs type value sets def-proc-id)))
 
 (define-type-of-def def-procedure
   type
   value
   params
   entry
-  live-after-calls) ; bitset
+  (live-after-calls unprintable: equality-skip:) ; bitset
+  ;; used for common subexpression elimination
+  (computed-expressions unprintable: equality-skip:))
 (define all-def-procedures (make-table))
 (define (new-def-procedure subasts id refs type value params)
   (multi-link-parent!
    subasts
-   (let ((d (make-def-procedure #f subasts id refs type value params #f #f)))
+   (let ((d (make-def-procedure
+	     #f subasts id refs type value params #f #f
+	     (make-table)))) ; needs an equal? hash-table
      (table-set! all-def-procedures id d)
      d)))
 
@@ -182,7 +186,7 @@
    (make-oper #f subasts type op)))
 
 (define-type-of-expr call
-  (def-proc unprintable:))
+  (def-proc unprintable: equality-skip:))
 (define (new-call subasts type proc-def)
   (multi-link-parent!
    subasts

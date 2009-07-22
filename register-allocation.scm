@@ -262,7 +262,7 @@
 			       (lambda (cell)
 				 (let ((s (byte-cell-coalesceable-with cell)))
 				   (set-remove! s byte-cell)
-				   #;(set-add! s                   c) ;; FOO attempt (failed)
+				   #;(set-add! s                   c) ;; TODO does not work, register allocation fails with that
 				   #;(set-add! c-coalesceable-with cell)))
 			       coalesceable-with)
 			      (byte-cell-coalesceable-with-set! byte-cell

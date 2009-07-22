@@ -423,7 +423,7 @@
 			 (pp (picobit-pc)))
 		     (if (= pc #x72) ; later on in the dispatch
 			 (begin (picobit-instruction)
-				(picobit-stack) ;; FOO now shows garbage, even though the rest seems valid, is env invalid at this point ? it's the same as at #x48
+				(picobit-stack)
 				(picobit-continuation)
 				(display "\n")))))
 	  (if (member pc break-points)

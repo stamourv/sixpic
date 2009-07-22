@@ -101,10 +101,15 @@
 
   (define (in x) (set! bb x))
 
+  (define current-def-proc #f)
+  (define (current-def-proc-id)
+    (if current-def-proc
+	(def-id current-def-proc)
+	#f))
+  (define current-def-proc-bb-id 0)
+  
   (define (new-bb)
-    (let ((bb (add-bb cfg
-		      (if current-def-proc (def-id current-def-proc) #f)
-		      current-def-proc-bb-id)))
+    (let ((bb (add-bb cfg (current-def-proc-id) current-def-proc-bb-id)))
       (set! current-def-proc-bb-id (+ current-def-proc-bb-id 1))
       bb))
 
@@ -135,13 +140,7 @@
 	    (table-set! byte-cell-all-counts dst
 			(+ (table-ref byte-cell-all-counts dst 0) 1)))))
     (add-instr bb instr))
-  
-  (define current-def-proc #f)
-  (define (current-def-proc-id)
-    (if current-def-proc
-	(def-id current-def-proc)
-	#f))
-  (define current-def-proc-bb-id 0)
+
   (define break-stack '())
   (define continue-stack '())
   (define delayed-post-incdec '())
@@ -160,7 +159,9 @@
       (if (not (ref? x))
 	  (error "assignment target must be a variable")
 	  (let* ((def-var (ref-def-var x))
-		 (result  (alloc-value (def-variable-type def-var) #f (bb-name bb))))
+		 (result  (alloc-value (def-variable-type def-var)
+				       (current-def-proc-id)
+				       #f (bb-name bb))))
 	    (move-value (def-variable-value def-var) result)
 	    result))))
   
@@ -476,7 +477,7 @@
 			       (expr-type-set! ast ((op-type-rule op) ast))
 			       ast)))))
 		  ;; working space to calculate addresses
-		  (new-byte-cell #f (bb-name bb))
+		  (new-byte-cell (current-def-proc-id) #f (bb-name bb))
 		  #f))))))
       (in exit-bb)
       (pop-break)))
@@ -623,7 +624,9 @@
 				   bb-true bb-false)
 			;; more than one byte, we subtract, then see if we had
 			;; to borrow
-			(let ((scratch (new-byte-cell "cmp-scratch" (bb-name bb))))
+			(let ((scratch (new-byte-cell
+					(current-def-proc-id)
+					"cmp-scratch" (bb-name bb))))
 			  
 			  ;; our values might contain literal bytes and sub and
 			  ;; subb can't have literals in their first argument,
@@ -634,6 +637,7 @@
 				   (eq? id 'x>y))
 			      (let ((tmp (alloc-value
 					  (bytes->type (length padded2))
+					  (current-def-proc-id)
 					  #f (bb-name bb))))
 				(move-value (new-value padded2) tmp)
 				(set! padded2 (value-bytes tmp))))
@@ -643,6 +647,7 @@
 				   (eq? id 'x<y))
 			      (let ((tmp (alloc-value
 					  (bytes->type (length padded1))
+					  (current-def-proc-id)
 					  #f (bb-name bb))))
 				(move-value (new-value padded1) tmp)
 				(set! padded1 (value-bytes tmp))))
@@ -751,13 +756,27 @@
 
     (test-zero ast bb-true bb-false))
 
+  ;; checks if an expression has already been computed in the current procedure
+  ;; TODO maybe stock all the available expressions not in the def-procedure, but in each node ? as variables are mutated, or functions called, we remove from it ? calls could really harm us, since to be conservative, all calls can be considered to mutate all globals
+  ;; TODO if we end up doing dataflow analysis for cse, also use it for dead-code elimination, if possible
+  (define (computed-expression? ast) ;; TODO to distinguish between global and local, look at the def-proc-id, if #f, it's global
+    ;; TODO reject if it has side effects (++, --) or calls (or extend the analyis to calls ?), a complete mutability analysis would probably be needed for every variable in the expression... checking only in the procedure won't work, since a called function might change a global that's inside the expression in the time between 2 of its uses. maybe SSA (single static assignment) would help ?
+    (and current-def-proc
+	 (table-ref
+	  (def-procedure-computed-expressions current-def-proc) ast #f)))
+  
   (define (expression ast)
     (let ((result
-           (cond ((literal? ast) (literal ast))
-                 ((ref? ast)     (ref ast))
-                 ((oper? ast)    (oper ast))
-                 ((call? ast)    (call ast))
-                 (else           (error "unexpected ast" ast)))))
+           (or #;
+	       (computed-expression? ast) ;; TODO breaks something in register allocation, possibly due to the ++ and -- ?
+	       (cond ((literal? ast) (literal ast))
+		     ((ref? ast)     (ref ast))
+		     ((oper? ast)    (oper ast))
+		     ((call? ast)    (call ast))
+		     (else           (error "unexpected ast" ast))))))
+      (if current-def-proc
+	  (table-set! (def-procedure-computed-expressions current-def-proc)
+		      ast result)) ; cache the result
       (do-delayed-post-incdec)
       result))
 
@@ -807,6 +826,7 @@
 	    ((2) (add-sub 'x+y value-x value-x result)) ; simple addition
 	    ((4) (let ((tmp (alloc-value (bytes->type
 					  (length (value-bytes result)))
+					 (current-def-proc-id)
 					 #f (bb-name bb))))
 		   (add-sub 'x+y value-x value-x tmp)
 		   (add-sub 'x+y tmp tmp result))))
@@ -847,12 +867,13 @@
 	       (let ((x (/ (log (value->int y)) (log 2))))
 		 (= (floor x) x)))
 	  ;; bitwise and with y - 1
-	  (begin (let* ((l   (bytes->type (length bytes2)))
-			(tmp (alloc-value l #f (bb-name bb))))
-		   (move-value (int->value (- (value->int y) 1)
-					   (bytes->type (length bytes2)))
-			       tmp)
-		   (bitwise 'x&y x tmp result)))
+	  (let ((tmp (alloc-value (bytes->type (length bytes2))
+				  (current-def-proc-id)
+				  #f (bb-name bb))))
+	    (move-value (int->value (- (value->int y) 1)
+				    (bytes->type (length bytes2)))
+			tmp)
+	    (bitwise 'x&y x tmp result))
 	  ;; TODO for the general case, try to optimise the case where division and modulo are used together, since they are calculated together
 	  (error "modulo is only supported for powers of 2"))
       result))
@@ -987,10 +1008,14 @@
 		  (set! value-y tmp))
 		;; the operator is not commutative, we have to
 		;; allocate the first argument somewhere
-		(let ((dest (alloc-value (expr-type x) #f (bb-name bb))))
+		(let ((dest (alloc-value (expr-type x)
+					 (current-def-proc-id)
+					 #f (bb-name bb))))
 		  (move-value value-x dest)
 		  (set! value-x dest))))
-	(let ((result (alloc-value type #f (bb-name bb))))
+	(let ((result (alloc-value type
+				   (current-def-proc-id)
+				   #f (bb-name bb))))
 	  (case id
 	    ((x+y x-y)        (add-sub id value-x value-y result))
 	    ((x*y)            (mul value-x value-y type result))
@@ -1005,7 +1030,9 @@
 	  ((-x ~x)
 	   (let ((x (extend (expression (subast1 ast))
 			    type))
-		 (result (alloc-value type #f (bb-name bb))))
+		 (result (alloc-value type
+				      (current-def-proc-id)
+				      #f (bb-name bb))))
 	     (case id
 	       ((-x) (add-sub 'x-y
 			      (int->value 0 type)
@@ -1110,7 +1137,9 @@
 		 (bb-true  (new-bb))
 		 (bb-false (new-bb))
 		 (bb-join  (new-bb))
-		 (result   (alloc-value type #f (bb-name bb))))
+		 (result   (alloc-value type
+					(current-def-proc-id)
+					#f (bb-name bb))))
 	     (in bb-true)
 	     (move-value (int->value 1 type) result)
 	     (gen-goto bb-join)
@@ -1129,7 +1158,9 @@
 	      (bb-true  (new-bb))
 	      (bb-false (new-bb))
 	      (bb-join  (new-bb))
-	      (result   (alloc-value type #f (bb-name bb))))
+	      (result   (alloc-value type
+				     (current-def-proc-id)
+				     #f (bb-name bb))))
 	  (in bb-true)
 	  (move-value (expression (subast2 ast)) result)
 	  (gen-goto bb-join)
@@ -1331,7 +1362,9 @@
       (emit (new-call-instr def-proc))
       (let ((value (def-procedure-value def-proc)))
         (let ((result
-	       (alloc-value (def-procedure-type def-proc) #f (bb-name bb))))
+	       (alloc-value (def-procedure-type def-proc)
+			    (current-def-proc-id)
+			    #f (bb-name bb))))
           (move-value value result)
           result))))
 

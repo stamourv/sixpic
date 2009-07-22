@@ -189,7 +189,7 @@
 				     ;; must go in a special register, or in a
 				     ;; live variable, or else don't generate
 				     ;; the instruction
-				     #;(or (assq (byte-cell-adr dst) ;; FOO eliminating instructions does not work, too many are eliminated, it seems
+				     #;(or (assq (byte-cell-adr dst) ;; TODO eliminating instructions does not work, too many are eliminated, it seems
 					       file-reg-names)
 					 ;; if the instruction affects the
 					 ;; carry, it must be generated
@@ -345,7 +345,7 @@
 					    (eq? x z))
 				       (bcf z (inexact->exact
 					       (/ (log (- #xff y))
-						  (log 2))))) ;; FOO since this requires x and z to be in the same place to be efficient, maybe coalesce theses cases in priority ? for now, this optimization does not save much
+						  (log 2))))) ;; TODO since this requires x and z to be in the same place to be efficient, maybe coalesce theses cases in priority ? for now, this optimization does not save much
 				      (else
 				       (move-reg x z)
 				       (movlw y)
