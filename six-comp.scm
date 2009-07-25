@@ -39,23 +39,25 @@
 
 ;; temporary solution, to support more than int
 (set! ##six-types ;; TODO signed types ?
-  '((int    . #f)
-    (byte   . #f)
-    (int8   . #f)
-    (int16  . #f)
-    (int32  . #f)
-    (char   . #f)
-    (bool   . #f)
-    (void   . #f)
-    (float  . #f)
-    (double . #f)
-    (obj    . #f)))
+  '((int     . #f)
+    (byte    . #f)
+    (uint8   . #f)
+    (uint16  . #f)
+    (uint32  . #f)
+    (char    . #f)
+    (bool    . #f)
+    (void    . #f)
+    (float   . #f)
+    (double  . #f)
+    (obj     . #f)))
 ;; TODO typedef should add to this list
 
 '(current-exception-handler (lambda (exc) (##repl))) ; when not running in the repl
 
+(define preprocess? #t)
 (define (read-source filename)
-  (shell-command (string-append "cpp -P " filename " > " filename ".tmp"))
+  (if preprocess?
+      (shell-command (string-append "cpp -P " filename " > " filename ".tmp")))
 ;;   (##read-all-as-a-begin-expr-from-path ;; TODO use vectorized notation to have info on errors (where in the source)
 ;;    (string-append filename ".tmp")
 ;;    (readtable-start-syntax-set (current-readtable) 'six)
@@ -127,6 +129,18 @@
 		"tests/picobit/picobit-vm-sixpic.c.map"
 		"tests/picobit/picobit-vm-sixpic.c.reg"
 		"tests/picobit/picobit-vm-sixpic.c.s")))
+
+(define (picobit-orig prog #!optional (recompile? #f)) ;; FOO
+  (set! trace-instr #f)
+  ;; no need to preprocess, I have a custom script that patches it for SIXPIC
+  (set! preprocess? #f)
+  (if recompile?
+      (begin (load "orig/typedefs.tmp.scm")
+	     (main "orig/picobit-vm.c" prog))
+      (simulate (list "orig/picobit-vm.c.hex" prog)
+		"orig/picobit-vm.c.map"
+		"orig/picobit-vm.c.reg"
+		"orig/picobit-vm.c.s")))
 
 (define (simulate hexs map-file reg-file asm-file)
   (set! symbol-table   (with-input-from-file map-file

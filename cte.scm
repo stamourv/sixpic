@@ -63,29 +63,29 @@
 ;;    (predefine-fun 'exec_client 'void '() #x1FC)
    
    ;; special variables
-   (predefine-var 'SIXPIC_FSR0 'int16 (list FSR0L FSR0H))
-   (predefine-var 'SIXPIC_FSR1 'int16 (list FSR1L FSR1H))
-   (predefine-var 'SIXPIC_FSR2 'int16 (list FSR2L FSR2H))
+   (predefine-var 'SIXPIC_FSR0 'uint16 (list FSR0L FSR0H))
+   (predefine-var 'SIXPIC_FSR1 'uint16 (list FSR1L FSR1H))
+   (predefine-var 'SIXPIC_FSR2 'uint16 (list FSR2L FSR2H))
 
    ;; TODO have the equivalent of FSR variabes pour TBLPTR
-   (predefine-routine 'rom_get  'int8  '(int16)) ;; TODO actually, 21 bits of address
+   (predefine-routine 'rom_get  'uint8  '(uint16)) ;; TODO actually, 21 bits of address
 
    (predefine-routine 'exit 'void '())
 
-   (predefine-routine 'uart_write 'void '(int8))
-   (predefine-routine 'uart_read  'int8 '())
+   (predefine-routine 'uart_write 'void '(uint8))
+   (predefine-routine 'uart_read  'uint8 '())
 	
-   (predefine-routine '__mul8_8   'int8  '(int8  int8))
-   (predefine-routine '__mul16_8  'int16 '(int16 int8)) ;; TODO since multiplication arguments are not padded, these asymetric operations are used, they are more efficient, but padding would mean fewer necessary routines
-   (predefine-routine '__mul16_16 'int16 '(int16 int16))
-   (predefine-routine '__mul32_16 'int32 '(int32 int16))
+   (predefine-routine '__mul8_8   'uint8  '(uint8  uint8))
+   (predefine-routine '__mul16_8  'uint16 '(uint16 uint8)) ;; TODO since multiplication arguments are not padded, these asymetric operations are used, they are more efficient, but padding would mean fewer necessary routines
+   (predefine-routine '__mul16_16 'uint16 '(uint16 uint16))
+   (predefine-routine '__mul32_16 'uint32 '(uint32 uint16))
 
-   (predefine-routine '__shl8  'int8  '(int8  int8))
-   (predefine-routine '__shl16 'int16 '(int16 int8))
-   (predefine-routine '__shl32 'int32 '(int32 int8))
-   (predefine-routine '__shr8  'int8  '(int8  int8))
-   (predefine-routine '__shr16 'int16 '(int16 int8))
-   (predefine-routine '__shr32 'int32 '(int32 int8))   
+   (predefine-routine '__shl8  'uint8  '(uint8  uint8))
+   (predefine-routine '__shl16 'uint16 '(uint16 uint8))
+   (predefine-routine '__shl32 'uint32 '(uint32 uint8))
+   (predefine-routine '__shr8  'uint8  '(uint8  uint8))
+   (predefine-routine '__shr16 'uint16 '(uint16 uint8))
+   (predefine-routine '__shr32 'uint32 '(uint32 uint8))   
    ))
 
 (define (cte-extend cte bindings)

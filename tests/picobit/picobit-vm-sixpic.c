@@ -18,24 +18,24 @@
 /* typedef uint16 ram_addr; */
 /* typedef uint16 rom_addr; */
 
-int16 arg1;
-int16 arg2;
-int16 arg3;
-int16 arg4;
-int16 arg5;
-int16 cont;
-int16 env;
+uint16 arg1;
+uint16 arg2;
+uint16 arg3;
+uint16 arg4;
+uint16 arg5;
+uint16 cont;
+uint16 env;
 
-int8 na;
-int16 pc;
-int8 glovars;
-int16 entry;
-int8 bytecode;
-int8 bytecode_hi4;
-int8 bytecode_lo4;
-int16 a1;
-int16 a2;
-int16 a3;
+uint8 na;
+uint16 pc;
+uint8 glovars;
+uint16 entry;
+uint8 bytecode;
+uint8 bytecode_hi4;
+uint8 bytecode_lo4;
+uint16 a1;
+uint16 a2;
+uint16 a3;
 
 void halt_with_error (){
   uart_write(101); // e
@@ -47,56 +47,56 @@ void halt_with_error (){
 }
 
 
-/* typedef int16 obj; */
-/* int8 ram_get_gc_tags (int16 o); */
-/* int8 ram_get_gc_tag0 (int16 o); */
-/* int8 ram_get_gc_tag1 (int16 o); */
-/* void ram_set_gc_tags (int16 o, int8 tags); */
-/* void ram_set_gc_tag0 (int16 o, int8 tag); */
-/* void ram_set_gc_tag1 (int16 o, int8 tag); */
-/* int8 ram_get_field0 (int16 o); */
-/* int8 ram_get_field1 (int16 o); */
-/* int8 ram_get_field2 (int16 o); */
-/* int8 ram_get_field3 (int16 o); */
-/* int8 ram_get_fieldn (int16 o, int8 n); */
-/* void ram_set_field0 (int16 o, int8 val); */
-/* void ram_set_field1 (int16 o, int8 val); */
-/* void ram_set_field2 (int16 o, int8 val); */
-/* void ram_set_field3 (int16 o, int8 val); */
-/* void ram_set_fieldn (int16 o, int8 n, int8 val); */
-/* int8 rom_get_field0 (int16 o); */
-/* int8 rom_get_field1 (int16 o); */
-/* int8 rom_get_field2 (int16 o); */
-/* int8 rom_get_field3 (int16 o); */
-int8 ram_get_gc_tags (int16 o) {
-  int16 t2 = o - 512;
+/* typedef uint16 obj; */
+/* uint8 ram_get_gc_tags (uint16 o); */
+/* uint8 ram_get_gc_tag0 (uint16 o); */
+/* uint8 ram_get_gc_tag1 (uint16 o); */
+/* void ram_set_gc_tags (uint16 o, uint8 tags); */
+/* void ram_set_gc_tag0 (uint16 o, uint8 tag); */
+/* void ram_set_gc_tag1 (uint16 o, uint8 tag); */
+/* uint8 ram_get_field0 (uint16 o); */
+/* uint8 ram_get_field1 (uint16 o); */
+/* uint8 ram_get_field2 (uint16 o); */
+/* uint8 ram_get_field3 (uint16 o); */
+/* uint8 ram_get_fieldn (uint16 o, uint8 n); */
+/* void ram_set_field0 (uint16 o, uint8 val); */
+/* void ram_set_field1 (uint16 o, uint8 val); */
+/* void ram_set_field2 (uint16 o, uint8 val); */
+/* void ram_set_field3 (uint16 o, uint8 val); */
+/* void ram_set_fieldn (uint16 o, uint8 n, uint8 val); */
+/* uint8 rom_get_field0 (uint16 o); */
+/* uint8 rom_get_field1 (uint16 o); */
+/* uint8 rom_get_field2 (uint16 o); */
+/* uint8 rom_get_field3 (uint16 o); */
+uint8 ram_get_gc_tags (uint16 o) {
+  uint16 t2 = o - 512;
   return (*(((t2 << 2))+#x200) & #x60); // TODO having these as multiplications instead increases the size by ~10 bytes apiece
 }
-int8 ram_get_gc_tag0 (int16 o) {
-  int16 t2 = o - 512;
+uint8 ram_get_gc_tag0 (uint16 o) {
+  uint16 t2 = o - 512;
   return (*(((t2 << 2))+#x200) & #x20);
 }
-int8 ram_get_gc_tag1 (int16 o) {
-  int16 t2 = o - 512;
+uint8 ram_get_gc_tag1 (uint16 o) {
+  uint16 t2 = o - 512;
   return (*(((t2 << 2))+#x200) & #x40);
 }
-void ram_set_gc_tags (int16 o, int8 tags) {
-  int16 t2 = (o - 512) << 2; // TODO optimized a couple of things
-  *((t2)+#x200) = ((*((t2)+#x200) & #x9f) | (tags)); // TODO if we could use bst and bcf, would be better
+void ram_set_gc_tags (uint16 o, uint8 tags) {
+  uint16 t2 = (o - 512) << 2; // TODO optimized a couple of things
+  *((t2)+#x200) = ((*((t2)+#x200) & #x9f) | (tags));
 }
-void ram_set_gc_tag0 (int16 o, int8 tag) {
-  int16 t2 = (o - 512) << 2; // TODO same here
+void ram_set_gc_tag0 (uint16 o, uint8 tag) {
+  uint16 t2 = (o - 512) << 2; // TODO same here
   *(t2+#x200) = ((*(t2+#x200) & #xdf) | (tag));
 }
-void ram_set_gc_tag1 (int16 o, int8 tag) {
-  int16 t2 = (o - 512) << 2; // TODO same here
+void ram_set_gc_tag1 (uint16 o, uint8 tag) {
+  uint16 t2 = (o - 512) << 2; // TODO same here
   *(t2+#x200) = ((*(t2+#x200) & #xbf) | (tag));
 }
-int8 ram_get_field0 (int16 o) { int16 t2 = o - 512; return *(((t2 << 2) + (0))+#x200); }
-int8 ram_get_field1 (int16 o) { int16 t2 = o - 512; return *(((t2 << 2) + (1))+#x200); }
-int8 ram_get_field2 (int16 o) { int16 t2 = o - 512; return *(((t2 << 2) + (2))+#x200); }
-int8 ram_get_field3 (int16 o) { int16 t2 = o - 512; return *(((t2 << 2) + (3))+#x200); }
-int8 ram_get_fieldn (int16 o, int8 n) {
+uint8 ram_get_field0 (uint16 o) { uint16 t2 = o - 512; return *(((t2 << 2) + (0))+#x200); }
+uint8 ram_get_field1 (uint16 o) { uint16 t2 = o - 512; return *(((t2 << 2) + (1))+#x200); }
+uint8 ram_get_field2 (uint16 o) { uint16 t2 = o - 512; return *(((t2 << 2) + (2))+#x200); }
+uint8 ram_get_field3 (uint16 o) { uint16 t2 = o - 512; return *(((t2 << 2) + (3))+#x200); }
+uint8 ram_get_fieldn (uint16 o, uint8 n) {
   switch (n) {
   case 0: return ram_get_field0 (o);
   case 1: return ram_get_field1 (o);
@@ -104,11 +104,11 @@ int8 ram_get_fieldn (int16 o, int8 n) {
   case 3: return ram_get_field3 (o);
   }
 }
-void ram_set_field0 (int16 o, int8 val) { int16 t2 = o - 512; *(((t2 << 2) + (0))+#x200) = (val); }
-void ram_set_field1 (int16 o, int8 val) { int16 t2 = o - 512; *(((t2 << 2) + (1))+#x200) = (val); }
-void ram_set_field2 (int16 o, int8 val) { int16 t2 = o - 512; *(((t2 << 2) + (2))+#x200) = (val); }
-void ram_set_field3 (int16 o, int8 val) { int16 t2 = o - 512; *(((t2 << 2) + (3))+#x200) = (val); }
-void ram_set_fieldn (int16 o, int8 n, int8 val) {
+void ram_set_field0 (uint16 o, uint8 val) { uint16 t2 = o - 512; *(((t2 << 2) + (0))+#x200) = (val); }
+void ram_set_field1 (uint16 o, uint8 val) { uint16 t2 = o - 512; *(((t2 << 2) + (1))+#x200) = (val); }
+void ram_set_field2 (uint16 o, uint8 val) { uint16 t2 = o - 512; *(((t2 << 2) + (2))+#x200) = (val); }
+void ram_set_field3 (uint16 o, uint8 val) { uint16 t2 = o - 512; *(((t2 << 2) + (3))+#x200) = (val); }
+void ram_set_fieldn (uint16 o, uint8 n, uint8 val) {
   switch (n) {
   case 0: ram_set_field0 (o, val); break;
   case 1: ram_set_field1 (o, val); break;
@@ -116,81 +116,82 @@ void ram_set_fieldn (int16 o, int8 n, int8 val) {
   case 3: ram_set_field3 (o, val); break;
   }
 }
-int8 rom_get_field0 (int16 o) { int16 t2 = (o) - (3 +255 - -1 +1); return rom_get (((t2 << 2) + (#x8000 + 4 + (0)))); }
-int8 rom_get_field1 (int16 o) { int16 t2 = (o) - (3 +255 - -1 +1); return rom_get (((t2 << 2) + (#x8000 + 4 + (1)))); }
-int8 rom_get_field2 (int16 o) { int16 t2 = (o) - (3 +255 - -1 +1); return rom_get (((t2 << 2) + (#x8000 + 4 + (2)))); }
-int8 rom_get_field3 (int16 o) { int16 t2 = (o) - (3 +255 - -1 +1); return rom_get (((t2 << 2) + (#x8000 + 4 + (3)))); }
+uint8 rom_get_field0 (uint16 o) { uint16 t2 = (o) - (3 +255 - -1 +1); return rom_get (((t2 << 2) + (#x8000 + 4 + (0)))); }
+uint8 rom_get_field1 (uint16 o) { uint16 t2 = (o) - (3 +255 - -1 +1); return rom_get (((t2 << 2) + (#x8000 + 4 + (1)))); }
+uint8 rom_get_field2 (uint16 o) { uint16 t2 = (o) - (3 +255 - -1 +1); return rom_get (((t2 << 2) + (#x8000 + 4 + (2)))); }
+uint8 rom_get_field3 (uint16 o) { uint16 t2 = (o) - (3 +255 - -1 +1); return rom_get (((t2 << 2) + (#x8000 + 4 + (3)))); }
 
 
-/* int16 ram_get_car (int16 o); */
-/* int16 rom_get_car (int16 o); */
-/* int16 ram_get_cdr (int16 o); */
-/* int16 rom_get_cdr (int16 o); */
-/* void ram_set_car (int16 o, int16 val); */
-/* void ram_set_cdr (int16 o, int16 val); */
+/* uint16 ram_get_car (uint16 o); */
+/* uint16 rom_get_car (uint16 o); */
+/* uint16 ram_get_cdr (uint16 o); */
+/* uint16 rom_get_cdr (uint16 o); */
+/* void ram_set_car (uint16 o, uint16 val); */
+/* void ram_set_cdr (uint16 o, uint16 val); */
 
-/* int16 ram_get_entry (int16 o); */
-/* int16 rom_get_entry (int16 o); */
+/* uint16 ram_get_entry (uint16 o); */
+/* uint16 rom_get_entry (uint16 o); */
 
-int16 ram_get_car (int16 o)
-{ int16 tmp = (ram_get_field0 (o) & #x1f); return (tmp << 8) | ram_get_field1 (o); }
-int16 rom_get_car (int16 o)
-{ int16 tmp = (rom_get_field0 (o) & #x1f); return (tmp << 8) | rom_get_field1 (o); }
-int16 ram_get_cdr (int16 o)
-{ int16 tmp = (ram_get_field2 (o) & #x1f); return (tmp << 8) | ram_get_field3 (o); }
-int16 rom_get_cdr (int16 o)
-{ int16 tmp = (rom_get_field2 (o) & #x1f); return (tmp << 8) | rom_get_field3 (o); }
+uint16 ram_get_car (uint16 o)
+{ uint16 tmp = (ram_get_field0 (o) & #x1f); return (tmp << 8) | ram_get_field1 (o); }
+uint16 rom_get_car (uint16 o)
+{ uint16 tmp = (rom_get_field0 (o) & #x1f); return (tmp << 8) | rom_get_field1 (o); }
+uint16 ram_get_cdr (uint16 o)
+{ uint16 tmp = (ram_get_field2 (o) & #x1f); return (tmp << 8) | ram_get_field3 (o); }
+uint16 rom_get_cdr (uint16 o)
+{ uint16 tmp = (rom_get_field2 (o) & #x1f); return (tmp << 8) | rom_get_field3 (o); }
 
-void ram_set_car (int16 o, int16 val) {
+void ram_set_car (uint16 o, uint16 val) {
   ram_set_field0 (o, (val >> 8) | (ram_get_field0 (o) & #xe0));
   ram_set_field1 (o, val & #xff);
 }
-void ram_set_cdr (int16 o, int16 val) {
+void ram_set_cdr (uint16 o, uint16 val) {
   ram_set_field2 (o, (val >> 8) | (ram_get_field2 (o) & #xe0));
   ram_set_field3 (o, val & #xff);
 }
 
 
-int16 ram_get_entry (int16 o) {
-  int16 tmp  = (ram_get_field0 (o) & #x1f);
-  int16 tmp2 = ram_get_field1 (o); // TODO this cast is necessary because literals are of the smallest type possible in SIXPIC, not always int (not standard)
+uint16 ram_get_entry (uint16 o) {
+  uint16 tmp  = (ram_get_field0 (o) & #x1f);
+  uint16 tmp2 = ram_get_field1 (o); // TODO this cast is necessary because literals are of the smallest type possible in SIXPIC, not always int (not standard)
   return ((tmp << 11)
 	  | (tmp2 << 3)
 	  | (ram_get_field2 (o) >> 5));
 }
-int16 rom_get_entry (int16 o){
-  int16 tmp = (rom_get_field0 (o) & #x1f);
+uint16 rom_get_entry (uint16 o){
+  uint16 tmp = (rom_get_field0 (o) & #x1f);
+  uint16 tmp2 = rom_get_field1 (o);
   return ((tmp << 11)
-   | (rom_get_field1 (o) << 3)
+   | (tmp2 << 3)
    | (rom_get_field2 (o) >> 5));
 }
 
 
-/* int16 get_global (int8 i); */
-/* void set_global (int8 i, int16 o); */
+/* uint16 get_global (uint8 i); */
+/* void set_global (uint8 i, uint16 o); */
 
-int16 get_global (int8 i) {
+uint16 get_global (uint8 i) {
 
   if (i & 1)
     return ram_get_cdr (512 + (i >> 1));
   else
     return ram_get_car (512 + (i >> 1));
 }
-void set_global (int8 i, int16 o) {
+void set_global (uint8 i, uint16 o) {
   if (i & 1)
     ram_set_cdr (512 + (i >> 1), o);
   else
     ram_set_car (512 + (i >> 1), o);
 }
 
-int16 free_list;
-int16 free_list_vec;
+uint16 free_list;
+uint16 free_list_vec;
 
-void mark (int16 temp) {
+void mark (uint16 temp) {
 
 
-  int16 stack;
-  int16 visit;
+  uint16 stack;
+  uint16 visit;
 
   if ((!((temp) >= 1280) && ((temp) >= 512))) {
     visit = 0;
@@ -216,7 +217,7 @@ void mark (int16 temp) {
 
  if ((!((temp) >= 1280) && ((temp) >= 512))) {
    ;
-   int16 tmp = 2;
+   uint16 tmp = 2;
    ram_set_gc_tags (visit, (tmp<<5));
    ram_set_cdr (visit, stack);
    goto push;
@@ -240,7 +241,7 @@ void mark (int16 temp) {
 
  if ((!((temp) >= 1280) && ((temp) >= 512))) {
    ;
-   int16 tmp = 1;
+   uint16 tmp = 1;
    ram_set_gc_tag0 (visit, (tmp<<5));
    if (((ram_get_field0 (visit) & #xc0) == #x40))
      ram_set_cdr (visit, stack);
@@ -254,7 +255,7 @@ void mark (int16 temp) {
       }
       else
  ;
-      int16 tmp = 1;
+      uint16 tmp = 1;
       ram_set_gc_tag0 (visit, (tmp<<5));
     }
 
@@ -312,21 +313,21 @@ void sweep () {
 
 
 
-  int16 visit = 1279;
+  uint16 visit = 1279;
 
   free_list = 0;
 
   while (visit >= (512 + ((glovars + 1) >> 1))) {
 
-    int16 tmp = 1;
+    uint16 tmp = 1;
     if ((((ram_get_field0 (visit) & #x80) == #x80)
   && (ram_get_gc_tags (visit) == (0<<5)))
  || !(ram_get_gc_tags (visit) & (tmp<<5))) {
 
       if ((((ram_get_field0 (visit) & #x80) == #x80) && ((ram_get_field2 (visit) & #xe0) == #x60))) {
 
- int16 o = ram_get_cdr (visit);
- int16 i = ram_get_car (visit);
+ uint16 o = ram_get_cdr (visit);
+ uint16 i = ram_get_car (visit);
  ram_set_car (o, free_list_vec);
  ram_set_cdr (o, (i + 3) >> 2);
  free_list_vec = o;
@@ -349,15 +350,8 @@ void sweep () {
 }
 
 void gc () {
-
-  /*   uart_write(10); */ // TODO for debugging
-/*   uart_write(13); */
-/*   uart_write(103); // g */
-/*   uart_write(99);  // c */
-/*   uart_write(10); */
-/*   uart_write(13); */
   
-  int8 i;
+  uint8 i;
 
   ;
 
@@ -384,8 +378,8 @@ void gc () {
 }
 
 
-int16 alloc_ram_cell () {
-  int16 o;
+uint16 alloc_ram_cell () {
+  uint16 o;
 
 
 
@@ -402,22 +396,13 @@ int16 alloc_ram_cell () {
   o = free_list;
 
   free_list = ram_get_car (o);
-  /*   uart_write(65); */ // TODO for debugging
-/*   uart_write(108); */
-/*   uart_write(108); */
-/*   uart_write((free_list>>12)+65); */
-/*   uart_write(((free_list>>8)&#xf)+65); */
-/*   uart_write(((free_list>>4)&#xf)+65); */
-/*   uart_write((free_list & #xf) + 65); */
-/*   uart_write(10); */
-/*   uart_write(13); */
-  
+ 
 
   return o;
 }
 
-int16 alloc_ram_cell_init (int8 f0, int8 f1, int8 f2, int8 f3) {
-  int16 o = alloc_ram_cell ();
+uint16 alloc_ram_cell_init (uint8 f0, uint8 f1, uint8 f2, uint8 f3) {
+  uint16 o = alloc_ram_cell ();
 
   ram_set_field0 (o, f0);
   ram_set_field1 (o, f1);
@@ -427,10 +412,10 @@ int16 alloc_ram_cell_init (int8 f0, int8 f1, int8 f2, int8 f3) {
   return o;
 }
 
-int16 alloc_vec_cell (int16 n) {
-  int16 o = free_list_vec;
-  int16 prec = 0;
-  int8 gc_done = 0;
+uint16 alloc_vec_cell (uint16 n) {
+  uint16 o = free_list_vec;
+  uint16 prec = 0;
+  uint8 gc_done = 0;
 
 
 
@@ -464,7 +449,7 @@ int16 alloc_vec_cell (int16 n) {
 
 
   else {
-    int16 new_free = o + ((n + 3) >> 2);
+    uint16 new_free = o + ((n + 3) >> 2);
     if (prec)
       ram_set_car (prec, new_free);
     else
@@ -478,17 +463,17 @@ int16 alloc_vec_cell (int16 n) {
 
 
 
-/* typedef int16 integer; */
-/* typedef int16 digit; */
-/* typedef int32 two_digit; */
-/* int16 make_integer (int16 lo, int16 hi); */
-/* int16 integer_hi (int16 x); */
-/* int16 integer_lo (int16 x); */
-int16 make_integer (int16 lo_make_integer, int16 hi_make_integer) { // TODO changed name
+/* typedef uint16 integer; */
+/* typedef uint16 digit; */
+/* typedef uint32 two_digit; */
+/* uint16 make_integer (uint16 lo, uint16 hi); */
+/* uint16 integer_hi (uint16 x); */
+/* uint16 integer_lo (uint16 x); */
+uint16 make_integer (uint16 lo_make_integer, uint16 hi_make_integer) {
   return alloc_ram_cell_init (0 | (hi_make_integer >> 8), hi_make_integer, lo_make_integer >> 8, lo_make_integer);
 }
 
-int16 integer_hi (int16 x) {
+uint16 integer_hi (uint16 x) {
   if ((!((x) >= 1280) // bb 0
        && ((x) >= 512))) // bb 4
     return ram_get_car (x); // bb 2
@@ -505,13 +490,13 @@ int16 integer_hi (int16 x) {
   }
 }
 
-int16 integer_lo (int16 x) {
+uint16 integer_lo (uint16 x) {
   if ((!((x) >= 1280) && ((x) >= 512))) {
-    int16 t = ram_get_field2 (x);
+    uint16 t = ram_get_field2 (x);
     return (t << 8) + ram_get_field3 (x);
   }
   else if ((!((x) >= 1280) && !(!((x) >= 1280) && ((x) >= 512)) && ((x) >= (3 +255 - -1 +1)))) {
-    int16 t = rom_get_field2 (x);
+    uint16 t = rom_get_field2 (x);
     return (t << 8) + rom_get_field3 (x);
   }
   else
@@ -519,24 +504,24 @@ int16 integer_lo (int16 x) {
 }
 
 
-/* int16 norm (int16 prefix, int16 n); */
-/* int8 negp (int16 x); */
-/* int8 cmp (int16 x, int16 y); */
-/* int16 integer_length (int16 x); */
-/* int16 shr (int16 x); */
-/* int16 negative_carry (int16 carry); */
-/* int16 shl (int16 x); */
-/* int16 shift_left (int16 x, int16 n); */
-/* int16 add (int16 x, int16 y); */
-/* int16 invert (int16 x); */
-/* int16 sub (int16 x, int16 y); */
-/* int16 neg (int16 x); */
-/* int16 scale (int16 n, int16 x); */
-/* int16 mulnonneg (int16 x, int16 y); */
-/* int16 divnonneg (int16 x, int16 y); */
+/* uint16 norm (uint16 prefix, uint16 n); */
+/* uint8 negp (uint16 x); */
+/* uint8 cmp (uint16 x, uint16 y); */
+/* uint16 integer_length (uint16 x); */
+/* uint16 shr (uint16 x); */
+/* uint16 negative_carry (uint16 carry); */
+/* uint16 shl (uint16 x); */
+/* uint16 shift_left (uint16 x, uint16 n); */
+/* uint16 add (uint16 x, uint16 y); */
+/* uint16 invert (uint16 x); */
+/* uint16 sub (uint16 x, uint16 y); */
+/* uint16 neg (uint16 x); */
+/* uint16 scale (uint16 n, uint16 x); */
+/* uint16 mulnonneg (uint16 x, uint16 y); */
+/* uint16 divnonneg (uint16 x, uint16 y); */
 
-int16 decode_int (int16 o) {
-  int8 result;
+uint16 decode_int (uint16 o) {
+  uint8 result;
   if (o < 3)
     halt_with_error();
 
@@ -557,16 +542,16 @@ int16 decode_int (int16 o) {
     halt_with_error();
 }
 
-/* int16 decode_int (int16 o); */
-/* int16 encode_int (int16 n); */
+/* uint16 decode_int (uint16 o); */
+/* uint16 encode_int (uint16 n); */
 
-int16 norm (int16 prefix, int16 n_norm) { // TODO arg changed
+uint16 norm (uint16 prefix, uint16 n_norm) {
 
 
 
   while (prefix != 0) { // bbs 1 and 4
-    int16 d = integer_lo (prefix); // bb 3
-    int16 temp = prefix;
+    uint16 d = integer_lo (prefix); // bb 3
+    uint16 temp = prefix;
 
     prefix = integer_hi (temp);
 
@@ -577,10 +562,10 @@ int16 norm (int16 prefix, int16 n_norm) { // TODO arg changed
       }
     }
     else if (((n_norm) == (((0 + (3 - -1))-1)))) { // bbs 7 and 13
-      int16 tmp = 1; // bb 12
+      uint16 tmp = 1; // bb 12
 /*       if (d >= (tmp<<16) - 1) { // bb 12 // TODO was + MIN_FIXNUM, but -1 is not a valid literal FOO would be better with just 0-1, but the constant folding will get it, and put -1. */
       if (d >= #xffff) { // FOO this is what the above really meant, since d is a 16 bit value
-	int16 t = d/*  - (tmp << 16) */; // bb 15 // FOO that part was useless with 16 bit values
+	uint16 t = d/*  - (tmp << 16) */; // bb 15 // FOO that part was useless with 16 bit values
 	n_norm = (t + (3 - -1));
 	continue;
       }
@@ -593,7 +578,7 @@ int16 norm (int16 prefix, int16 n_norm) { // TODO arg changed
   return n_norm; // bb 2
 }
 
-int8 negp (int16 x_negp) {
+uint8 negp (uint16 x_negp) {
 
 
   do {
@@ -605,12 +590,12 @@ int8 negp (int16 x_negp) {
   return 1; // bb 3
 }
 
-int8 cmp (int16 x_cmp, int16 y_cmp) { // TODO changed. used to return -1, 0 and 1, now is 0, 1, 2
+uint8 cmp (uint16 x_cmp, uint16 y_cmp) { // TODO changed. used to return -1, 0 and 1, now is 0, 1, 2
 
 
-  int8 result = 1;
-  int16 xlo;
-  int16 ylo;
+  uint8 result = 1;
+  uint16 xlo;
+  uint16 ylo;
 
   for (;;) { // bb 2
     if (((x_cmp) == ((0 + (3 - -1)))) // bbs 2 and 8
@@ -642,13 +627,13 @@ int8 cmp (int16 x_cmp, int16 y_cmp) { // TODO changed. used to return -1, 0 and 
   return result; // bb 4
 }
 
-int16 integer_length (int16 x) {
+uint16 integer_length (uint16 x) {
 
 
 
-  int16 result = 0;
-  int16 next;
-  int16 d;
+  uint16 result = 0;
+  uint16 next;
+  uint16 d;
 
   while (!(((next = integer_hi (x))) == ((0 + (3 - -1))))) {
     result += 16;
@@ -665,11 +650,11 @@ int16 integer_length (int16 x) {
   return result;
 }
 
-int16 shr (int16 x) {
+uint16 shr (uint16 x) {
 
 
-  int16 result = 0;
-  int16 d;
+  uint16 result = 0;
+  uint16 d;
 
   for (;;) {
     if (((x) == ((0 + (3 - -1)))) || ((x) == (((0 + (3 - -1))-1)))) {
@@ -679,7 +664,7 @@ int16 shr (int16 x) {
 
     d = integer_lo (x);
     x = integer_hi (x);
-    int16 tmp = 1;
+    uint16 tmp = 1;
     result = make_integer ((d >> 1) |
 			   ((integer_lo (x) & 1) ? (tmp<<(16-1)) : 0),
 			   result);
@@ -688,20 +673,20 @@ int16 shr (int16 x) {
   return result;
 }
 
-int16 negative_carry (int16 carry) {
+uint16 negative_carry (uint16 carry) {
   if (carry)
     return ((0 + (3 - -1))-1);
   else
     return (0 + (3 - -1));
 }
 
-int16 shl (int16 x) {
+uint16 shl (uint16 x) {
 
 
-  int16 negc = (0 + (3 - -1));
-  int16 temp;
-  int16 result = 0;
-  int16 d;
+  uint16 negc = (0 + (3 - -1));
+  uint16 temp;
+  uint16 result = 0;
+  uint16 d;
 
   for (;;) {
     if (((x) == (negc))) {
@@ -712,7 +697,7 @@ int16 shl (int16 x) {
     d = integer_lo (x);
     x = integer_hi (x);
     temp = negc;
-    int16 tmp = 1;
+    uint16 tmp = 1;
     negc = negative_carry (d & (tmp<<15));
     result = make_integer ((d << 1) | ((temp) == ((0 + (3 - -1))-1)), result);
   }
@@ -720,7 +705,7 @@ int16 shl (int16 x) {
   return result;
 }
 
-int16 shift_left (int16 x, int16 n) {
+uint16 shift_left (uint16 x, uint16 n) {
 
 
   if (((x) == ((0 + (3 - -1)))))
@@ -739,13 +724,13 @@ int16 shift_left (int16 x, int16 n) {
   return x;
 }
 
-int16 add (int16 x, int16 y) {
+uint16 add (uint16 x, uint16 y) {
 
 
-  int16 negc = (0 + (3 - -1));
-  int16 result = 0;
-  int16 dx;
-  int16 dy;
+  uint16 negc = (0 + (3 - -1));
+  uint16 result = 0;
+  uint16 dx;
+  uint16 dy;
 
   for (;;) { // bb 2
     if (((x) == (negc))) { // bbs 2 and 7
@@ -778,19 +763,19 @@ int16 add (int16 x, int16 y) {
   return result; // bb 4
 }
 
-int16 invert (int16 x) {
+uint16 invert (uint16 x) {
   if (((x) == ((0 + (3 - -1)))))
     return ((0 + (3 - -1))-1);
   else
     return (0 + (3 - -1));
 }
 
-int16 sub (int16 x, int16 y) {
+uint16 sub (uint16 x, uint16 y) {
 
-  int16 negc = ((0 + (3 - -1))-1);
-  int16 result_sub = 0; // TODO name changed
-  int16 dx_sub; // TODO changed
-  int16 dy_sub;
+  uint16 negc = ((0 + (3 - -1))-1);
+  uint16 result_sub = 0; // TODO name changed
+  uint16 dx_sub; // TODO changed
+  uint16 dy_sub;
 
   for (;;) { // bb 2
     if (((x) == (negc)) // bbs 2 and 8
@@ -825,18 +810,18 @@ int16 sub (int16 x, int16 y) {
   return result_sub; // bb 4
 }
 
-int16 neg (int16 x) {
+uint16 neg (uint16 x) {
 
 
   return sub ((0 + (3 - -1)), x);
 }
 
-int16 scale (int16 n, int16 x) {
+uint16 scale (uint16 n, uint16 x) {
 
 
-  int16 result;
-  int16 carry;
-  int32 m;
+  uint16 result;
+  uint16 carry;
+  uint32 m;
 
   if ((n == 0) || ((x) == ((0 + (3 - -1)))))
     return (0 + (3 - -1));
@@ -858,7 +843,7 @@ int16 scale (int16 n, int16 x) {
 
     if (((x) == (((0 + (3 - -1))-1)))) {
       carry = carry - n;
-      int16 tmp = 1;
+      uint16 tmp = 1;
       if (carry >= ((tmp<<16) - 1)) // TODO -1 not a good literal
 	result = norm (result, ((carry & #xff) + (3 - -1)));
       else
@@ -866,24 +851,24 @@ int16 scale (int16 n, int16 x) {
       break;
     }
 
-    int32 tmp1 = integer_lo (x);
+    uint32 tmp1 = integer_lo (x);
     m = tmp1 * n + carry;
 
     x = integer_hi (x);
     carry = m >> 16;
-    int16 tmp2 = m;
+    uint16 tmp2 = m;
     result = make_integer (tmp2, result);
   }
 
   return result;
 }
 
-int16 mulnonneg (int16 x, int16 y) {
+uint16 mulnonneg (uint16 x, uint16 y) {
 
 
 
-  int16 result = 0;
-  int16 s = scale (integer_lo (x), y);
+  uint16 result = 0;
+  uint16 s = scale (integer_lo (x), y);
 
   for (;;) {
     result = make_integer (integer_lo (s), result);
@@ -900,13 +885,13 @@ int16 mulnonneg (int16 x, int16 y) {
 }
 
 
-int16 divnonneg (int16 x, int16 y) {
+uint16 divnonneg (uint16 x, uint16 y) {
 
 
 
-  int16 result = (0 + (3 - -1)); // bb 0
-  int16 lx = integer_length (x);
-  int16 ly = integer_length (y);
+  uint16 result = (0 + (3 - -1)); // bb 0
+  uint16 lx = integer_length (x);
+  uint16 ly = integer_length (y);
 
   if (lx >= ly) { // bb 0
     lx = lx - ly; // bb 2
@@ -926,10 +911,10 @@ int16 divnonneg (int16 x, int16 y) {
   return result; // bb 1
 }
 
-int16 bitwise_ior (int16 x, int16 y) {
+uint16 bitwise_ior (uint16 x, uint16 y) {
 
 
-  int16 result = 0;
+  uint16 result = 0;
 
   for (;;){
     if (((x) == ((0 + (3 - -1)))))
@@ -943,10 +928,10 @@ int16 bitwise_ior (int16 x, int16 y) {
   }
 }
 
-int16 bitwise_xor (int16 x, int16 y) {
+uint16 bitwise_xor (uint16 x, uint16 y) {
 
 
-  int16 result = 0;
+  uint16 result = 0;
 
   for (;;){
     if (((x) == ((0 + (3 - -1)))))
@@ -962,7 +947,7 @@ int16 bitwise_xor (int16 x, int16 y) {
 
 
 
-int16 encode_int (int16 n) {
+uint16 encode_int (uint16 n) {
   if (/* n >= -1 && */ n <= 255) { // TODO should be n >= -1, but -1 as a literal is not good. since only primitives (i.e. not the bignum code) uses it, shouldn't be a problem
     return (n + (3 - -1));
   }
@@ -1163,7 +1148,7 @@ void prim_pairp () {
     arg1 = 0;
 }
 
-int16 cons (int16 car, int16 cdr) {
+uint16 cons (uint16 car, uint16 cdr) {
   return alloc_ram_cell_init (#x80 | (car >> 8),
          car & #xff,
          0 | (cdr >> 8),
@@ -1275,7 +1260,7 @@ void prim_u8vector_ref () {
   if ((!((arg1) >= 1280) && ((arg1) >= 512))) {
     if (!(((ram_get_field0 (arg1) & #x80) == #x80) && ((ram_get_field2 (arg1) & #xe0) == #x60)))
       halt_with_error();
-    if ((ram_get_car (arg1) <= a2)/*  || (a2 < 0) */) // FOO makes no sens with unsigned values
+    if ((ram_get_car (arg1) <= a2)/*  || (a2 < 0) */) // FOO makes no sense with unsigned values
       halt_with_error();
     arg1 = ram_get_cdr (arg1);
   }
@@ -1491,8 +1476,8 @@ void prim_print () {
   arg1 = 0;
 }
 
-int32 read_clock () {
-  int32 now = 0;
+uint32 read_clock () {
+  uint32 now = 0;
 
 
   /* now = from_now( 0 ); */ // TODO
@@ -1623,7 +1608,7 @@ void prim_beep () {
 
 
 void prim_adc () {
-  int16 x;
+  uint16 x;
 
   a1 = decode_int (arg1);
 
@@ -1636,7 +1621,7 @@ void prim_adc () {
 }
 
 void prim_sernum () {
-  int16 x;
+  uint16 x;
 
 
 /*   x = serial_num (); */
@@ -1692,7 +1677,7 @@ void prim_send_packet_from_u8vector () {
 }
 
 /* void push_arg1 (); */
-/* int16 pop (); */
+/* uint16 pop (); */
 /* void pop_procedure (); */
 /* void handle_arity_and_rest_param (); */
 /* void build_env (); */
@@ -1704,8 +1689,8 @@ void push_arg1 () {
   arg1 = 0;
 }
 
-int16 pop () {
-  int16 o = ram_get_car (env);
+uint16 pop () {
+  uint16 o = ram_get_car (env);
   env = ram_get_cdr (env);
   return o;
 }
@@ -1730,7 +1715,7 @@ void pop_procedure () {
 }
 
 void handle_arity_and_rest_param () {
-  int8 np;
+  uint8 np;
 
   np = rom_get (entry++);
 
@@ -1785,12 +1770,12 @@ void save_cont () {
 }
 
 void init_ram_heap () {
-  int8 i;
-  int16 o = 1279;
+  uint8 i;
+  uint16 o = 1279;
 
   free_list = 0;
 
-  int16 tmp = (512 + ((glovars + 1) >> 1)); // FOO having this here instead of in the while saves ~200 bytes
+  uint16 tmp = (512 + ((glovars + 1) >> 1)); // FOO having this here instead of in the while saves ~200 bytes
   while (o > tmp) {
 
 
@@ -1820,7 +1805,7 @@ void init_ram_heap () {
 
 
 void interpreter () {
-  int16 tmp = rom_get (#x8000 +2);
+  uint16 tmp = rom_get (#x8000 +2);
   pc = (#x8000 + 4) + (tmp << 2);
 
   glovars = rom_get (#x8000 +3);
@@ -2041,7 +2026,7 @@ void interpreter () {
 
     entry = (arg2 << 8) | bytecode;
 
-    int16 tmp = (bytecode & #x07);
+    uint16 tmp = (bytecode & #x07);
     arg1 = alloc_ram_cell_init (#x40 | (arg2 >> 3),
 				((arg2 & #x07) << 5) | (bytecode >> 3),
 				(tmp << 5) |((arg3 &#x1f00) >>8),
@@ -2166,7 +2151,7 @@ void interpreter () {
 
   ;
 
-  int16 tmp = bytecode_lo4; // TODO ugly patch. not needed with gcc since the 8 is an int, and would make all the other operands ints, whereas we keep using int8, and truncate the value
+  uint16 tmp = bytecode_lo4; // TODO ugly patch. not needed with gcc since the 8 is an int, and would make all the other operands ints, whereas we keep using uint8, and truncate the value
   arg1 = (tmp << 8) | bytecode;
   push_arg1 ();
 

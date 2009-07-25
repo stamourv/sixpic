@@ -470,7 +470,7 @@
 			     var
 			     (let* ((op  (operation? '(six.x-y)))
 				    (ast (new-oper
-					  (list var (new-literal 'int8
+					  (list var (new-literal 'uint8
 								 case-min))
 					  #f
 					  op)))
@@ -760,7 +760,8 @@
   ;; TODO maybe stock all the available expressions not in the def-procedure, but in each node ? as variables are mutated, or functions called, we remove from it ? calls could really harm us, since to be conservative, all calls can be considered to mutate all globals
   ;; TODO if we end up doing dataflow analysis for cse, also use it for dead-code elimination, if possible
   (define (computed-expression? ast) ;; TODO to distinguish between global and local, look at the def-proc-id, if #f, it's global
-    ;; TODO reject if it has side effects (++, --) or calls (or extend the analyis to calls ?), a complete mutability analysis would probably be needed for every variable in the expression... checking only in the procedure won't work, since a called function might change a global that's inside the expression in the time between 2 of its uses. maybe SSA (single static assignment) would help ?
+    ;; TODO reject if it has side effects (++, --) or calls (or extend the analyis to calls ?), a complete mutability analysis would probably be needed for every variable in the expression... checking only in the procedure won't work, since a called function might change a global that's inside the expression in the time between 2 of its uses. maybe SSA (single static assignment) would help ? ALSO REJECT IF IT READS FROM MEMORY (since we can't really know if what we read has not changed. Or maybe consider the memory as a global for this ?)
+    ;; TODO when we see calls and assignments, remove from the set of expressions what is not valid anymore (lhs for assignments, globals for calls)
     (and current-def-proc
 	 (table-ref
 	  (def-procedure-computed-expressions current-def-proc) ast #f)))
@@ -969,9 +970,9 @@
 		(address (new-value (list (get-register FSR0L)
 					  (get-register FSR0H)))))
 	    (if index?
-		;; we pad up to int16, since it is the size of the addresses
-		(let ((value1 (extend base 'int16))
-		      (value2 (extend (expression (subast2 ast)) 'int16)))
+		;; we pad up to uint16, since it is the size of the addresses
+		(let ((value1 (extend base 'uint16))
+		      (value2 (extend (expression (subast2 ast)) 'uint16)))
 		  (add-sub 'x+y value1 value2 address))
 		;; no offset with simple dereference
 		(move-value base address)))
