@@ -103,8 +103,6 @@
 	(set! asm-filename (string-append filename ".s"))
 	(with-output-to-file asm-filename
 	  (lambda () (asm-display-listing (current-output-port))))
-	(with-output-to-file (string-append filename ".map")
-	  (lambda () (write (table->list symbol-table))))
 	(with-output-to-file (string-append filename ".reg")
 	  (lambda ()
 	    (display "(")
@@ -130,7 +128,7 @@
 		"tests/picobit/picobit-vm-sixpic.c.reg"
 		"tests/picobit/picobit-vm-sixpic.c.s")))
 
-(define (picobit-orig prog #!optional (recompile? #f)) ;; FOO
+(define (picobit-orig prog #!optional (recompile? #f))
   (set! trace-instr #f)
   ;; no need to preprocess, I have a custom script that patches it for SIXPIC
   (set! preprocess? #f)
@@ -143,8 +141,6 @@
 		"orig/picobit-vm.c.s")))
 
 (define (simulate hexs map-file reg-file asm-file)
-  (set! symbol-table   (with-input-from-file map-file
-			 (lambda () (list->table (read)))))
   (let ((regs (with-input-from-file reg-file read)))
     (set! register-table
 	  (list->table

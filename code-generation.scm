@@ -246,7 +246,7 @@
 					     (subwf  z)
 					     (subwfb z))))
 				      (set! ignore-carry-borrow? #f))))
-                              (let ((x (byte-cell-adr src1))
+                              (let ((x (or (and (byte-cell? src1) (byte-cell-adr src1)) 0)) ;; FOO this should not be needed (or correct), but without it, PICOBIT without bignums won't compile. it gives the right results for the vectors test, haven't checked the others.
                                     (y (byte-cell-adr src2))
                                     (z (byte-cell-adr dst)))
                                 (cond ((and (not (= x y))
@@ -463,10 +463,46 @@
 			    (add-todo dest-true)))
 
 			 ((branch-table)
-			  (let ((off     (if (byte-lit? src1) ; branch no
-					     (byte-lit-val  src1)
-					     (byte-cell-adr src1)))
-				(scratch (byte-cell-adr src2))) ; working space
+			  (let* ((off     (if (byte-lit? src1) ; branch no
+					      (byte-lit-val  src1)
+					      (byte-cell-adr src1)))
+				 (scratch (byte-cell-adr src2)) ; working space
+				 (succs   (bb-succs bb))
+				 (n-succs (length succs)))
+
+
+;; 			    ;; size of the branch table (without the
+;; 			    ;; offset-calculating code), if it uses short jumps
+;; 			    ;; that take 2 bytes per instruction
+;; 			    (let ((size-using-bra  (* 2 n-succs))
+;; 				  ;; size of the offset-calculating code, if we
+;; 				  ;; use short jumps
+;; 				  (bra-header-size ))
+			      
+;; 			      (asm-at-assembly
+;; 			       ;; check if the targets are close enough to use
+;; 			       ;; short jumps. all the targets must be close
+;; 			       ;; enough, since all jumps must be of the same
+;; 			       ;; size
+;; 			       (lambda (self)
+;; 				 (foldl
+;; 				  (lambda (acc new)
+;; 				    (and acc
+;; 					 (let ((dist (- (label-pos (car new))
+;; 							(+ self (cdr new)))))
+;; 					   ;; close enough for short jumps
+;; 					   (if (and (>= dist -2048)
+;; 						    (<= dist 2047)
+;; 						    (even? dist))
+;; 					       2
+;; 					       #f))))
+;; 					#t
+;; 					(map
+;; 					 (lambda (l n)
+;; 					   (cons l (+ self n bra-header-size)))
+;; 					 succs (iota n-succs)))))) ;; FOO no time for this for the moment
+			    
+			    
 			    ;; precalculate the low byte of the PC
 			    ;; note: both branches (off is a literal or a
 			    ;; register) are of the same length in terms of
@@ -496,7 +532,7 @@
 			    (for-each (lambda (bb)
 					(goto (bb-label bb))
 					(add-todo bb))
-				      (bb-succs bb))))
+				      succs)))
 			 
 			 (else
 			  ;; ...
